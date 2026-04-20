@@ -134,8 +134,43 @@ function insertPageBreak() {
  * Insère un tableau avec choix des entêtes (Colonnes, Lignes ou les deux)
  */
 /**
+ * 
+ * 
+ * 
  * Insère un tableau sur-mesure (Dimensions + Entêtes)
  */
+ 
+ /**
+ * Insère une grille de colonnes dynamique (2 ou 3 colonnes)
+ * @param {number} n - Le nombre de colonnes souhaité
+ */
+function insertGrid(n) {
+    let colsHTML = ''; 
+    
+    // On crée les blocs pour chaque colonne avec un texte d'attente
+    for(let i = 0; i < n; i++) {
+        colsHTML += `
+            <div>
+                <p><em>Texte de la colonne ${i+1}...</em></p>
+            </div>
+        `;
+    }
+    
+    // L'astuce cruciale : on encapsule dans notre grille Flexbox
+    const gridHTML = `
+        <div class="custom-grid" contenteditable="false">
+            <div style="display: flex; gap: 1.5rem; width: 100%;" contenteditable="true">
+                ${colsHTML}
+            </div>
+        </div>
+    `;
+    
+    // Notre fonction utilitaire insertHTML ajoute automatiquement un <p><br></p> après !
+    // Cela garantit de toujours pouvoir cliquer SOUS les colonnes.
+    insertHTML(gridHTML);
+}
+ 
+ 
 function insertTable() {
     // 1. Demande des dimensions
     const nbCols = parseInt(prompt("Nombre de colonnes :", "3"));
