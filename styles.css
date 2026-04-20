@@ -245,13 +245,59 @@ body {
     }
 }
 
+.content-editable a {
+    color: var(--theme-main);
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+.content-editable a:hover {
+    color: var(--theme-sun);
+}
+/* --- GESTION DE LA SUPPRESSION DES BLOCS --- */
+.block-hover-delete {
+    outline: 2px dashed #e1000f !important; /* Rouge DSFR */
+    outline-offset: 4px;
+    border-radius: 2px;
+}
+
+/* --- BOUTON SUPPRIMER PAGE --- */
+.delete-page-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: #ffe8e5;
+    color: #e1000f;
+    border: 1px solid #e1000f;
+    border-radius: 4px;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    z-index: 100;
+    opacity: 0; /* Caché par défaut */
+    transition: opacity 0.2s ease-in-out;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+/* Apparaît uniquement au survol de la page */
+.page-a4:hover .delete-page-btn {
+    opacity: 1;
+}
+
+/* Sécurité : on ne peut pas supprimer la dernière page restante */
+.page-a4:only-child .delete-page-btn {
+    display: none;
+}
 
 
-/* --- IMPRESSION --- */
-/* --- IMPRESSION --- */
-/* --- IMPRESSION NATIVE --- */
-/* --- IMPRESSION NATIVE --- */
 @media print {
+
+.delete-page-btn {
+        display: none !important;
+    }
 /* 1. Forcer l'affichage de la balise nav du sommaire */
     .fr-summary {
         display: block !important;

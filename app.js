@@ -40,9 +40,6 @@ function format(cmd, val = null) { document.execCommand(cmd, false, val); }
 
 function insertHTML(html) { document.execCommand('insertHTML', false, html + '<p><br></p>'); }
 
-/**
- * Insère une image locale dans la zone de texte
- */
 function insertImage() {
     // 1. Création d'un sélecteur de fichier invisible
     const input = document.createElement('input');
@@ -87,9 +84,6 @@ function insertImage() {
     input.click();
 }
 
-/**
- * Insère une ligne de séparation horizontale aux couleurs de la palette sélectionnée
- */
 function insertDivider() {
     // Remplacement du gris par var(--theme-sun) pour s'adapter dynamiquement
     // J'ai également passé l'épaisseur à 2px pour qu'elle soit plus visible et élégante
@@ -100,11 +94,6 @@ function insertDivider() {
     insertHTML(dividerHTML);
 }
 
-/**
- * Gère le "Saut de page" (Page Break) dans le flux de texte.
- * Dans notre architecture A4 stricte, cela équivaut à créer une nouvelle page
- * et à y placer le curseur pour continuer la rédaction.
- */
 function insertPageBreak() {
     // 1. On crée une nouvelle feuille A4 (réutilise la fonction existante)
     addNewPage();
@@ -126,24 +115,6 @@ function insertPageBreak() {
     }, 500); // Léger délai pour laisser le temps au scroll de s'effectuer
 }
 
-/**
- * Insère une grille de colonnes dynamique (2 ou 3 colonnes)
- * @param {number} n - Le nombre de colonnes souhaité
- */
-/**
- * Insère un tableau avec choix des entêtes (Colonnes, Lignes ou les deux)
- */
-/**
- * 
- * 
- * 
- * Insère un tableau sur-mesure (Dimensions + Entêtes)
- */
- 
- /**
- * Insère une grille de colonnes dynamique (2 ou 3 colonnes)
- * @param {number} n - Le nombre de colonnes souhaité
- */
 function insertGrid(n) {
     let colsHTML = ''; 
     
@@ -169,7 +140,6 @@ function insertGrid(n) {
     // Cela garantit de toujours pouvoir cliquer SOUS les colonnes.
     insertHTML(gridHTML);
 }
- 
  
 function insertTable() {
     // 1. Demande des dimensions
@@ -222,42 +192,7 @@ function insertTable() {
 
     insertHTML(tableHTML);
 }
-/**
- * Insère un bloc Sommaire conforme au DSFR
- */
- 
- /**
- * Intercepte le collage pour nettoyer les données Excel
- */
-document.addEventListener('paste', function(e) {
-    const activeElement = document.activeElement;
-    
-    // On ne cible que les collages à l'intérieur d'un tableau
-    if (activeElement.closest('table')) {
-        e.preventDefault();
-        
-        // On récupère les données sous forme de texte brut (Tab-Separated Values)
-        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-        const rows = text.split('\n');
-        
-        let htmlClean = '';
-        rows.forEach(row => {
-            if (row.trim() !== '') {
-                const cols = row.split('\t'); // Excel sépare les colonnes par des tabulations
-                htmlClean += '<tr>';
-                cols.forEach(col => {
-                    htmlClean += `<td style="padding: 0.5rem; border: 1px solid var(--grey-900); text-align: right;">${col.trim()}</td>`;
-                });
-                htmlClean += '</tr>';
-            }
-        });
 
-        // On insère uniquement les lignes propres à l'endroit du curseur
-        document.execCommand('insertHTML', false, htmlClean);
-    }
-});
- 
- 
 function insertSommaire() {
     // La structure est simplifiée au maximum pour laisser le CSS travailler
     const sommaireHTML = `
@@ -278,12 +213,6 @@ function insertCallout() {
     insertHTML(`<div class="fr-callout"><h3 class="fr-callout__title">Exergue</h3><p class="fr-callout__text">Contenu important.</p></div>`);
 }
 
-/**
- * Insère un bloc de Citation officielle (Blockquote)
- */
-/**
- * Insère un bloc de Citation avec option de portrait photographique
- */
 function insertCitation() {
     // Demande à l'utilisateur s'il souhaite une image
     const wantsPhoto = confirm("Voulez-vous ajouter une photo de l'auteur à cette citation ?\n(Cliquez sur OK pour choisir une image, ou Annuler pour du texte seul)");
@@ -338,12 +267,7 @@ function insertCitation() {
         insertHTML(citationClassique);
     }
 }
-/**
- * Insère un bloc Chiffre Clé institutionnel
- */
-/**
- * Insère un bloc Chiffre Clé (Corrigé pour libérer le curseur)
- */
+
 function insertChiffreCle() {
     // Ajout de contenteditable="false" sur le conteneur parent
     // Ajout de contenteditable="true" sur le chiffre et le texte
@@ -364,7 +288,39 @@ function insertChiffreCle() {
     insertHTML(chiffreCleHTML);
 }
 
+function insertLink() {
+    const url = prompt("Veuillez saisir l'URL du lien (ex: https://www.gouvernement.fr) :");
+    
+    // Si l'utilisateur annule ou laisse vide, on arrête tout
+    if (!url) return; 
 
+    // Sécurisation de l'URL : on ajoute https:// si l'utilisateur l'a oublié
+    // (sauf s'il s'agit d'une adresse email avec mailto:)
+    let finalUrl = url;
+    if (!/^https?:\/\//i.test(finalUrl) && !/^mailto:/i.test(finalUrl)) {
+        finalUrl = 'https://' + finalUrl;
+    }
+
+    // Récupération de la sélection actuelle
+    const selection = window.getSelection();
+
+    // S'il n'y a pas de texte sélectionné (le curseur clignote juste)
+    if (selection.isCollapsed) {
+        // On insère l'URL sous forme de texte cliquable grâce à notre fonction existante
+        const linkHTML = `<a href="${finalUrl}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+        insertHTML(linkHTML);
+    } else {
+        // S'il y a du texte sélectionné, on utilise la commande native du navigateur
+        document.execCommand('createLink', false, finalUrl);
+        
+        // Petite astuce pour forcer l'ouverture dans un nouvel onglet (target="_blank")
+        // sur le lien que le navigateur vient juste de générer
+        if (selection.anchorNode && selection.anchorNode.parentNode.tagName === 'A') {
+            selection.anchorNode.parentNode.setAttribute('target', '_blank');
+            selection.anchorNode.parentNode.setAttribute('rel', 'noopener noreferrer');
+        }
+    }
+}
 
 function syncMetadata() {
     document.querySelectorAll('.stamp-bureau').forEach(el => el.innerText = document.getElementById('cfg-bureau').value.toUpperCase());
@@ -394,12 +350,24 @@ function addNewPage() {
 
 function saveJSON() {
     const state = {
-        metadata: { bureau: document.getElementById('cfg-bureau').value, titre: document.getElementById('cfg-titre').value, date: document.getElementById('cfg-date').value, footer: document.getElementById('cfg-footer').value, logo: logoDataUrl },
+        // Ajout de la palette manquante
+        palette: document.getElementById('cfg-palette').value,
+        
+        // Aplatissement des métadonnées à la racine de l'objet
+        bureau: document.getElementById('cfg-bureau').value,
+        titre: document.getElementById('cfg-titre').value,
+        date: document.getElementById('cfg-date').value,
+        footer: document.getElementById('cfg-footer').value,
+        logo: logoDataUrl,
+        
+        // Sauvegarde des pages
         pages: Array.from(document.querySelectorAll('.content-editable')).map(el => el.innerHTML)
     };
+    
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(state)], { type: 'application/json' }));
-    a.download = 'newsletter.json'; a.click();
+    a.download = 'newsletter.json'; 
+    a.click();
 }
 
 function restoreJSON(input) {
@@ -437,6 +405,9 @@ function restoreJSON(input) {
                     
                     // Reconstruit la structure stricte de la page
                     pageDiv.innerHTML = `
+                        <button class="delete-page-btn" onclick="deletePage(this)">
+                            <span class="fr-icon-delete-bin-line"></span> Supprimer la page
+                        </button>
                         <div class="safe-area">
                             <div class="header-brand">
                                 <div class="fr-header__brand">
@@ -489,6 +460,131 @@ function scaleUI() {
     const ratio = Math.min((window.innerWidth - 100) / 794, 1);
     document.getElementById('pages-container').style.transform = `scale(${ratio})`;
 }
+
+/**
+ * Supprime une page entière avec confirmation
+ */
+function deletePage(btn) {
+    const page = btn.closest('.page-a4');
+    const totalPages = document.querySelectorAll('.page-a4').length;
+
+    if (totalPages <= 1) {
+        alert("Impossible de supprimer cette page : un document doit contenir au moins une page.");
+        return;
+    }
+
+    if (confirm("⚠️ Êtes-vous sûr de vouloir supprimer cette page et tout son contenu ? Cette action est irréversible.")) {
+        page.remove();
+        renumberPages(); // Met à jour les numéros en bas de page
+    }
+}
+
+/**
+ * Recalcule les numéros de toutes les pages (footer et ID)
+ */
+function renumberPages() {
+    const pages = document.querySelectorAll('.page-a4');
+    pages.forEach((page, index) => {
+        const pageNum = index + 1;
+        
+        // Met à jour l'ID technique
+        page.id = `page-${pageNum}`;
+        
+        // Met à jour l'affichage visuel dans le pied de page
+        const numDisplay = page.querySelector('.page-num-display');
+        if (numDisplay) {
+            numDisplay.innerText = `Page ${pageNum}`;
+        }
+    });
+}
+
+
+// =====================================================================
+// MODULE DE SUPPRESSION INTELLIGENTE DES BLOCS COMPLEXES
+// =====================================================================
+
+// 1. Création du bouton corbeille flottant (qui reste hors de la zone éditable)
+const trashBtn = document.createElement('button');
+trashBtn.innerHTML = '<span class="fr-icon-delete-bin-fill"></span>';
+trashBtn.title = "Supprimer ce bloc";
+trashBtn.style.cssText = `
+    position: fixed; /* Fixe par rapport à l'écran */
+    display: none;
+    z-index: 10000;
+    background-color: #ffe8e5; /* Fond rouge clair */
+    color: #e1000f; /* Texte rouge vif */
+    border: 1px solid #e1000f;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+`;
+document.body.appendChild(trashBtn);
+
+let hoveredBlock = null;
+
+// 2. Liste des sélecteurs à cibler (toutes nos structures complexes)
+const blockSelectors = '.fr-table, .custom-grid, .fr-summary, .fr-callout, blockquote, hr, img, [contenteditable="false"]';
+
+// 3. Traque de la souris
+document.addEventListener('mousemove', function(e) {
+    // Si on survole le bouton corbeille lui-même, on ne fait rien
+    if (e.target === trashBtn || trashBtn.contains(e.target)) return;
+
+    // Vérifie si on est bien à l'intérieur d'une page de l'éditeur
+    const editor = e.target.closest('.content-editable');
+    
+    if (!editor) {
+        hideTrash();
+        return;
+    }
+
+    // Remonte l'arbre DOM pour voir si la souris survole un bloc complexe
+    const block = e.target.closest(blockSelectors);
+
+    // Si on a trouvé un bloc ET qu'il appartient bien à l'éditeur actuel
+    if (block && editor.contains(block)) {
+        if (hoveredBlock !== block) {
+            hideTrash(); // Nettoie le précédent s'il y en avait un
+            hoveredBlock = block;
+            hoveredBlock.classList.add('block-hover-delete');
+            
+            // Récupère les coordonnées exactes du bloc à l'écran
+            const rect = hoveredBlock.getBoundingClientRect();
+            
+            // Positionne le bouton corbeille dans le coin supérieur droit du bloc
+            trashBtn.style.top = (rect.top - 16) + 'px';
+            trashBtn.style.left = (rect.right - 16) + 'px';
+            trashBtn.style.display = 'flex';
+        }
+    } else {
+        hideTrash();
+    }
+});
+
+// Cache le bouton et retire le cadre rouge
+function hideTrash() {
+    if (hoveredBlock) {
+        hoveredBlock.classList.remove('block-hover-delete');
+        hoveredBlock = null;
+    }
+    trashBtn.style.display = 'none';
+}
+
+// 4. Action de suppression
+trashBtn.addEventListener('click', function() {
+    if (hoveredBlock) {
+        hoveredBlock.remove(); // Supprime l'élément entier du HTML
+        hideTrash();
+    }
+});
+
+// 5. Cache le bouton si l'utilisateur fait défiler la page pour éviter qu'il ne flotte dans le vide
+document.getElementById('pages-container').addEventListener('scroll', hideTrash);
 
 window.onresize = scaleUI;
 window.onload = () => { scaleUI(); applyPalette(); syncMetadata(); };
