@@ -214,11 +214,25 @@ function insertCallout() {
 }
 
 function insertCitation() {
-    // Demande à l'utilisateur s'il souhaite une image
+    // 1. Demande à l'utilisateur s'il souhaite une image
     const wantsPhoto = confirm("Voulez-vous ajouter une photo de l'auteur à cette citation ?\n(Cliquez sur OK pour choisir une image, ou Annuler pour du texte seul)");
 
     if (wantsPhoto) {
         // --- CAS 1 : AVEC PHOTO ---
+        
+        // 2. NOUVEAU : Demande de quel côté placer la photo
+        const position = prompt(
+            "Position de la photo :\n" +
+            "1 : À gauche (par défaut)\n" +
+            "2 : À droite", 
+            "1"
+        );
+        
+        // Si l'utilisateur annule cette étape, on annule toute l'insertion
+        if (position === null) return;
+        
+        const photoOnRight = (position === "2");
+
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/png, image/jpeg, image/webp';
@@ -227,42 +241,64 @@ function insertCitation() {
             const file = e.target.files[0];
             if (!file) return;
             
+            // Sécurité taille (max 2Mo)
+            if (file.size > 2 * 1024 * 1024) {
+                alert("L'image est trop lourde. Veuillez choisir une image de moins de 2 Mo.");
+                return;
+            }
+            
             const reader = new FileReader();
             reader.onload = function(readerEvent) {
                 const photoUrl = readerEvent.target.result;
                 
-                // Conteneur Flexbox pour aligner la photo (gauche) et la citation (droite)
+                // --- CONSTRUCTION DYNAMIQUE DU HTML ---
+                // On prépare les deux blocs (image et texte)
+                const imgBlock = `<img src="${photoUrl}" alt="Portrait" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid var(--grey-900);">`;
+                
+                // Le bloc texte change légèrement de style selon le côté de l'image (border-left vs border-right)
+                const textBlockStyle = photoOnRight 
+                    ? `margin: 0; padding-right: 1.5rem; border-right: 4px solid var(--theme-sun); flex-grow: 1; text-align: right;` 
+                    : `margin: 0; padding-left: 1.5rem; border-left: 4px solid var(--theme-sun); flex-grow: 1;`;
+
+                const textBlock = `
+                    <blockquote style="${textBlockStyle}" contenteditable="true">
+                        <p style="font-size: 1.3rem; font-style: italic; font-weight: 700; color: #1e1e1e; margin-bottom: 0.75rem; line-height: 1.4;">
+                            « Saisissez la déclaration ici. »
+                        </p>
+                        <footer style="font-size: 0.95rem; font-weight: 700; color: #666;">
+                            — Prénom Nom, <span style="font-weight: normal; font-style: italic;">Fonction</span>
+                        </footer>
+                    </blockquote>
+                `;
+                
+                // On assemble dans le bon ordre
+                const contentHTML = photoOnRight ? textBlock + imgBlock : imgBlock + textBlock;
+
                 const citationAvecPhoto = `
                     <div style="display: flex; gap: 1.5rem; align-items: flex-start; margin: 2rem 0 2rem 1rem;" contenteditable="false">
-                        <img src="${photoUrl}" alt="Portrait" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid var(--grey-900);">
-                        
-                        <blockquote style="margin: 0; padding-left: 1.5rem; border-left: 4px solid var(--theme-sun); flex-grow: 1;" contenteditable="true">
-                            <p style="font-size: 1.3rem; font-style: italic; font-weight: 700; color: #1e1e1e; margin-bottom: 0.75rem; line-height: 1.4;">
-                                « Saisissez la déclaration ici. L'image restera fixée à gauche. »
-                            </p>
-                            <footer style="font-size: 0.95rem; font-weight: 700; color: #666;">
-                                — Prénom Nom, <span style="font-weight: normal; font-style: italic;">Fonction</span>
-                            </footer>
-                        </blockquote>
+                        ${contentHTML}
                     </div>
                 `;
+                
                 insertHTML(citationAvecPhoto);
             };
             reader.readAsDataURL(file);
         };
-        input.click(); // Ouvre la fenêtre de sélection de fichier
+        input.click(); 
         
     } else {
-        // --- CAS 2 : SANS PHOTO (Classique) ---
+        // --- CAS 2 : SANS PHOTO (Classique protégé) ---
         const citationClassique = `
-            <blockquote style="margin: 2rem 0 2rem 1rem; padding-left: 1.5rem; border-left: 4px solid var(--theme-sun);">
-                <p style="font-size: 1.3rem; font-style: italic; font-weight: 700; color: #1e1e1e; margin-bottom: 0.75rem; line-height: 1.4;">
-                    « Saisissez la déclaration ou l'extrait de discours ici. »
-                </p>
-                <footer style="font-size: 0.95rem; font-weight: 700; color: #666;">
-                    — Prénom Nom, <span style="font-weight: normal; font-style: italic;">Titre ou Fonction</span>
-                </footer>
-            </blockquote>
+            <div style="margin: 2rem 0 2rem 1rem;" contenteditable="false">
+                <blockquote style="margin: 0; padding-left: 1.5rem; border-left: 4px solid var(--theme-sun);" contenteditable="true">
+                    <p style="font-size: 1.3rem; font-style: italic; font-weight: 700; color: #1e1e1e; margin-bottom: 0.75rem; line-height: 1.4;">
+                        « Saisissez la déclaration ou l'extrait de discours ici. »
+                    </p>
+                    <footer style="font-size: 0.95rem; font-weight: 700; color: #666;">
+                        — Prénom Nom, <span style="font-weight: normal; font-style: italic;">Titre ou Fonction</span>
+                    </footer>
+                </blockquote>
+            </div>
         `;
         insertHTML(citationClassique);
     }
@@ -461,9 +497,8 @@ function scaleUI() {
     document.getElementById('pages-container').style.transform = `scale(${ratio})`;
 }
 
-/**
- * Supprime une page entière avec confirmation
- */
+
+
 function deletePage(btn) {
     const page = btn.closest('.page-a4');
     const totalPages = document.querySelectorAll('.page-a4').length;
@@ -498,93 +533,291 @@ function renumberPages() {
     });
 }
 
-
 // =====================================================================
-// MODULE DE SUPPRESSION INTELLIGENTE DES BLOCS COMPLEXES
+// INTERCEPTEUR DE COLLAGE (SPECIAL TABLEUR EXCEL / SHEETS)
+// =====================================================================
+document.addEventListener('paste', function(e) {
+    // 1. On vérifie que l'on colle bien à l'intérieur de notre zone de travail
+    const editor = e.target.closest('.content-editable');
+    if (!editor) return;
+
+    // 2. Récupération des données brutes en texte simple
+    const textData = (e.clipboardData || window.clipboardData).getData('text/plain');
+    
+    // 3. Détection d'un tableur : présence de tabulations (\t) ET de retours à la ligne (\n)
+    const isSpreadsheet = textData.includes('\t') && textData.includes('\n');
+
+    if (isSpreadsheet) {
+        e.preventDefault(); // On bloque l'insertion catastrophique du navigateur
+
+        const rows = textData.trim().split('\n');
+        const activeElement = document.activeElement;
+        const inExistingTable = activeElement.closest('table');
+
+        let htmlClean = '';
+
+        if (inExistingTable) {
+            // --- CAS 1 : COLLAGE DANS UN TABLEAU EXISTANT ---
+            rows.forEach(row => {
+                if (row.trim() !== '') {
+                    const cols = row.split('\t');
+                    htmlClean += '<tr>';
+                    cols.forEach(col => {
+                        htmlClean += `<td>${col.trim()}</td>`;
+                    });
+                    htmlClean += '</tr>';
+                }
+            });
+            document.execCommand('insertHTML', false, htmlClean);
+            
+        } else {
+            // --- CAS 2 : COLLAGE DANS LE VIDE (CRÉATION D'UN NOUVEAU TABLEAU) ---
+            
+            // On pose la même question que lors de la création manuelle d'un tableau
+            const choix = prompt(
+                "Vous collez des données de tableur. Choisissez le style d'entête :\n" +
+                "1 : Colonnes uniquement (Haut)\n" +
+                "2 : Lignes uniquement (Gauche)\n" +
+                "3 : Les deux (Colonnes et Lignes)\n" +
+                "4 : Aucun", 
+                "1"
+            );
+
+            // Si l'utilisateur clique sur Annuler, on stoppe l'action
+            if (choix === null) return;
+
+            const hasColHeader = (choix === "1" || choix === "3");
+            const hasRowHeader = (choix === "2" || choix === "3");
+
+            htmlClean += `<div class="fr-table" contenteditable="false">`;
+            htmlClean += `<table contenteditable="true">`;
+            
+            let tbodyOpened = false;
+
+            rows.forEach((row, rowIndex) => {
+                if (row.trim() !== '') {
+                    const cols = row.split('\t');
+                    
+                    // Si on est sur la première ligne ET qu'on a demandé des entêtes de colonnes
+                    if (rowIndex === 0 && hasColHeader) {
+                        htmlClean += `<thead><tr>`;
+                        cols.forEach(col => {
+                            htmlClean += `<th scope="col">${col.trim()}</th>`;
+                        });
+                        htmlClean += `</tr></thead>`;
+                    } else {
+                        // On ouvre le corps du tableau si ce n'est pas déjà fait
+                        if (!tbodyOpened) {
+                            htmlClean += `<tbody>`;
+                            tbodyOpened = true;
+                        }
+                        
+                        htmlClean += `<tr>`;
+                        cols.forEach((col, colIndex) => {
+                            // Si on est sur la première colonne ET qu'on a demandé des entêtes de lignes
+                            if (colIndex === 0 && hasRowHeader) {
+                                htmlClean += `<th scope="row">${col.trim()}</th>`;
+                            } else {
+                                htmlClean += `<td>${col.trim()}</td>`;
+                            }
+                        });
+                        htmlClean += `</tr>`;
+                    }
+                }
+            });
+            
+            if (tbodyOpened) htmlClean += `</tbody>`;
+            htmlClean += `</table></div><p><br></p>`;
+            
+            document.execCommand('insertHTML', false, htmlClean);
+        }
+    }
+});
+// =====================================================================
+// MODULE D'OUTILS FLOTTANTS POUR BLOCS COMPLEXES (CORBEILLE & REGLAGES)
 // =====================================================================
 
-// 1. Création du bouton corbeille flottant (qui reste hors de la zone éditable)
+// 1. Création du conteneur de la barre d'outils
+const floatToolbar = document.createElement('div');
+floatToolbar.style.cssText = `
+    position: fixed;
+    display: none;
+    z-index: 10000;
+    gap: 0.3rem;
+    background-color: #fff;
+    padding: 0.3rem;
+    border: 1px solid var(--grey-900);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+`;
+
+// 2. Bouton Redimensionner (Règle) - Apparaîtra uniquement sur les grilles
+const resizeBtn = document.createElement('button');
+resizeBtn.innerHTML = '📏';
+resizeBtn.title = "Modifier la largeur des colonnes";
+resizeBtn.style.cssText = `
+    background-color: #f5f5fe;
+    border: 1px solid var(--theme-sun);
+    border-radius: 4px;
+    width: 30px; height: 30px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+`;
+
+// 3. Bouton Corbeille (Toujours présent)
 const trashBtn = document.createElement('button');
 trashBtn.innerHTML = '<span class="fr-icon-delete-bin-fill"></span>';
 trashBtn.title = "Supprimer ce bloc";
 trashBtn.style.cssText = `
-    position: fixed; /* Fixe par rapport à l'écran */
-    display: none;
-    z-index: 10000;
-    background-color: #ffe8e5; /* Fond rouge clair */
-    color: #e1000f; /* Texte rouge vif */
+    background-color: #ffe8e5;
+    color: #e1000f;
     border: 1px solid #e1000f;
-    border-radius: 50%;
-    width: 32px;
-    height: 32px;
-    padding: 0;
+    border-radius: 4px;
+    width: 30px; height: 30px;
     cursor: pointer;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    display: flex; align-items: center; justify-content: center;
 `;
-document.body.appendChild(trashBtn);
+
+floatToolbar.appendChild(resizeBtn);
+floatToolbar.appendChild(trashBtn);
+document.body.appendChild(floatToolbar);
 
 let hoveredBlock = null;
-
-// 2. Liste des sélecteurs à cibler (toutes nos structures complexes)
 const blockSelectors = '.fr-table, .custom-grid, .fr-summary, .fr-callout, blockquote, hr, img, [contenteditable="false"]';
 
-// 3. Traque de la souris
+// 4. Traque de la souris (Mise à jour)
 document.addEventListener('mousemove', function(e) {
-    // Si on survole le bouton corbeille lui-même, on ne fait rien
-    if (e.target === trashBtn || trashBtn.contains(e.target)) return;
+    if (e.target === floatToolbar || floatToolbar.contains(e.target)) return;
 
-    // Vérifie si on est bien à l'intérieur d'une page de l'éditeur
     const editor = e.target.closest('.content-editable');
-    
-    if (!editor) {
-        hideTrash();
-        return;
-    }
+    if (!editor) { hideFloatToolbar(); return; }
 
-    // Remonte l'arbre DOM pour voir si la souris survole un bloc complexe
     const block = e.target.closest(blockSelectors);
 
-    // Si on a trouvé un bloc ET qu'il appartient bien à l'éditeur actuel
     if (block && editor.contains(block)) {
         if (hoveredBlock !== block) {
-            hideTrash(); // Nettoie le précédent s'il y en avait un
+            hideFloatToolbar();
             hoveredBlock = block;
-            hoveredBlock.classList.add('block-hover-delete');
+            hoveredBlock.classList.add('block-hover-focus');
             
-            // Récupère les coordonnées exactes du bloc à l'écran
+            // NOUVEAU : On affiche la règle pour les grilles ET les tableaux
+            if (hoveredBlock.classList.contains('custom-grid') || hoveredBlock.classList.contains('fr-table')) {
+                resizeBtn.style.display = 'flex';
+            } else {
+                resizeBtn.style.display = 'none';
+            }
+
             const rect = hoveredBlock.getBoundingClientRect();
-            
-            // Positionne le bouton corbeille dans le coin supérieur droit du bloc
-            trashBtn.style.top = (rect.top - 16) + 'px';
-            trashBtn.style.left = (rect.right - 16) + 'px';
-            trashBtn.style.display = 'flex';
+            floatToolbar.style.top = (rect.top - 20) + 'px';
+            floatToolbar.style.left = (rect.right - 40) + 'px';
+            floatToolbar.style.display = 'flex';
         }
     } else {
-        hideTrash();
+        hideFloatToolbar();
     }
 });
 
-// Cache le bouton et retire le cadre rouge
-function hideTrash() {
+function hideFloatToolbar() {
     if (hoveredBlock) {
-        hoveredBlock.classList.remove('block-hover-delete');
+        hoveredBlock.classList.remove('block-hover-focus');
         hoveredBlock = null;
     }
-    trashBtn.style.display = 'none';
+    floatToolbar.style.display = 'none';
 }
 
-// 4. Action de suppression
+// 5. Actions des boutons
 trashBtn.addEventListener('click', function() {
     if (hoveredBlock) {
-        hoveredBlock.remove(); // Supprime l'élément entier du HTML
-        hideTrash();
+        hoveredBlock.remove();
+        hideFloatToolbar();
     }
 });
 
-// 5. Cache le bouton si l'utilisateur fait défiler la page pour éviter qu'il ne flotte dans le vide
-document.getElementById('pages-container').addEventListener('scroll', hideTrash);
+resizeBtn.addEventListener('click', function() {
+    if (!hoveredBlock) return;
+
+    // --- CAS 1 : GRILLES FLEXBOX ---
+    if (hoveredBlock.classList.contains('custom-grid')) {
+        const gridInner = hoveredBlock.querySelector('div[style*="display: flex"]');
+        if (!gridInner) return;
+        
+        const cols = Array.from(gridInner.children).filter(c => c.tagName === 'DIV');
+        const n = cols.length;
+        
+        const input = prompt(
+            `Répartition de vos ${n} colonnes (Grille).\nEntrez les proportions (ex: 30/70, ou 25 50 25) :`, 
+            n === 2 ? "50/50" : "33/33/33"
+        );
+        
+        if (!input) return;
+
+        const parts = input.split(/[\/\-\+,;\s]+/).map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
+        
+        if (parts.length === n) {
+            cols.forEach((col, i) => {
+                col.style.flex = parts[i];
+                col.style.maxWidth = "none";
+            });
+        } else {
+            alert(`Format invalide. Ce bloc contient ${n} colonnes, vous devez fournir ${n} valeurs.`);
+        }
+    }
+    
+    // --- CAS 2 : TABLEAUX HTML ---
+    else if (hoveredBlock.classList.contains('fr-table')) {
+        const table = hoveredBlock.querySelector('table');
+        if (!table) return;
+
+        // Compte le nombre de colonnes en regardant la première ligne disponible
+        const firstRow = table.querySelector('tr');
+        if (!firstRow) return;
+        
+        const n = firstRow.children.length;
+
+        const input = prompt(
+            `Répartition des ${n} colonnes (Tableau).\nEntrez les proportions (ex: 30/70, ou 20 60 20) :`, 
+            n === 2 ? "50/50" : "33/33/33"
+        );
+
+        if (!input) return;
+
+        const parts = input.split(/[\/\-\+,;\s]+/).map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
+
+        if (parts.length === n) {
+            // Contrairement à Flexbox, un tableau a besoin de pourcentages stricts. 
+            // On calcule donc le total pour faire la conversion automatiquement.
+            const total = parts.reduce((sum, val) => sum + val, 0);
+
+            // Cherche s'il y a déjà un groupe de colonnes, sinon on le crée
+            let colgroup = table.querySelector('colgroup');
+            if (!colgroup) {
+                colgroup = document.createElement('colgroup');
+                // On l'insère tout en haut du tableau
+                table.insertBefore(colgroup, table.firstChild); 
+            } else {
+                colgroup.innerHTML = ''; // Nettoie les anciens réglages
+            }
+
+            // Applique les largeurs converties en pourcentages
+            parts.forEach(part => {
+                const col = document.createElement('col');
+                const percentage = ((part / total) * 100).toFixed(2); // Garde 2 décimales (ex: 33.33%)
+                col.style.width = `${percentage}%`;
+                colgroup.appendChild(col);
+            });
+            
+            // Force le navigateur à respecter strictement nos pourcentages
+            table.style.tableLayout = 'fixed';
+
+        } else {
+            alert(`Format invalide. Ce tableau contient ${n} colonnes, vous devez fournir ${n} valeurs.`);
+        }
+    }
+});
+
+// Cache la barre d'outils lors du défilement
+document.getElementById('pages-container').addEventListener('scroll', hideFloatToolbar);
 
 window.onresize = scaleUI;
 window.onload = () => { scaleUI(); applyPalette(); syncMetadata(); };

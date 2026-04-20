@@ -74,7 +74,7 @@ body {
 
 /* --- ÉDITION & THEME --- */
 .content-editable { flex: 1; outline: none; font-size: 1rem; line-height: 1.5; overflow-y: auto; color: #1e1e1e; }
-.content-editable h1, .content-editable h2 { color: var(--theme-sun); margin-bottom: 1rem; }
+.content-editable h1, .content-editable h2, .content-editable h3 { color: var(--theme-sun); margin-bottom: 1rem; }
 .content-editable .fr-callout { box-shadow: inset 0.25rem 0 0 0 var(--theme-main); background-color: var(--theme-bg); border: none; margin-bottom: 1rem; }
 .header-info { border-bottom: 2px solid var(--theme-sun); padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
 .doc-meta { color: var(--theme-sun); }
@@ -225,6 +225,17 @@ body {
     print-color-adjust: exact !important;
 }
 
+.content-editable table tbody th {
+    background-color: color-mix(in srgb, var(--theme-sun), transparent 20%) !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    padding: 0.75rem;
+    border: 1px solid var(--grey-900);
+    text-align: left; /* Aligné à gauche pour faciliter la lecture des intitulés */
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+}
+
 /* Style des cellules classiques pour correspondre à l'exemple */
 .content-editable table td {
     padding: 0.5rem;
@@ -238,12 +249,6 @@ body {
 }
 
 /* À l'impression, on s'assure que le fond gris du sommaire est visible */
-@media print {
-    .fr-summary {
-        background-color: var(--grey-975) !important;
-        -webkit-print-color-adjust: exact !important;
-    }
-}
 
 .content-editable a {
     color: var(--theme-main);
@@ -294,6 +299,11 @@ body {
 
 
 @media print {
+
+    .fr-summary {
+        background-color: var(--grey-975) !important;
+        -webkit-print-color-adjust: exact !important;
+    }
 
 .delete-page-btn {
         display: none !important;
