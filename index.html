@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr" data-fr-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Éditeur Newsletter - DSFR Expert</title>
+    
+    <link rel="stylesheet" href="./libs/dsfr-v1.14.3/dist/dsfr.min.css">
+    <link rel="stylesheet" href="./libs/dsfr-v1.14.3/dist/utility/icons/icons.min.css">
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header role="banner" class="fr-header">
+        <div class="fr-header__body">
+            <div class="fr-container">
+                <div class="fr-header__body-row">
+                    <div class="fr-header__brand fr-enlarge-link">
+                        <div class="fr-header__brand-top">
+                            <div class="fr-header__logo">
+                                <p class="fr-logo">
+                                    République<br>Française
+                                </p>
+                            </div>
+                        </div>
+                        <div class="fr-header__service">
+                            <a href="/" title="Accueil - PLUME - DGFiP">
+                                <p class="fr-header__service-title">
+                                    PLUME <span class="fr-badge fr-badge--sm fr-badge--green-emeraude">BÊTA</span>
+                                </p>
+                            </a>
+                            <p class="fr-header__service-tagline">Plateforme de Lettres Unifiées pour les Ministères et l'État</p>
+                        </div>
+                    </div>
+                    <div class="fr-header__tools">
+                        <div class="fr-header__tools-links">
+                            <ul class="fr-btns-group">
+                                <li>
+                                    <span class="fr-btn fr-btn--secondary fr-icon-user-fill">Services Centraux</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div class="editor-header">
+        
+        <div class="toolbar-row">
+            <div class="toolbar-group">
+                <span class="group-label">Palette</span>
+                <select id="cfg-palette" onchange="applyPalette()" class="input-text" title="Couleur thématique">
+                    <optgroup label="Marque de l'État">
+                        <option value="marianne">🔵 Bleu France</option>
+                        <option value="rouge">🔴 Rouge Marianne</option>
+                    </optgroup>
+                    
+                    <optgroup label="Tons Chauds">
+                        <option value="tuile">🟧 Orange Tuile</option>
+                        <option value="macaron">🌸 Rose Macaron</option>
+                        <option value="opera">🌺 Rose Opéra</option>
+                        <option value="carmin">🍷 Rouge Carmin</option>
+                        <option value="tournesol">🌻 Jaune Tournesol</option>
+                        <option value="moutarde">🌾 Jaune Moutarde</option>
+                    </optgroup>
+                    
+                    <optgroup label="Tons Froids">
+                        <option value="ecume">🌊 Bleu Écume</option>
+                        <option value="celadon">🧊 Bleu Céladon</option>
+                        <option value="amethyste">🟣 Violet Améthyste</option>
+                        <option value="glycine">🪻 Violet Glycine</option>
+                    </optgroup>
+                    
+                    <optgroup label="Tons Verts">
+                        <option value="emeraude">🟩 Vert Émeraude</option>
+                        <option value="menthe">🍃 Vert Menthe</option>
+                        <option value="bourgeon">🌿 Vert Bourgeon</option>
+                        <option value="fougere">🪴 Vert Fougère</option>
+                        <option value="tilleul">🍋 Tilleul Verveine</option>
+                    </optgroup>
+
+                    <optgroup label="Tons Neutres">
+                        <option value="terre">🟤 Terre d'Ombre</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div class="toolbar-group">
+                <span class="group-label">En-tête</span>
+                <input type="text" id="cfg-bureau" value="NOM DU BUREAU" oninput="syncMetadata()" class="input-text" placeholder="Bureau" style="width:130px">
+                <input type="text" id="cfg-titre" value="TITRE DU DOCUMENT" oninput="syncMetadata()" class="input-text" placeholder="Titre" style="width:150px">
+                <input type="text" id="cfg-date" value="Avril 2026" oninput="syncMetadata()" class="input-text" placeholder="Date" style="width:90px">
+                
+                <input type="file" accept="image/*" id="logo-in" onchange="handleLogo(this)" style="display:none">
+                <button class="tool-btn fr-icon-image-fill" onclick="document.getElementById('logo-in').click()" title="Changer le logo d'en-tête (Bureau)"></button>
+            </div>
+            <div class="toolbar-group">
+                <span class="group-label">Pied de page</span>
+                <input type="text" id="cfg-footer" value="lettre.information@institution.gouv.fr" oninput="syncMetadata()" class="input-text" placeholder="Contact pied de page" style="width:180px">
+            </div>
+
+            <div style="flex-grow:1"></div>
+            
+            <div class="toolbar-group">
+                <button class="fr-btn fr-btn--sm fr-btn--tertiary fr-icon-add-line" onclick="addNewPage()">Page</button>
+                
+                <input type="file" accept=".json" id="restore-in" style="display:none" onchange="restoreJSON(this)">
+                <button class="fr-btn fr-btn--sm fr-btn--secondary fr-icon-refresh-line" onclick="document.getElementById('restore-in').click()" title="Restaurer une sauvegarde">Restaurer</button>
+                
+                <button class="fr-btn fr-btn--sm fr-btn--secondary fr-icon-save-line" onclick="saveJSON()" title="Sauvegarder le travail en cours">JSON</button>
+                <button class="fr-btn fr-btn--sm fr-icon-printer-fill" onclick="window.print()" title="Imprimer ou Exporter en PDF">Imprimer</button>
+            </div>
+        </div>
+
+        <div class="toolbar-row" style="background:#f9f9f9">
+            <div class="toolbar-group">
+                <span class="group-label">Hiérarchie</span>
+                <button class="tool-btn" onclick="format('formatBlock', 'H1')" title="Titre principal">H1</button>
+                <button class="tool-btn" onclick="format('formatBlock', 'H2')" title="Sous-titre">H2</button>
+                <button class="tool-btn" onclick="format('formatBlock', 'H3')" title="Titre de section">H3</button>
+                <button class="tool-btn" onclick="format('formatBlock', 'P')" title="Paragraphe normal">¶</button>
+            </div>
+            <div class="toolbar-group">
+                <span class="group-label">Format</span>
+                <button class="tool-btn fr-icon-bold" onclick="format('bold')" title="Gras"></button>
+                <button class="tool-btn fr-icon-italic" onclick="format('italic')" title="Italique"></button>
+                <button class="tool-btn" onclick="format('underline')" title="Souligné"><u>U</u></button>
+                <button class="tool-btn" onclick="format('removeFormat')" title="Nettoyer le formatage (utile après un copier-coller)" style="color:var(--dsfr-red)">Nettoyer</button>
+            </div>
+            <div class="toolbar-group">
+                <span class="group-label">Aligner</span>
+                <button class="tool-btn fr-icon-align-left" onclick="format('justifyLeft')"></button>
+                <button class="tool-btn fr-icon-align-center" onclick="format('justifyCenter')"></button>
+                <button class="tool-btn fr-icon-align-right" onclick="format('justifyRight')"></button>
+                <button class="tool-btn" onclick="format('justifyFull')"><span class="fr-icon-menu-fill"></span></button>
+            </div>
+            <div class="toolbar-group">
+                <span class="group-label">Listes</span>
+                <button class="tool-btn fr-icon-list-unordered" onclick="format('insertUnorderedList')" title="Liste à puces"></button>
+                <button class="tool-btn fr-icon-list-ordered" onclick="format('insertOrderedList')" title="Liste numérotée"></button>
+            </div>
+        </div>
+
+        <div class="toolbar-row" style="background:#f0f0f0">
+            <div class="toolbar-group">
+                <span class="group-label">Médias & Séparation</span>
+                <button class="tool-btn fr-icon-image-add-line" onclick="insertImage()" title="Insérer une image dans le texte"></button>
+                <button class="tool-btn" onclick="insertDivider()" title="Insérer une ligne de séparation horizontale">Ligne</button>
+                <button class="tool-btn fr-icon-file-add-line" onclick="insertPageBreak()" title="Forcer le passage à la page suivante">Saut de page</button>
+            </div>
+            <div class="toolbar-group">
+                <span class="group-label">Colonnes</span>
+                <button class="tool-btn fr-icon-layout-column-fill" onclick="insertGrid(2)"> 2 Cols</button>
+                <button class="tool-btn fr-icon-layout-grid-fill" onclick="insertGrid(3)"> 3 Cols</button>
+            </div>
+            <div class="toolbar-group">
+                <span class="group-label">Modèles DSFR</span>
+                <button class="tool-btn fr-icon-list-check" onclick="insertSommaire()" title="Insérer un encart de Sommaire"> Sommaire</button>
+                <button class="tool-btn fr-icon-quote-fill" onclick="insertCallout()" title="Mise en exergue standard"> Exergue</button>
+                <button class="tool-btn" onclick="insertCitation()" title="Bloc citation officielle"> Citation</button>
+                <button class="tool-btn" onclick="insertChiffreCle()" title="Grand chiffre avec explication"> Chiffre Clé</button>
+                <button class="tool-btn fr-icon-table-fill" onclick="insertTable()" title="Générateur de tableau"> Tableau</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="workspace" id="pages-container">
+        <div class="page-a4" id="page-1">
+            <div class="safe-area">
+                <div class="header-brand">
+                    <div class="fr-header__brand">
+                        <div class="fr-header__logo">
+                            <p class="fr-logo">
+                                République<br>Française
+                            </p>
+                        </div>
+                    </div>
+                    <div class="custom-logo-container"><img class="logo-bureau" src="" style="display:none;"></div>
+                </div>
+                
+                <div class="header-info">
+                    <div class="stamp-bureau" style="font-weight:700; font-size:1rem;">NOM DU BUREAU</div>
+                    <div class="doc-meta" style="display:flex; justify-content:space-between; font-weight:700; font-size:0.9rem">
+                        <span class="stamp-titre">TITRE DU DOCUMENT</span>
+                        <span class="stamp-date">Avril 2026</span>
+                    </div>
+                </div>
+                
+                <div class="content-editable" contenteditable="true">
+                    <h1>Saisissez votre contenu</h1>
+                    <p>Commencez à rédiger. Utilisez la barre d'outils pour structurer votre document.</p>
+                </div>
+                
+                <div class="footer-wrapper">
+                    <span class="stamp-footer">lettre.information@institution.gouv.fr</span>
+                    <span class="page-num-display">Page 1</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
