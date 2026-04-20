@@ -533,6 +533,274 @@ function renumberPages() {
     });
 }
 
+
+// =====================================================================
+// MODULE DE GÉNÉRATION DE GRAPHIQUES (CHART.JS + PAPAPARSE -> BASE64)
+// =====================================================================
+
+/**
+ * Ouvre l'explorateur de fichiers et délègue la lecture à Papa Parse
+ */
+function insertChart(type) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv, text/csv';
+
+    input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Papa Parse lit directement le fichier (plus besoin de FileReader !)
+        Papa.parse(file, {
+            skipEmptyLines: true, // Ignore intelligemment les lignes vides
+            complete: function(results) {
+                generateChartFromCSV(results.data, type);
+            },
+            error: function(err) {
+                alert("Erreur de lecture du fichier CSV avec Papa Parse.");
+            }
+        });
+    };
+    
+    input.click();
+}
+
+/**
+ * Traite les données parsées, génère le Canvas caché, et insère l'image Base64
+ */
+function generateChartFromCSV(data, type) {
+    // data est maintenant un tableau de tableaux (ex: [["Trimestre", "CA"], ["T1", "150"]])
+    if (data.length < 2) {
+        alert("Erreur : Le fichier CSV semble vide ou ne contient pas assez de données.");
+        return;
+    }
+
+    // 1. Extraction de la première ligne (Titres)
+    const headers = data[0];
+    const datasetLabel = headers[1] ? String(headers[1]).trim() : 'Données';
+
+    const labels = [];
+    const values = [];
+
+    // 2. Extraction des données ligne par ligne
+    for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        
+        // On s'assure que la ligne possède bien au moins 2 colonnes
+        if (row.length >= 2) {
+            labels.push(String(row[0]).trim());
+            
+            // Nettoyage de la donnée : gestion des virgules françaises
+            let rawValue = String(row[1]).trim().replace(',', '.');
+            values.push(parseFloat(rawValue));
+        }
+    }
+
+    // Vérification de sécurité
+    if (values.some(isNaN)) {
+        alert("Erreur : Certaines valeurs de la deuxième colonne ne sont pas des nombres valides.");
+        return;
+    }
+
+    // 3. Création d'un Canvas temporaire hors-écran
+    const canvas = document.createElement('canvas');
+    canvas.width = 600;
+    canvas.height = 350;
+    canvas.style.display = 'none';
+    document.body.appendChild(canvas);
+
+    // 4. Récupération dynamique de la palette
+    const style = getComputedStyle(document.documentElement);
+    const themeMain = style.getPropertyValue('--theme-main').trim() || '#6a6af4';
+    const themeSun = style.getPropertyValue('--theme-sun').trim() || '#000091';
+    
+    const pieColors = [
+        themeSun, 
+        themeMain, 
+        '#808080', 
+        'color-mix(in srgb, ' + themeMain + ', white 40%)',
+        'color-mix(in srgb, ' + themeSun + ', black 30%)'
+    ];
+
+    // 5. Initialisation de Chart.js
+    const chart = new Chart(canvas, {
+        type: type,
+        data: {
+            labels: labels,
+            datasets: [{
+                label: datasetLabel, // Titre issu du CSV
+                data: values,
+                backgroundColor: (type === 'pie' || type === 'doughnut') ? pieColors : themeMain,
+                borderColor: themeSun,
+                borderWidth: 2,
+                fill: type === 'line' ? false : true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: false,
+            animation: false, // CRITIQUE pour l'export immédiat
+            plugins: {
+                legend: {
+                    display: (type === 'pie' || type === 'doughnut' || type === 'line'),
+                    position: 'bottom'
+                }
+            },
+            scales: (type === 'pie' || type === 'doughnut') ? {} : {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    // 6. Capture instantanée en Base64 et nettoyage
+    const imgData = chart.toBase64Image();
+    chart.destroy();
+    canvas.remove();
+
+    // 7. Insertion dans l'éditeur (avec compatibilité pour la "Corbeille" flottante)
+    const chartHTML = `
+        <div style="display: flex; justify-content: center; margin: 2rem 0;" contenteditable="false">
+            <img src="${imgData}" alt="Graphique : ${datasetLabel}" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; padding: 1rem; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+        </div>
+    `;
+    
+    insertHTML(chartHTML);
+}
+
+/**
+ * Parse le CSV, génère le Canvas caché, et insère l'image Base64
+ */
+/**
+ * Traite les données parsées par PapaParse, génère le Canvas caché, et insère l'image Base64
+ */
+/**
+ * Traite les données parsées par PapaParse, génère le Canvas caché, et insère l'image Base64
+ * Gère désormais un nombre illimité de colonnes (Multi-datasets) !
+ */
+function generateChartFromCSV(data, type) {
+    if (!data || data.length < 2) {
+        alert("Erreur : Le fichier CSV semble vide ou ne contient pas assez de données.");
+        return;
+    }
+
+    // Détection automatique d'un CSV Horizontal (Pivotement)
+    if (data.length === 2 && data[0].length > 2) {
+        const transposed = [];
+        for (let c = 0; c < data[0].length; c++) {
+            transposed.push([data[0][c], data[1][c]]);
+        }
+        let firstVal = String(transposed[0][1]).replace(',', '.');
+        if (!isNaN(parseFloat(firstVal))) {
+            transposed.unshift(["Libellés", "Données"]);
+        }
+        data = transposed;
+    }
+
+    // 1. Récupération dynamique de la palette (on le fait plus tôt pour distribuer les couleurs)
+    const style = getComputedStyle(document.documentElement);
+    const themeMain = style.getPropertyValue('--theme-main').trim() || '#6a6af4';
+    const themeSun = style.getPropertyValue('--theme-sun').trim() || '#000091';
+    
+    // Une palette élargie pour différencier les différentes colonnes
+    const dynamicPalette = [
+        themeMain, 
+        themeSun, 
+        `color-mix(in srgb, ${themeMain}, white 40%)`,
+        `color-mix(in srgb, ${themeSun}, black 20%)`,
+        '#808080'
+    ];
+
+    // 2. Initialisation des multiples jeux de données (Datasets)
+    const headers = data[0];
+    const numCols = headers.length;
+    const datasets = [];
+
+    // On crée un dataset pour chaque colonne (à partir de la 2ème)
+    for (let c = 1; c < numCols; c++) {
+        const color = dynamicPalette[(c - 1) % dynamicPalette.length]; // Alterne les couleurs
+        
+        datasets.push({
+            label: headers[c] ? String(headers[c]).trim() : `Série ${c}`,
+            data: [],
+            // Si c'est un camembert, on met toute la palette, sinon une seule couleur par courbe/barre
+            backgroundColor: (type === 'pie' || type === 'doughnut') ? dynamicPalette : color,
+            borderColor: (type === 'pie' || type === 'doughnut') ? '#ffffff' : themeSun,
+            borderWidth: 2,
+            fill: type === 'line' ? false : true,
+            tension: 0.3
+        });
+    }
+
+    const labels = [];
+
+    // 3. Extraction des données ligne par ligne
+    for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        
+        if (row && row.length >= 2) {
+            // Ignore les lignes vides
+            if (String(row[0]).trim() === '' && String(row[1]).trim() === '') continue;
+
+            labels.push(String(row[0]).trim());
+            
+            // On remplit chaque dataset avec la colonne correspondante
+            for (let c = 1; c < numCols; c++) {
+                // Si la cellule est vide, on met 0 par défaut
+                let rawValue = String(row[c] || '0').trim().replace(',', '.');
+                let parsedValue = parseFloat(rawValue);
+                
+                // Si ce n'est pas un nombre, on force à 0 pour ne pas crasher Chart.js
+                datasets[c - 1].data.push(isNaN(parsedValue) ? 0 : parsedValue);
+            }
+        }
+    }
+
+    // 4. Création d'un Canvas temporaire hors-écran
+    const canvas = document.createElement('canvas');
+    canvas.width = 600;
+    canvas.height = 350;
+    canvas.style.display = 'none';
+    document.body.appendChild(canvas);
+
+    // 5. Initialisation de Chart.js
+    const chart = new Chart(canvas, {
+        type: type,
+        data: {
+            labels: labels,
+            datasets: datasets // On injecte notre tableau contenant toutes les colonnes !
+        },
+        options: {
+            responsive: false,
+            animation: false,
+            plugins: {
+                legend: {
+                    display: true, // Toujours afficher la légende si on a plusieurs colonnes
+                    position: 'bottom'
+                }
+            },
+            scales: (type === 'pie' || type === 'doughnut') ? {} : {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    // 6. Capture instantanée en Base64 et nettoyage
+    const imgData = chart.toBase64Image();
+    chart.destroy();
+    canvas.remove();
+
+    // 7. Insertion dans l'éditeur
+    // On génère un titre global basé sur tous les datasets
+    const allLabels = datasets.map(d => d.label).join(' vs ');
+    const chartHTML = `
+        <div style="display: flex; justify-content: center; margin: 2rem 0;" contenteditable="false">
+            <img src="${imgData}" alt="Graphique : ${allLabels}" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; padding: 1rem; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+        </div>
+    `;
+    
+    insertHTML(chartHTML);
+}
+
 // =====================================================================
 // INTERCEPTEUR DE COLLAGE (SPECIAL TABLEUR EXCEL / SHEETS)
 // =====================================================================

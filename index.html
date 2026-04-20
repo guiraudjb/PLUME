@@ -143,6 +143,12 @@
                 <button class="tool-btn fr-icon-list-unordered" onclick="format('insertUnorderedList')" title="Liste à puces"></button>
                 <button class="tool-btn fr-icon-list-ordered" onclick="format('insertOrderedList')" title="Liste numérotée"></button>
             </div>
+            <div class="toolbar-group">
+                <span class="group-label">Graphiques</span>
+                <button class="tool-btn" onclick="insertChart('bar')" title="Graphique en barres">📊 Barres</button>
+                <button class="tool-btn" onclick="insertChart('doughnut')" title="Graphique circulaire">🍩 Anneau</button>
+                <button class="tool-btn" onclick="insertChart('line')" title="Graphique en courbes">📈 Courbe</button>
+            </div>
         </div>
 
         <div class="toolbar-row" style="background:#f0f0f0">
@@ -208,5 +214,7 @@
     </div>
 
     <script src="app.js"></script>
+    <script src="./libs/papaparse.min.js"></script>
+    <script src="./libs/chart.min.js"></script>
 </body>
 </html>
