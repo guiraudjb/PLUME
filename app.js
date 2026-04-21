@@ -1,32 +1,33 @@
 let logoDataUrl = "";
 const palettes = {
     // Marque de l'État
-    marianne:  { main: '#6a6af4', sun: '#000091', bg: '#f5f5fe' }, // Bleu France
-    rouge:     { main: '#e1000f', sun: '#c9191e', bg: '#fdf4f4' }, // Rouge Marianne
+    marianne:     { main: '#6a6af4', sun: '#000091', bg: '#f5f5fe' }, // Bleu France
+    rouge:        { main: '#e1000f', sun: '#c9191e', bg: '#fdf4f4' }, // Rouge Marianne
 
-    // Couleurs Chaudes
-    tuile:     { main: '#ce614a', sun: '#ad4847', bg: '#fde3e0' }, 
-    macaron:   { main: '#e18b76', sun: '#8d533e', bg: '#fef4f2' }, 
-    opera:     { main: '#c94668', sun: '#743242', bg: '#fef0f2' }, 
-    carmin:    { main: '#c62828', sun: '#791818', bg: '#fdf2f3' }, 
-    tournesol: { main: '#c8aa39', sun: '#716043', bg: '#fef6e3' }, 
-    moutarde:  { main: '#c3992a', sun: '#695228', bg: '#fef5e8' },
+    // Couleurs Illustratives - Chaudes
+    tuile:        { main: '#ce614a', sun: '#a94645', bg: '#fef4f3' }, // Pink Tuile (Corrigé)
+    macaron:      { main: '#e18b76', sun: '#8d533e', bg: '#fef4f2' }, // Pink Macaron
+    opera:        { main: '#c94668', sun: '#743242', bg: '#fef0f2' }, // Brown Opera
+    terre_battue: { main: '#e4794a', sun: '#755348', bg: '#fee9e5' }, // Orange Terre Battue (Ajouté)
+    tournesol:    { main: '#c8aa39', sun: '#716043', bg: '#fef6e3' }, // Yellow Tournesol
+    moutarde:     { main: '#c3992a', sun: '#695228', bg: '#fef5e8' }, // Yellow Moutarde
 
-    // Couleurs Froides
-    ecume:     { main: '#465f9d', sun: '#2f4077', bg: '#e9edfe' }, 
-    celadon:   { main: '#2b9487', sun: '#1b615a', bg: '#e4fdf6' },
-    amethyste: { main: '#a558a0', sun: '#6e445a', bg: '#f3e6f3' }, 
-    glycine:   { main: '#b340a0', sun: '#6e445a', bg: '#fee7fc' },
+    // Couleurs Illustratives - Froides / Violettes
+    ecume:        { main: '#465f9d', sun: '#2f4077', bg: '#e9edfe' }, // Blue Écume
+    cumulus:      { main: '#417dc4', sun: '#3558a2', bg: '#e6eefe' }, // Blue Cumulus (Ajouté)
+    glycine:      { main: '#a558a0', sun: '#6e445a', bg: '#fee7fc' }, // Purple Glycine (Corrigé)
 
-    // Couleurs Vertes / Nature
-    emeraude:  { main: '#00a95f', sun: '#297254', bg: '#c3fad5' }, 
-    menthe:    { main: '#009081', sun: '#37635f', bg: '#bafaee' }, 
-    bourgeon:  { main: '#68a532', sun: '#447049', bg: '#e6feda' }, 
-    fougere:   { main: '#348e4b', sun: '#1f542d', bg: '#dffdf7' },
-    tilleul:   { main: '#b7a73f', sun: '#66673d', bg: '#fef7da' },
+    // Couleurs Illustratives - Vertes / Nature
+    emeraude:     { main: '#00a95f', sun: '#297254', bg: '#c3fad5' }, // Green Émeraude
+    menthe:       { main: '#009081', sun: '#37635f', bg: '#bafaee' }, // Green Menthe
+    archipel:     { main: '#009099', sun: '#006a6f', bg: '#e5fbfd' }, // Green Archipel (Remplace Céladon)
+    bourgeon:     { main: '#68a532', sun: '#447049', bg: '#e6feda' }, // Green Bourgeon
+    tilleul:      { main: '#b7a73f', sun: '#66673d', bg: '#fef7da' }, // Green Tilleul-Verveine
 
-    // Tons Neutres
-    terre:     { main: '#927c77', sun: '#50433f', bg: '#f6f5f5' }
+    // Couleurs Illustratives - Tons Neutres / Bruns
+    cafe_creme:   { main: '#d1b781', sun: '#685c48', bg: '#f7ecce' }, // Brown Café Crème (Ajouté)
+    caramel:      { main: '#c08c65', sun: '#855b48', bg: '#f3e2d9' }, // Brown Caramel (Ajouté)
+    gris_galet:   { main: '#aea397', sun: '#6a6156', bg: '#f3ede5' }  // Beige Gris Galet (Remplace Terre)
 };
 
 function applyPalette() {
@@ -34,11 +35,18 @@ function applyPalette() {
     document.documentElement.style.setProperty('--theme-main', p.main);
     document.documentElement.style.setProperty('--theme-sun', p.sun);
     document.documentElement.style.setProperty('--theme-bg', p.bg);
+    refreshAllCharts();
 }
 
-function format(cmd, val = null) { document.execCommand(cmd, false, val); }
+function format(cmd, val = null) {
+    enforceFocus();
+    document.execCommand(cmd, false, val);
+}
 
-function insertHTML(html) { document.execCommand('insertHTML', false, html + '<p><br></p>'); }
+function insertHTML(html) { 
+    enforceFocus();
+    document.execCommand('insertHTML', false, html + '<p><br></p>'); 
+    }
 
 function insertImage() {
     // 1. Création d'un sélecteur de fichier invisible
@@ -497,8 +505,6 @@ function scaleUI() {
     document.getElementById('pages-container').style.transform = `scale(${ratio})`;
 }
 
-
-
 function deletePage(btn) {
     const page = btn.closest('.page-a4');
     const totalPages = document.querySelectorAll('.page-a4').length;
@@ -514,9 +520,6 @@ function deletePage(btn) {
     }
 }
 
-/**
- * Recalcule les numéros de toutes les pages (footer et ID)
- */
 function renumberPages() {
     const pages = document.querySelectorAll('.page-a4');
     pages.forEach((page, index) => {
@@ -538,9 +541,6 @@ function renumberPages() {
 // MODULE DE GÉNÉRATION DE GRAPHIQUES (CHART.JS + PAPAPARSE -> BASE64)
 // =====================================================================
 
-/**
- * Ouvre l'explorateur de fichiers et délègue la lecture à Papa Parse
- */
 function insertChart(type) {
     const input = document.createElement('input');
     input.type = 'file';
@@ -565,125 +565,102 @@ function insertChart(type) {
     input.click();
 }
 
+// =====================================================================
+// MODULE DE MASQUAGE AUTOMATIQUE DE LA BARRE D'OUTILS (MODE ZEN)
+// =====================================================================
+
+const editorHeader = document.querySelector('.editor-header');
+let idleTimer;
+
 /**
- * Traite les données parsées, génère le Canvas caché, et insère l'image Base64
+ * Lance le compte à rebours avant le masquage
  */
-function generateChartFromCSV(data, type) {
-    // data est maintenant un tableau de tableaux (ex: [["Trimestre", "CA"], ["T1", "150"]])
-    if (data.length < 2) {
-        alert("Erreur : Le fichier CSV semble vide ou ne contient pas assez de données.");
-        return;
-    }
-
-    // 1. Extraction de la première ligne (Titres)
-    const headers = data[0];
-    const datasetLabel = headers[1] ? String(headers[1]).trim() : 'Données';
-
-    const labels = [];
-    const values = [];
-
-    // 2. Extraction des données ligne par ligne
-    for (let i = 1; i < data.length; i++) {
-        const row = data[i];
-        
-        // On s'assure que la ligne possède bien au moins 2 colonnes
-        if (row.length >= 2) {
-            labels.push(String(row[0]).trim());
-            
-            // Nettoyage de la donnée : gestion des virgules françaises
-            let rawValue = String(row[1]).trim().replace(',', '.');
-            values.push(parseFloat(rawValue));
-        }
-    }
-
-    // Vérification de sécurité
-    if (values.some(isNaN)) {
-        alert("Erreur : Certaines valeurs de la deuxième colonne ne sont pas des nombres valides.");
-        return;
-    }
-
-    // 3. Création d'un Canvas temporaire hors-écran
-    const canvas = document.createElement('canvas');
-    canvas.width = 600;
-    canvas.height = 350;
-    canvas.style.display = 'none';
-    document.body.appendChild(canvas);
-
-    // 4. Récupération dynamique de la palette
-    const style = getComputedStyle(document.documentElement);
-    const themeMain = style.getPropertyValue('--theme-main').trim() || '#6a6af4';
-    const themeSun = style.getPropertyValue('--theme-sun').trim() || '#000091';
+function startIdleTimer() {
+    clearTimeout(idleTimer);
     
-    const pieColors = [
-        themeSun, 
-        themeMain, 
-        '#808080', 
-        'color-mix(in srgb, ' + themeMain + ', white 40%)',
-        'color-mix(in srgb, ' + themeSun + ', black 30%)'
-    ];
-
-    // 5. Initialisation de Chart.js
-    const chart = new Chart(canvas, {
-        type: type,
-        data: {
-            labels: labels,
-            datasets: [{
-                label: datasetLabel, // Titre issu du CSV
-                data: values,
-                backgroundColor: (type === 'pie' || type === 'doughnut') ? pieColors : themeMain,
-                borderColor: themeSun,
-                borderWidth: 2,
-                fill: type === 'line' ? false : true,
-                tension: 0.3
-            }]
-        },
-        options: {
-            responsive: false,
-            animation: false, // CRITIQUE pour l'export immédiat
-            plugins: {
-                legend: {
-                    display: (type === 'pie' || type === 'doughnut' || type === 'line'),
-                    position: 'bottom'
-                }
-            },
-            scales: (type === 'pie' || type === 'doughnut') ? {} : {
-                y: { beginAtZero: true }
-            }
+    // Masque après 4 secondes (laisse le temps de lire au lancement de la page)
+    idleTimer = setTimeout(() => {
+        // Sécurité critique : on ne masque pas si la souris est sur la barre
+        // ou si l'utilisateur est en train de taper dans un champ de réglage (Titre, Date...)
+        if (!editorHeader.matches(':hover') && !editorHeader.matches(':focus-within')) {
+            editorHeader.classList.add('toolbar-hidden');
         }
-    });
-
-    // 6. Capture instantanée en Base64 et nettoyage
-    const imgData = chart.toBase64Image();
-    chart.destroy();
-    canvas.remove();
-
-    // 7. Insertion dans l'éditeur (avec compatibilité pour la "Corbeille" flottante)
-    const chartHTML = `
-        <div style="display: flex; justify-content: center; margin: 2rem 0;" contenteditable="false">
-            <img src="${imgData}" alt="Graphique : ${datasetLabel}" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; padding: 1rem; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
-        </div>
-    `;
-    
-    insertHTML(chartHTML);
+    }, 4000);
 }
 
 /**
- * Parse le CSV, génère le Canvas caché, et insère l'image Base64
+ * Fait réapparaître la barre instantanément
  */
+function wakeUpToolbar() {
+    if (editorHeader.classList.contains('toolbar-hidden')) {
+        editorHeader.classList.remove('toolbar-hidden');
+    }
+    // À chaque réveil, on relance le chronomètre
+    startIdleTimer();
+}
+
+// 1. Détection des mouvements de souris sur toute la page
+document.addEventListener('mousemove', function(e) {
+    // Le bandeau République Française fait environ 90px de haut.
+    // Si la souris remonte dans les 140 premiers pixels de l'écran, on déroule la barre.
+    if (e.clientY < 140 || editorHeader.contains(e.target)) {
+        wakeUpToolbar();
+    }
+});
+
+// 2. Gestion de l'accessibilité au clavier (Focus)
+editorHeader.addEventListener('focusin', wakeUpToolbar);
+editorHeader.addEventListener('focusout', startIdleTimer);
+
+// 3. Cas spécifique pour les écrans tactiles ou petits écrans
+// Toucher le bandeau "République Française" réveille la barre d'outils
+document.querySelector('.fr-header').addEventListener('click', wakeUpToolbar);
+
+// 4. Déclenchement automatique dès l'ouverture de la page web
+startIdleTimer();
+
+
+function insertChart(type) {
+    // 1. NOUVEAU : Sauvegarde de la position actuelle du curseur
+    const selection = window.getSelection();
+    let savedRange = null;
+    if (selection.rangeCount > 0) {
+        savedRange = selection.getRangeAt(0);
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv, text/csv';
+
+    input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        Papa.parse(file, {
+            skipEmptyLines: true,
+            complete: function(results) {
+                // On transmet la position mémorisée (savedRange) à la fonction suivante
+                generateChartFromCSV(results.data, type, savedRange);
+            },
+            error: function(err) {
+                alert("Erreur de lecture du fichier CSV.");
+            }
+        });
+    };
+    
+    input.click();
+}
+
 /**
- * Traite les données parsées par PapaParse, génère le Canvas caché, et insère l'image Base64
+ * Traite les données CSV, affiche une Modale WYSIWYG pour édition, puis insère l'image
  */
-/**
- * Traite les données parsées par PapaParse, génère le Canvas caché, et insère l'image Base64
- * Gère désormais un nombre illimité de colonnes (Multi-datasets) !
- */
-function generateChartFromCSV(data, type) {
+function generateChartFromCSV(data, type, savedRange) {
     if (!data || data.length < 2) {
-        alert("Erreur : Le fichier CSV semble vide ou ne contient pas assez de données.");
+        alert("Erreur : Le fichier CSV semble vide ou incomplet.");
         return;
     }
 
-    // Détection automatique d'un CSV Horizontal (Pivotement)
+    // 1. DÉTECTION ET TRANSPOSITION AUTOMATIQUE
     if (data.length === 2 && data[0].length > 2) {
         const transposed = [];
         for (let c = 0; c < data[0].length; c++) {
@@ -691,115 +668,371 @@ function generateChartFromCSV(data, type) {
         }
         let firstVal = String(transposed[0][1]).replace(',', '.');
         if (!isNaN(parseFloat(firstVal))) {
-            transposed.unshift(["Libellés", "Données"]);
+            transposed.unshift(["Libellés", "Valeurs"]);
         }
         data = transposed;
     }
 
-    // 1. Récupération dynamique de la palette (on le fait plus tôt pour distribuer les couleurs)
+    // 2. PALETTE DE COULEURS ÉTENDUE (Jusqu'à 8 séries)
     const style = getComputedStyle(document.documentElement);
     const themeMain = style.getPropertyValue('--theme-main').trim() || '#6a6af4';
     const themeSun = style.getPropertyValue('--theme-sun').trim() || '#000091';
     
-    // Une palette élargie pour différencier les différentes colonnes
     const dynamicPalette = [
         themeMain, 
-        themeSun, 
-        `color-mix(in srgb, ${themeMain}, white 40%)`,
-        `color-mix(in srgb, ${themeSun}, black 20%)`,
-        '#808080'
+        themeSun,
+        `color-mix(in srgb, ${themeMain}, white 25%)`, // Nuance claire 1
+        `color-mix(in srgb, ${themeMain}, white 55%)`, // Nuance claire 2
+        `color-mix(in srgb, ${themeMain}, white 80%)`, // Nuance très claire
+        `color-mix(in srgb, ${themeSun}, black 20%)`,  // Nuance sombre 1
+        `color-mix(in srgb, ${themeSun}, black 45%)`,  // Nuance très sombre
+        '#666666'                                      // Gris de sécurité final
     ];
 
-    // 2. Initialisation des multiples jeux de données (Datasets)
+    // 3. PRÉPARATION DES DATASETS
     const headers = data[0];
     const numCols = headers.length;
     const datasets = [];
 
-    // On crée un dataset pour chaque colonne (à partir de la 2ème)
     for (let c = 1; c < numCols; c++) {
-        const color = dynamicPalette[(c - 1) % dynamicPalette.length]; // Alterne les couleurs
-        
+        const color = dynamicPalette[(c - 1) % dynamicPalette.length];
         datasets.push({
             label: headers[c] ? String(headers[c]).trim() : `Série ${c}`,
             data: [],
-            // Si c'est un camembert, on met toute la palette, sinon une seule couleur par courbe/barre
-            backgroundColor: (type === 'pie' || type === 'doughnut') ? dynamicPalette : color,
-            borderColor: (type === 'pie' || type === 'doughnut') ? '#ffffff' : themeSun,
-            borderWidth: 2,
-            fill: type === 'line' ? false : true,
-            tension: 0.3
+            backgroundColor: (type === 'pie' || type === 'doughnut') 
+                ? dynamicPalette 
+                : (['line', 'radar'].includes(type) ? `color-mix(in srgb, ${color}, transparent 80%)` : color),
+            borderColor: (type === 'pie' || type === 'doughnut') ? '#ffffff' : color,
+            borderWidth: 2, borderRadius: type === 'bar' ? 4 : 0, fill: type === 'line' ? 'origin' : true, tension: 0.4
         });
     }
 
     const labels = [];
 
-    // 3. Extraction des données ligne par ligne
     for (let i = 1; i < data.length; i++) {
         const row = data[i];
-        
         if (row && row.length >= 2) {
-            // Ignore les lignes vides
             if (String(row[0]).trim() === '' && String(row[1]).trim() === '') continue;
-
             labels.push(String(row[0]).trim());
-            
-            // On remplit chaque dataset avec la colonne correspondante
             for (let c = 1; c < numCols; c++) {
-                // Si la cellule est vide, on met 0 par défaut
                 let rawValue = String(row[c] || '0').trim().replace(',', '.');
                 let parsedValue = parseFloat(rawValue);
-                
-                // Si ce n'est pas un nombre, on force à 0 pour ne pas crasher Chart.js
                 datasets[c - 1].data.push(isNaN(parsedValue) ? 0 : parsedValue);
             }
         }
     }
 
-    // 4. Création d'un Canvas temporaire hors-écran
-    const canvas = document.createElement('canvas');
-    canvas.width = 600;
-    canvas.height = 350;
-    canvas.style.display = 'none';
-    document.body.appendChild(canvas);
+    // 4. CRÉATION DE L'INTERFACE WYSIWYG (LA MODALE)
+    const defaultTitle = "Titre du graphique";
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'chart-modal-overlay';
+    
+    // On génère dynamiquement les champs de texte pour chaque série de données
+    let seriesInputsHTML = '';
+    datasets.forEach((ds, i) => {
+        seriesInputsHTML += `
+            <div style="margin-top: 1rem;">
+                <label>Nom de la légende (Série ${i+1})</label>
+                <input type="text" class="chart-edit-serie" data-index="${i}" value="${ds.label}">
+            </div>
+        `;
+    });
 
-    // 5. Initialisation de Chart.js
-    const chart = new Chart(canvas, {
-        type: type,
-        data: {
-            labels: labels,
-            datasets: datasets // On injecte notre tableau contenant toutes les colonnes !
-        },
+    overlay.innerHTML = `
+        <div class="chart-modal">
+            <div class="chart-modal-controls">
+                <h3 style="margin-top:0; color:var(--theme-sun); font-size:1.3rem;">Édition du graphique</h3>
+                <div>
+                    <label>Titre principal</label>
+                    <input type="text" id="chart-edit-title" value="${defaultTitle}">
+                </div>
+                ${seriesInputsHTML}
+                <div class="chart-modal-actions">
+                    <button id="chart-btn-cancel" style="padding:0.5rem 1rem; border:1px solid var(--theme-sun); background:#fff; color:var(--theme-sun); cursor:pointer; border-radius:4px;">Annuler</button>
+                    <button id="chart-btn-insert" style="padding:0.5rem 1rem; background:var(--theme-sun); color:#fff; border:none; cursor:pointer; border-radius:4px;">Insérer</button>
+                </div>
+            </div>
+            <div class="chart-modal-preview">
+                <canvas id="chart-preview-canvas"></canvas>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // 5. INITIALISATION DE CHART.JS DANS LA MODALE
+    const ctx = document.getElementById('chart-preview-canvas');
+    // On fixe la taille du canvas pour l'export final
+    ctx.width = 640; 
+    ctx.height = 380;
+
+// Détermination du vrai type pour Chart.js
+    const actualType = type === 'horizontalBar' ? 'bar' : type;
+    const isHorizontal = type === 'horizontalBar';
+    const isCircular = ['pie', 'doughnut', 'radar', 'polarArea'].includes(actualType);
+
+    const chart = new Chart(ctx, {
+        type: actualType,
+        data: { labels: labels, datasets: datasets },
+        plugins: [ChartDataLabels],
         options: {
-            responsive: false,
+            indexAxis: isHorizontal ? 'y' : 'x', // NOUVEAU : Pivote le graphique si nécessaire
+            responsive: false, 
             animation: false,
+            layout: { padding: { top: 30, bottom: 10, left: 10, right: 10 } },
             plugins: {
-                legend: {
-                    display: true, // Toujours afficher la légende si on a plusieurs colonnes
-                    position: 'bottom'
+                title: { display: true, text: defaultTitle, font: { size: 16, weight: 'bold', family: 'Marianne' }, padding: { bottom: 10 } },
+                legend: { display: true, position: 'bottom', labels: { usePointStyle: true, padding: 20, font: { family: 'Marianne' } } },
+                datalabels: {
+                    display: 'auto', 
+                    backgroundColor: isCircular ? 'transparent' : 'rgba(255, 255, 255, 0.8)',
+                    borderRadius: 3,
+                    padding: 2,
+                    color: isCircular ? '#ffffff' : themeSun,
+                    font: { weight: 'bold', family: 'Marianne', size: 11 },
+                    anchor: isCircular ? 'center' : 'end',
+                    align: isCircular ? 'center' : (isHorizontal ? 'right' : 'top'), // Ajustement des étiquettes
+                    offset: 4,
+                    formatter: (value) => (!value || isNaN(value)) ? '' : new Intl.NumberFormat('fr-FR').format(value)
                 }
             },
-            scales: (type === 'pie' || type === 'doughnut') ? {} : {
-                y: { beginAtZero: true }
+            // Inversion des échelles de lecture (x/y) si le graphique est horizontal
+            scales: isCircular ? {} : {
+                y: { 
+                    beginAtZero: true, 
+                    grid: { color: isHorizontal ? 'transparent' : 'rgba(0, 0, 0, 0.05)' }, 
+                    ticks: { font: { family: 'Marianne' }, callback: (v) => isHorizontal ? v : new Intl.NumberFormat('fr-FR').format(v) } 
+                },
+                x: { 
+                    grid: { color: isHorizontal ? 'rgba(0, 0, 0, 0.05)' : 'transparent' }, 
+                    ticks: { font: { family: 'Marianne' }, callback: (v) => isHorizontal ? new Intl.NumberFormat('fr-FR').format(v) : v } 
+                }
             }
         }
     });
-
-    // 6. Capture instantanée en Base64 et nettoyage
-    const imgData = chart.toBase64Image();
-    chart.destroy();
-    canvas.remove();
-
-    // 7. Insertion dans l'éditeur
-    // On génère un titre global basé sur tous les datasets
-    const allLabels = datasets.map(d => d.label).join(' vs ');
-    const chartHTML = `
-        <div style="display: flex; justify-content: center; margin: 2rem 0;" contenteditable="false">
-            <img src="${imgData}" alt="Graphique : ${allLabels}" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; padding: 1rem; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
-        </div>
-    `;
     
-    insertHTML(chartHTML);
+    // 6. MÉCANISME DE MISE À JOUR EN TEMPS RÉEL (WYSIWYG)
+    document.getElementById('chart-edit-title').addEventListener('input', function(e) {
+        chart.options.plugins.title.text = e.target.value;
+        chart.update(); // Demande à Chart.js de se redessiner
+    });
+
+    document.querySelectorAll('.chart-edit-serie').forEach(input => {
+        input.addEventListener('input', function(e) {
+            const index = e.target.getAttribute('data-index');
+            chart.data.datasets[index].label = e.target.value;
+            chart.update();
+        });
+    });
+
+    // 7. ACTIONS DES BOUTONS
+    // 7. ACTIONS DES BOUTONS
+    document.getElementById('chart-btn-cancel').addEventListener('click', () => {
+        chart.destroy();
+        overlay.remove();
+    });
+
+    document.getElementById('chart-btn-insert').addEventListener('click', () => {
+        const imgData = chart.toBase64Image();
+        
+        // --- NOUVEAU : Sauvegarde de l'état final du graphique ---
+        // On extrait uniquement ce qui est nécessaire pour le redessiner plus tard
+        const finalDatasets = chart.data.datasets.map(ds => ({
+            label: ds.label,
+            data: ds.data
+        }));
+        
+        const chartConfig = {
+            type: chart.config.type,
+            title: chart.options.plugins.title.text,
+            labels: chart.data.labels,
+            datasets: finalDatasets
+        };
+        
+        // On convertit cet objet en texte sécurisé pour l'intégrer dans le HTML
+        const safeConfig = encodeURIComponent(JSON.stringify(chartConfig));
+        // ---------------------------------------------------------
+
+        chart.destroy();
+        overlay.remove();
+
+        if (savedRange) {
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(savedRange);
+        }
+
+        // --- MODIFIÉ : Ajout de l'attribut data-chart-config ---
+        const chartHTML = `
+            <div class="chart-container" data-chart-config="${safeConfig}" style="display: flex; justify-content: center; margin: 2.5rem 0;" contenteditable="false">
+                <img src="${imgData}" alt="Graphique de données" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; padding: 1.2rem; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+            </div>
+            <p><br></p>
+        `;
+        
+        insertHTML(chartHTML);
+    });
+
 }
+
+/**
+ * Scanne le document, lit la mémoire des graphiques et les met à jour avec la palette actuelle
+ */
+function refreshAllCharts() {
+    const chartContainers = document.querySelectorAll('.chart-container[data-chart-config]');
+    if (chartContainers.length === 0) return;
+
+    // 1. Récupération des nouvelles couleurs
+    const style = getComputedStyle(document.documentElement);
+    const themeMain = style.getPropertyValue('--theme-main').trim() || '#6a6af4';
+    const themeSun = style.getPropertyValue('--theme-sun').trim() || '#000091';
+    
+    // PALETTE DE COULEURS ÉTENDUE
+    const dynamicPalette = [
+        themeMain, 
+        themeSun,
+        `color-mix(in srgb, ${themeMain}, white 25%)`,
+        `color-mix(in srgb, ${themeMain}, white 55%)`,
+        `color-mix(in srgb, ${themeMain}, white 80%)`,
+        `color-mix(in srgb, ${themeSun}, black 20%)`,
+        `color-mix(in srgb, ${themeSun}, black 45%)`,
+        '#666666'
+    ];
+
+    // 2. Traitement de chaque graphique
+    chartContainers.forEach(container => {
+        try {
+            // Lecture de la mémoire (sac à dos)
+            const rawConfig = container.getAttribute('data-chart-config');
+            const config = JSON.parse(decodeURIComponent(rawConfig));
+            
+            // Reconstitution des datasets avec les NOUVELLES couleurs
+            const newDatasets = config.datasets.map((ds, index) => {
+                const color = dynamicPalette[index % dynamicPalette.length];
+                return {
+                    label: ds.label,
+                    data: ds.data,
+                    backgroundColor: (config.type === 'pie' || config.type === 'doughnut') 
+                        ? dynamicPalette 
+                        : (['line', 'radar'].includes(config.type) ? `color-mix(in srgb, ${color}, transparent 80%)` : color),
+                    borderColor: (config.type === 'pie' || config.type === 'doughnut') ? '#ffffff' : color,
+                    borderWidth: 2, borderRadius: config.type === 'bar' ? 4 : 0, fill: config.type === 'line' ? 'origin' : true, tension: 0.4
+                };
+            });
+
+            // Création d'un Canvas temporaire
+            const canvas = document.createElement('canvas');
+            canvas.width = 640; canvas.height = 380;
+            canvas.style.display = 'none';
+            document.body.appendChild(canvas);
+
+            const actualType = config.type === 'horizontalBar' ? 'bar' : config.type;
+            const isHorizontal = config.type === 'horizontalBar';
+            const isCircular = ['pie', 'doughnut', 'radar', 'polarArea'].includes(actualType);
+
+            // Génération silencieuse
+            const chart = new Chart(canvas, {
+                type: actualType,
+                data: { labels: config.labels, datasets: newDatasets },
+                plugins: [ChartDataLabels],
+                options: {
+                    indexAxis: isHorizontal ? 'y' : 'x',
+                    responsive: false, animation: false,
+                    layout: { padding: { top: 30, bottom: 10, left: 10, right: 10 } },
+                    plugins: {
+                        title: { display: true, text: config.title, font: { size: 16, weight: 'bold', family: 'Marianne' }, padding: { bottom: 10 } },
+                        legend: { display: true, position: 'bottom', labels: { usePointStyle: true, padding: 20, font: { family: 'Marianne' } } },
+                        datalabels: {
+                            display: 'auto',
+                            backgroundColor: isCircular ? 'transparent' : 'rgba(255, 255, 255, 0.8)',
+                            borderRadius: 3, padding: 2,
+                            color: isCircular ? '#ffffff' : themeSun,
+                            font: { weight: 'bold', family: 'Marianne', size: 11 },
+                            anchor: isCircular ? 'center' : 'end',
+                            align: isCircular ? 'center' : (isHorizontal ? 'right' : 'top'),
+                            offset: 4,
+                            formatter: (v) => (!v || isNaN(v)) ? '' : new Intl.NumberFormat('fr-FR').format(v)
+                        }
+                    },
+                    scales: isCircular ? {} : {
+                        y: { beginAtZero: true, grid: { color: isHorizontal ? 'transparent' : 'rgba(0,0,0,0.05)' }, ticks: { font: { family: 'Marianne' }, callback: (v) => isHorizontal ? v : new Intl.NumberFormat('fr-FR').format(v) } },
+                        x: { grid: { color: isHorizontal ? 'rgba(0,0,0,0.05)' : 'transparent' }, ticks: { font: { family: 'Marianne' }, callback: (v) => isHorizontal ? new Intl.NumberFormat('fr-FR').format(v) : v } }
+                    }
+                }
+            });
+
+            // Remplacement de l'image
+            const imgElement = container.querySelector('img');
+            if (imgElement) {
+                imgElement.src = chart.toBase64Image();
+            }
+
+            // Nettoyage
+            chart.destroy();
+            canvas.remove();
+
+        } catch (e) {
+            console.error("Impossible de rafraîchir le graphique", e);
+        }
+    });
+}
+
+// =====================================================================
+// MODULE DE MÉMOIRE GLOBALE DU CURSEUR (SÉCURITÉ FOCUS)
+// =====================================================================
+let globalSavedRange = null;
+let lastActiveEditor = null;
+
+// 1. Le "Traqueur" : Mémorise la position à chaque clic ou frappe au clavier
+document.addEventListener('selectionchange', () => {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        let container = range.commonAncestorContainer;
+        if (container.nodeType === 3) container = container.parentNode; // Sécurité noeud texte
+
+        const editor = container.closest('.content-editable');
+        if (editor) {
+            lastActiveEditor = editor;
+            globalSavedRange = range.cloneRange();
+        }
+    }
+});
+
+// 2. Le "Garde du corps" : Fonction à appeler avant d'insérer quoi que ce soit
+function enforceFocus() {
+    const selection = window.getSelection();
+    let isFocusedInEditor = false;
+
+    // Vérifie si le curseur actuel est bien dans un éditeur
+    if (selection.rangeCount > 0) {
+        let container = selection.getRangeAt(0).commonAncestorContainer;
+        if (container.nodeType === 3) container = container.parentNode;
+        if (container.closest('.content-editable')) {
+            isFocusedInEditor = true;
+        }
+    }
+
+    // Si le curseur est perdu dans la nature (ex: clic sur un bouton de la barre)
+    if (!isFocusedInEditor) {
+        selection.removeAllRanges();
+
+        if (globalSavedRange && lastActiveEditor && document.body.contains(lastActiveEditor)) {
+            // Cas A : On restaure la dernière position connue
+            selection.addRange(globalSavedRange);
+        } else {
+            // Cas B : L'utilisateur n'a jamais cliqué. On force le curseur dans la 1ère page.
+            const firstEditor = document.querySelector('.content-editable');
+            if (firstEditor) {
+                const range = document.createRange();
+                range.selectNodeContents(firstEditor);
+                range.collapse(false); // Place le curseur tout à la fin
+                selection.addRange(range);
+            }
+        }
+    }
+}
+
 
 // =====================================================================
 // INTERCEPTEUR DE COLLAGE (SPECIAL TABLEUR EXCEL / SHEETS)

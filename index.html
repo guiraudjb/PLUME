@@ -60,31 +60,32 @@
                     </optgroup>
                     
                     <optgroup label="Tons Chauds">
-                        <option value="tuile">🟧 Orange Tuile</option>
+                        <option value="tuile">🧱 Rose Tuile</option>
                         <option value="macaron">🌸 Rose Macaron</option>
-                        <option value="opera">🌺 Rose Opéra</option>
-                        <option value="carmin">🍷 Rouge Carmin</option>
+                        <option value="opera">🌺 Marron Opéra</option>
+                        <option value="terre_battue">🟠 Orange Terre Battue</option>
                         <option value="tournesol">🌻 Jaune Tournesol</option>
                         <option value="moutarde">🌾 Jaune Moutarde</option>
                     </optgroup>
                     
                     <optgroup label="Tons Froids">
                         <option value="ecume">🌊 Bleu Écume</option>
-                        <option value="celadon">🧊 Bleu Céladon</option>
-                        <option value="amethyste">🟣 Violet Améthyste</option>
+                        <option value="cumulus">☁️ Bleu Cumulus</option>
                         <option value="glycine">🪻 Violet Glycine</option>
                     </optgroup>
                     
                     <optgroup label="Tons Verts">
                         <option value="emeraude">🟩 Vert Émeraude</option>
                         <option value="menthe">🍃 Vert Menthe</option>
+                        <option value="archipel">🏝️ Vert Archipel</option>
                         <option value="bourgeon">🌿 Vert Bourgeon</option>
-                        <option value="fougere">🪴 Vert Fougère</option>
                         <option value="tilleul">🍋 Tilleul Verveine</option>
                     </optgroup>
 
                     <optgroup label="Tons Neutres">
-                        <option value="terre">🟤 Terre d'Ombre</option>
+                        <option value="cafe_creme">☕ Marron Café Crème</option>
+                        <option value="caramel">🍮 Marron Caramel</option>
+                        <option value="gris_galet">🪨 Beige Gris Galet</option>
                     </optgroup>
                 </select>
             </div>
@@ -143,12 +144,7 @@
                 <button class="tool-btn fr-icon-list-unordered" onclick="format('insertUnorderedList')" title="Liste à puces"></button>
                 <button class="tool-btn fr-icon-list-ordered" onclick="format('insertOrderedList')" title="Liste numérotée"></button>
             </div>
-            <div class="toolbar-group">
-                <span class="group-label">Graphiques</span>
-                <button class="tool-btn" onclick="insertChart('bar')" title="Graphique en barres">📊 Barres</button>
-                <button class="tool-btn" onclick="insertChart('doughnut')" title="Graphique circulaire">🍩 Anneau</button>
-                <button class="tool-btn" onclick="insertChart('line')" title="Graphique en courbes">📈 Courbe</button>
-            </div>
+
         </div>
 
         <div class="toolbar-row" style="background:#f0f0f0">
@@ -170,6 +166,18 @@
                 <button class="tool-btn" onclick="insertCitation()" title="Bloc citation officielle"> Citation</button>
                 <button class="tool-btn" onclick="insertChiffreCle()" title="Grand chiffre avec explication"> Chiffre Clé</button>
                 <button class="tool-btn fr-icon-table-fill" onclick="insertTable()" title="Générateur de tableau"> Tableau</button>
+            </div>
+            <div class="toolbar-group">
+                <span class="group-label">Graphiques</span>
+                <button class="tool-btn" onclick="insertChart('bar')" title="Graphique en barres">📊 Barres</button>
+                <button class="tool-btn" onclick="insertChart('horizontalBar')" title="Graphique en barres horizontales">📏 Barres Horizontales</button>
+                <button class="tool-btn" onclick="insertChart('doughnut')" title="Graphique circulaire">🍩 Anneau</button>
+                <button class="tool-btn" onclick="insertChart('polarArea')" title="Graphique en zone polaire">🎯 Zone Polaire</button>
+                <button class="tool-btn" onclick="insertChart('radar')" title="Graphique en radar">🕸️ Radar</button>
+                <button class="tool-btn" onclick="insertChart('line')" title="Graphique en courbes">📈 Courbe</button>
+                
+                
+
             </div>
         </div>
     </div>
@@ -216,5 +224,6 @@
     <script src="app.js"></script>
     <script src="./libs/papaparse.min.js"></script>
     <script src="./libs/chart.min.js"></script>
+    <script src="./libs/chartjs-plugin-datalabels.min.js"></script>
 </body>
 </html>
