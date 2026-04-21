@@ -48,7 +48,7 @@
     </header>
 
 
-    <div class="editor-header">
+<div class="editor-header">
         
         <div class="toolbar-row">
             <div class="toolbar-group">
@@ -58,7 +58,6 @@
                         <option value="marianne">🔵 Bleu France</option>
                         <option value="rouge">🔴 Rouge Marianne</option>
                     </optgroup>
-                    
                     <optgroup label="Tons Chauds">
                         <option value="tuile">🧱 Rose Tuile</option>
                         <option value="macaron">🌸 Rose Macaron</option>
@@ -67,13 +66,11 @@
                         <option value="tournesol">🌻 Jaune Tournesol</option>
                         <option value="moutarde">🌾 Jaune Moutarde</option>
                     </optgroup>
-                    
                     <optgroup label="Tons Froids">
                         <option value="ecume">🌊 Bleu Écume</option>
                         <option value="cumulus">☁️ Bleu Cumulus</option>
                         <option value="glycine">🪻 Violet Glycine</option>
                     </optgroup>
-                    
                     <optgroup label="Tons Verts">
                         <option value="emeraude">🟩 Vert Émeraude</option>
                         <option value="menthe">🍃 Vert Menthe</option>
@@ -81,7 +78,6 @@
                         <option value="bourgeon">🌿 Vert Bourgeon</option>
                         <option value="tilleul">🍋 Tilleul Verveine</option>
                     </optgroup>
-
                     <optgroup label="Tons Neutres">
                         <option value="cafe_creme">☕ Marron Café Crème</option>
                         <option value="caramel">🍮 Marron Caramel</option>
@@ -89,15 +85,16 @@
                     </optgroup>
                 </select>
             </div>
+            
             <div class="toolbar-group">
                 <span class="group-label">En-tête</span>
                 <input type="text" id="cfg-bureau" value="NOM DU BUREAU" oninput="syncMetadata()" class="input-text" placeholder="Bureau" style="width:130px">
                 <input type="text" id="cfg-titre" value="TITRE DU DOCUMENT" oninput="syncMetadata()" class="input-text" placeholder="Titre" style="width:150px">
                 <input type="text" id="cfg-date" value="Avril 2026" oninput="syncMetadata()" class="input-text" placeholder="Date" style="width:90px">
-                
                 <input type="file" accept="image/*" id="logo-in" onchange="handleLogo(this)" style="display:none">
                 <button class="tool-btn fr-icon-image-fill" onclick="document.getElementById('logo-in').click()" title="Changer le logo d'en-tête (Bureau)"></button>
             </div>
+
             <div class="toolbar-group">
                 <span class="group-label">Pied de page</span>
                 <input type="text" id="cfg-footer" value="lettre.information@institution.gouv.fr" oninput="syncMetadata()" class="input-text" placeholder="Contact pied de page" style="width:180px">
@@ -107,58 +104,73 @@
             
             <div class="toolbar-group">
                 <button class="fr-btn fr-btn--sm fr-btn--tertiary fr-icon-add-line" onclick="addNewPage()">Page</button>
-                
                 <input type="file" accept=".json" id="restore-in" style="display:none" onchange="restoreJSON(this)">
                 <button class="fr-btn fr-btn--sm fr-btn--secondary fr-icon-refresh-line" onclick="document.getElementById('restore-in').click()" title="Restaurer une sauvegarde">Restaurer</button>
-                
                 <button class="fr-btn fr-btn--sm fr-btn--secondary fr-icon-save-line" onclick="saveJSON()" title="Sauvegarder le travail en cours">JSON</button>
                 <button class="fr-btn fr-btn--sm fr-icon-printer-fill" onclick="window.print()" title="Imprimer ou Exporter en PDF">Imprimer</button>
             </div>
         </div>
 
-        <div class="toolbar-row" style="background:#f9f9f9">
+        <div class="toolbar-row">
             <div class="toolbar-group">
                 <span class="group-label">Hiérarchie</span>
-                <button class="tool-btn" onclick="format('formatBlock', 'H1')" title="Titre principal">H1</button>
-                <button class="tool-btn" onclick="format('formatBlock', 'H2')" title="Sous-titre">H2</button>
-                <button class="tool-btn" onclick="format('formatBlock', 'H3')" title="Titre de section">H3</button>
-                <button class="tool-btn" onclick="format('formatBlock', 'P')" title="Paragraphe normal">¶</button>
+                <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline fr-btns-group--icon-left">
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'H1')" title="Titre principal">H1</button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'H2')" title="Titre de section">H2</button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'H3')" title="Sous-titre">H3</button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'H4')" title="Petit titre">H4</button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'P')" title="Paragraphe normal">¶</button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-quote-text" onclick="format('formatBlock', 'BLOCKQUOTE')" title="Citation simple"></button></li>
+                </ul>
             </div>
+
             <div class="toolbar-group">
                 <span class="group-label">Format</span>
-                <button class="tool-btn fr-icon-bold" onclick="format('bold')" title="Gras"></button>
-                <button class="tool-btn fr-icon-italic" onclick="format('italic')" title="Italique"></button>
-                <button class="tool-btn" onclick="format('underline')" title="Souligné"><u>U</u></button>
-                <button class="tool-btn" onclick="format('removeFormat')" title="Nettoyer le formatage (utile après un copier-coller)" style="color:var(--dsfr-red)">Nettoyer</button>
-                <button class="tool-btn fr-icon-links-fill" onclick="insertLink()" title="Insérer un hyperlien"></button>
+                <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-bold" onclick="format('bold')" title="Gras"></button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-italic" onclick="format('italic')" title="Italique"></button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-underline" onclick="format('underline')" title="Souligné"></button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-strikethrough-2" onclick="format('strikeThrough')" title="Barré"></button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline" style="font-weight:bold" onclick="format('superscript')" title="Exposant">X²</button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-eraser-fill" onclick="format('removeFormat')" title="Effacer le formatage local"></button></li>
+                </ul>
             </div>
+
             <div class="toolbar-group">
-                <span class="group-label">Aligner</span>
-                <button class="tool-btn fr-icon-align-left" onclick="format('justifyLeft')"></button>
-                <button class="tool-btn fr-icon-align-center" onclick="format('justifyCenter')"></button>
-                <button class="tool-btn fr-icon-align-right" onclick="format('justifyRight')"></button>
-                <button class="tool-btn" onclick="format('justifyFull')"><span class="fr-icon-menu-fill"></span></button>
+                <span class="group-label">Alignement</span>
+                <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-align-left" onclick="format('justifyLeft')" title="Aligner à gauche"></button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-align-center" onclick="format('justifyCenter')" title="Centrer"></button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-align-right" onclick="format('justifyRight')" title="Aligner à droite"></button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-align-justify" onclick="format('justifyFull')" title="Justifier"></button></li>
+                </ul>
             </div>
+
             <div class="toolbar-group">
                 <span class="group-label">Listes</span>
-                <button class="tool-btn fr-icon-list-unordered" onclick="format('insertUnorderedList')" title="Liste à puces"></button>
-                <button class="tool-btn fr-icon-list-ordered" onclick="format('insertOrderedList')" title="Liste numérotée"></button>
+                <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-list-unordered" onclick="format('insertUnorderedList')" title="Liste à puces"></button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-list-ordered" onclick="format('insertOrderedList')" title="Liste numérotée"></button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-indent-increase" onclick="format('indent')" title="Indenter"></button></li>
+                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-indent-decrease" onclick="format('outdent')" title="Désindenter"></button></li>
+                </ul>
             </div>
-
         </div>
 
-        <div class="toolbar-row" style="background:#f0f0f0">
+        <div class="toolbar-row">
             <div class="toolbar-group">
                 <span class="group-label">Médias & Séparation</span>
                 <button class="tool-btn fr-icon-image-add-line" onclick="insertImage()" title="Insérer une image dans le texte"></button>
                 <button class="tool-btn" onclick="insertDivider()" title="Insérer une ligne de séparation horizontale">Ligne</button>
                 <button class="tool-btn fr-icon-file-add-line" onclick="insertPageBreak()" title="Forcer le passage à la page suivante">Saut de page</button>
             </div>
+            
             <div class="toolbar-group">
                 <span class="group-label">Colonnes</span>
                 <button class="tool-btn fr-icon-layout-column-fill" onclick="insertGrid(2)"> 2 Cols</button>
                 <button class="tool-btn fr-icon-layout-grid-fill" onclick="insertGrid(3)"> 3 Cols</button>
             </div>
+            
             <div class="toolbar-group">
                 <span class="group-label">Modèles DSFR</span>
                 <button class="tool-btn fr-icon-list-check" onclick="insertSommaire()" title="Insérer un encart de Sommaire"> Sommaire</button>
@@ -167,6 +179,7 @@
                 <button class="tool-btn" onclick="insertChiffreCle()" title="Grand chiffre avec explication"> Chiffre Clé</button>
                 <button class="tool-btn fr-icon-table-fill" onclick="insertTable()" title="Générateur de tableau"> Tableau</button>
             </div>
+            
             <div class="toolbar-group">
                 <span class="group-label">Graphiques</span>
                 <button class="tool-btn" onclick="insertChart('bar')" title="Graphique en barres">📊 Barres</button>
@@ -175,13 +188,10 @@
                 <button class="tool-btn" onclick="insertChart('polarArea')" title="Graphique en zone polaire">🎯 Zone Polaire</button>
                 <button class="tool-btn" onclick="insertChart('radar')" title="Graphique en radar">🕸️ Radar</button>
                 <button class="tool-btn" onclick="insertChart('line')" title="Graphique en courbes">📈 Courbe</button>
-                
-                
-
             </div>
         </div>
+        
     </div>
-
 
     <div class="workspace" id="pages-container">
         <div class="page-a4" id="page-1">

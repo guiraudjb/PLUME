@@ -1135,13 +1135,13 @@ document.addEventListener('paste', function(e) {
     }
 });
 // =====================================================================
-// MODULE D'OUTILS FLOTTANTS POUR BLOCS COMPLEXES (CORBEILLE & REGLAGES)
+// MODULE D'OUTILS FLOTTANTS (CORBEILLE, REGLAGES & FORMATAGE TEXTE)
 // =====================================================================
 
 // 1. Création du conteneur de la barre d'outils
 const floatToolbar = document.createElement('div');
 floatToolbar.style.cssText = `
-    position: fixed;
+    position: absolute; /* Modifié de fixed à absolute pour suivre le défilement */
     display: none;
     z-index: 10000;
     gap: 0.3rem;
@@ -1150,9 +1150,45 @@ floatToolbar.style.cssText = `
     border: 1px solid var(--grey-900);
     border-radius: 4px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    align-items: center;
 `;
 
-// 2. Bouton Redimensionner (Règle) - Apparaîtra uniquement sur les grilles
+// 2. NOUVEAU : Sélecteur de style de texte
+const textStyleSelect = document.createElement('select');
+textStyleSelect.innerHTML = `
+    <option value="P">Paragraphe</option>
+    <option value="H2">Titre 2</option>
+    <option value="H3">Titre 3</option>
+    <option value="H4">Titre 4</option>
+    <option value="BLOCKQUOTE">Citation</option>
+`;
+textStyleSelect.style.cssText = `
+    padding: 0.2rem 0.5rem;
+    border: 1px solid var(--grey-900);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    background: #f5f5fe;
+    cursor: pointer;
+    outline: none;
+`;
+
+// 3. NOUVEAU : Bouton de Nettoyage (Balai)
+const cleanBtn = document.createElement('button');
+cleanBtn.innerHTML = '🧹';
+cleanBtn.title = "Nettoyer les styles parasites (Copier-Coller)";
+cleanBtn.style.cssText = `
+    background-color: #fff;
+    border: 1px solid var(--grey-900);
+    border-radius: 4px;
+    width: 30px; height: 30px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+    transition: background-color 0.2s;
+`;
+
+// 4. Bouton Redimensionner (Règle)
 const resizeBtn = document.createElement('button');
 resizeBtn.innerHTML = '📏';
 resizeBtn.title = "Modifier la largeur des colonnes";
@@ -1166,7 +1202,7 @@ resizeBtn.style.cssText = `
     font-size: 1.1rem;
 `;
 
-// 3. Bouton Corbeille (Toujours présent)
+// 5. Bouton Corbeille
 const trashBtn = document.createElement('button');
 trashBtn.innerHTML = '<span class="fr-icon-delete-bin-fill"></span>';
 trashBtn.title = "Supprimer ce bloc";
@@ -1180,14 +1216,19 @@ trashBtn.style.cssText = `
     display: flex; align-items: center; justify-content: center;
 `;
 
+// Ajout des boutons à la barre (ordre d'apparition)
+floatToolbar.appendChild(textStyleSelect);
+floatToolbar.appendChild(cleanBtn);
 floatToolbar.appendChild(resizeBtn);
 floatToolbar.appendChild(trashBtn);
 document.body.appendChild(floatToolbar);
 
 let hoveredBlock = null;
-const blockSelectors = '.fr-table, .custom-grid, .fr-summary, .fr-callout, blockquote, hr, img, [contenteditable="false"]';
 
-// 4. Traque de la souris (Mise à jour)
+// NOUVEAU : On ajoute les balises de texte (p, h2, h3...) au radar
+const blockSelectors = '.fr-table, .custom-grid, .fr-summary, .fr-callout, hr, img, [contenteditable="false"], p, h1, h2, h3, h4, h5, h6, blockquote, ul, ol';
+
+// 6. Traque de la souris
 document.addEventListener('mousemove', function(e) {
     if (e.target === floatToolbar || floatToolbar.contains(e.target)) return;
 
@@ -1202,16 +1243,32 @@ document.addEventListener('mousemove', function(e) {
             hoveredBlock = block;
             hoveredBlock.classList.add('block-hover-focus');
             
-            // NOUVEAU : On affiche la règle pour les grilles ET les tableaux
+            // Logique d'affichage contextuel des boutons
+            const tagName = hoveredBlock.tagName.toUpperCase();
+            const isTextNode = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE'].includes(tagName);
+            
+            // Affiche les contrôles de texte uniquement si c'est du texte
+            if (isTextNode) {
+                textStyleSelect.style.display = 'block';
+                // Sélectionne automatiquement la bonne option dans la liste
+                textStyleSelect.value = ['H1', 'H5', 'H6'].includes(tagName) ? 'P' : tagName; 
+                cleanBtn.style.display = 'flex';
+            } else {
+                textStyleSelect.style.display = 'none';
+                cleanBtn.style.display = 'none';
+            }
+
+            // Affiche la règle uniquement pour les tableaux et grilles
             if (hoveredBlock.classList.contains('custom-grid') || hoveredBlock.classList.contains('fr-table')) {
                 resizeBtn.style.display = 'flex';
             } else {
                 resizeBtn.style.display = 'none';
             }
 
+            // Positionnement absolu pour suivre le scroll interne
             const rect = hoveredBlock.getBoundingClientRect();
-            floatToolbar.style.top = (rect.top - 20) + 'px';
-            floatToolbar.style.left = (rect.right - 40) + 'px';
+            floatToolbar.style.top = (window.scrollY + rect.top - 35) + 'px';
+            floatToolbar.style.left = (window.scrollX + rect.left) + 'px';
             floatToolbar.style.display = 'flex';
         }
     } else {
@@ -1227,7 +1284,73 @@ function hideFloatToolbar() {
     floatToolbar.style.display = 'none';
 }
 
-// 5. Actions des boutons
+// 7. ACTIONS DES BOUTONS TEXTE (NOUVEAU)
+
+// Action : Changer de balise (Ex: Transformer un paragraphe en Titre 2)
+textStyleSelect.addEventListener('change', function(e) {
+    if (!hoveredBlock) return;
+    
+    const newTag = e.target.value;
+    if (hoveredBlock.tagName.toUpperCase() !== newTag) {
+        // Au lieu d'utiliser execCommand (qui est capricieux), on remplace directement la balise HTML
+        const newElement = document.createElement(newTag);
+        newElement.innerHTML = hoveredBlock.innerHTML;
+        
+        // Copie de l'attribut class s'il y en avait un
+        if (hoveredBlock.className) newElement.className = hoveredBlock.className;
+        
+        hoveredBlock.parentNode.replaceChild(newElement, hoveredBlock);
+        hideFloatToolbar(); // On cache la barre pour forcer un rafraîchissement au prochain survol
+    }
+});
+
+// Action : Le Balai Magique (Nettoyage des styles)
+cleanBtn.addEventListener('click', function() {
+    if (!hoveredBlock) return;
+    
+    // 1. On retire le style "en ligne" du bloc lui-même
+    hoveredBlock.removeAttribute('style');
+    
+    // Si ce n'est pas un bloc protégé du DSFR (comme une citation complexe), on nettoie les classes
+    if (!hoveredBlock.className.includes('fr-')) {
+        hoveredBlock.removeAttribute('class');
+        hoveredBlock.classList.add('block-hover-focus'); // On garde juste la classe visuelle de survol
+    }
+
+    // 2. On scanne TOUT le texte à l'intérieur du bloc
+    const children = hoveredBlock.querySelectorAll('*');
+    children.forEach(child => {
+        // On supprime les couleurs, tailles de police, marges cachées...
+        child.removeAttribute('style');
+        
+        // On supprime les attributs bizarres souvent ajoutés par Word (dir="ltr", data-..., etc.)
+        Array.from(child.attributes).forEach(attr => {
+            if (attr.name !== 'href' && attr.name !== 'src' && attr.name !== 'alt') {
+                child.removeAttribute(attr.name);
+            }
+        });
+
+        // 3. Purge des balises invisibles (ex: <font> ou <span> vides) qui polluent le code
+        if (child.tagName === 'FONT' || child.tagName === 'SPAN') {
+            // Remplace la balise par son propre contenu textuel brut
+            const fragment = document.createDocumentFragment();
+            while (child.firstChild) {
+                fragment.appendChild(child.firstChild);
+            }
+            child.parentNode.replaceChild(fragment, child);
+        }
+    });
+
+    // Effet visuel de confirmation
+    cleanBtn.innerHTML = '✨';
+    cleanBtn.style.backgroundColor = '#c3fad5'; // Vert succès
+    setTimeout(() => {
+        cleanBtn.innerHTML = '🧹';
+        cleanBtn.style.backgroundColor = '#fff';
+    }, 1000);
+});
+
+// 8. ACTIONS DES ANCIENS BOUTONS (Corbeille et Règle)
 trashBtn.addEventListener('click', function() {
     if (hoveredBlock) {
         hoveredBlock.remove();
@@ -1238,87 +1361,40 @@ trashBtn.addEventListener('click', function() {
 resizeBtn.addEventListener('click', function() {
     if (!hoveredBlock) return;
 
-    // --- CAS 1 : GRILLES FLEXBOX ---
     if (hoveredBlock.classList.contains('custom-grid')) {
         const gridInner = hoveredBlock.querySelector('div[style*="display: flex"]');
         if (!gridInner) return;
-        
         const cols = Array.from(gridInner.children).filter(c => c.tagName === 'DIV');
         const n = cols.length;
-        
-        const input = prompt(
-            `Répartition de vos ${n} colonnes (Grille).\nEntrez les proportions (ex: 30/70, ou 25 50 25) :`, 
-            n === 2 ? "50/50" : "33/33/33"
-        );
-        
+        const input = prompt(`Répartition de vos ${n} colonnes.\nEntrez les proportions (ex: 30/70) :`, n === 2 ? "50/50" : "33/33/33");
         if (!input) return;
-
         const parts = input.split(/[\/\-\+,;\s]+/).map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
-        
-        if (parts.length === n) {
-            cols.forEach((col, i) => {
-                col.style.flex = parts[i];
-                col.style.maxWidth = "none";
-            });
-        } else {
-            alert(`Format invalide. Ce bloc contient ${n} colonnes, vous devez fournir ${n} valeurs.`);
-        }
+        if (parts.length === n) cols.forEach((col, i) => { col.style.flex = parts[i]; col.style.maxWidth = "none"; });
+        else alert("Format invalide.");
     }
-    
-    // --- CAS 2 : TABLEAUX HTML ---
     else if (hoveredBlock.classList.contains('fr-table')) {
         const table = hoveredBlock.querySelector('table');
         if (!table) return;
-
-        // Compte le nombre de colonnes en regardant la première ligne disponible
         const firstRow = table.querySelector('tr');
         if (!firstRow) return;
-        
         const n = firstRow.children.length;
-
-        const input = prompt(
-            `Répartition des ${n} colonnes (Tableau).\nEntrez les proportions (ex: 30/70, ou 20 60 20) :`, 
-            n === 2 ? "50/50" : "33/33/33"
-        );
-
+        const input = prompt(`Répartition des ${n} colonnes.\nEntrez les proportions (ex: 30/70) :`, n === 2 ? "50/50" : "33/33/33");
         if (!input) return;
-
         const parts = input.split(/[\/\-\+,;\s]+/).map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
-
         if (parts.length === n) {
-            // Contrairement à Flexbox, un tableau a besoin de pourcentages stricts. 
-            // On calcule donc le total pour faire la conversion automatiquement.
             const total = parts.reduce((sum, val) => sum + val, 0);
-
-            // Cherche s'il y a déjà un groupe de colonnes, sinon on le crée
             let colgroup = table.querySelector('colgroup');
-            if (!colgroup) {
-                colgroup = document.createElement('colgroup');
-                // On l'insère tout en haut du tableau
-                table.insertBefore(colgroup, table.firstChild); 
-            } else {
-                colgroup.innerHTML = ''; // Nettoie les anciens réglages
-            }
-
-            // Applique les largeurs converties en pourcentages
+            if (!colgroup) { colgroup = document.createElement('colgroup'); table.insertBefore(colgroup, table.firstChild); }
+            else colgroup.innerHTML = '';
             parts.forEach(part => {
                 const col = document.createElement('col');
-                const percentage = ((part / total) * 100).toFixed(2); // Garde 2 décimales (ex: 33.33%)
-                col.style.width = `${percentage}%`;
+                col.style.width = `${((part / total) * 100).toFixed(2)}%`;
                 colgroup.appendChild(col);
             });
-            
-            // Force le navigateur à respecter strictement nos pourcentages
             table.style.tableLayout = 'fixed';
-
-        } else {
-            alert(`Format invalide. Ce tableau contient ${n} colonnes, vous devez fournir ${n} valeurs.`);
-        }
+        } else { alert("Format invalide."); }
     }
 });
-
-// Cache la barre d'outils lors du défilement
-document.getElementById('pages-container').addEventListener('scroll', hideFloatToolbar);
 
 window.onresize = scaleUI;
 window.onload = () => { scaleUI(); applyPalette(); syncMetadata(); };
