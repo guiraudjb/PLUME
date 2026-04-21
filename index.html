@@ -48,151 +48,165 @@
     </header>
 
 
-<div class="editor-header">
+<div class="editor-header" role="toolbar" aria-label="Barre d'outils de l'éditeur">
         
-        <div class="toolbar-row">
-            <div class="toolbar-group">
-                <span class="group-label">Palette</span>
-                <select id="cfg-palette" onchange="applyPalette()" class="input-text" title="Couleur thématique">
-                    <optgroup label="Marque de l'État">
-                        <option value="marianne">🔵 Bleu France</option>
-                        <option value="rouge">🔴 Rouge Marianne</option>
-                    </optgroup>
-                    <optgroup label="Tons Chauds">
-                        <option value="tuile">🧱 Rose Tuile</option>
-                        <option value="macaron">🌸 Rose Macaron</option>
-                        <option value="opera">🌺 Marron Opéra</option>
-                        <option value="terre_battue">🟠 Orange Terre Battue</option>
-                        <option value="tournesol">🌻 Jaune Tournesol</option>
-                        <option value="moutarde">🌾 Jaune Moutarde</option>
-                    </optgroup>
-                    <optgroup label="Tons Froids">
-                        <option value="ecume">🌊 Bleu Écume</option>
-                        <option value="cumulus">☁️ Bleu Cumulus</option>
-                        <option value="glycine">🪻 Violet Glycine</option>
-                    </optgroup>
-                    <optgroup label="Tons Verts">
-                        <option value="emeraude">🟩 Vert Émeraude</option>
-                        <option value="menthe">🍃 Vert Menthe</option>
-                        <option value="archipel">🏝️ Vert Archipel</option>
-                        <option value="bourgeon">🌿 Vert Bourgeon</option>
-                        <option value="tilleul">🍋 Tilleul Verveine</option>
-                    </optgroup>
-                    <optgroup label="Tons Neutres">
-                        <option value="cafe_creme">☕ Marron Café Crème</option>
-                        <option value="caramel">🍮 Marron Caramel</option>
-                        <option value="gris_galet">🪨 Beige Gris Galet</option>
-                    </optgroup>
-                </select>
-            </div>
-            
-            <div class="toolbar-group">
-                <span class="group-label">En-tête</span>
-                <input type="text" id="cfg-bureau" value="NOM DU BUREAU" oninput="syncMetadata()" class="input-text" placeholder="Bureau" style="width:130px">
-                <input type="text" id="cfg-titre" value="TITRE DU DOCUMENT" oninput="syncMetadata()" class="input-text" placeholder="Titre" style="width:150px">
-                <input type="text" id="cfg-date" value="Avril 2026" oninput="syncMetadata()" class="input-text" placeholder="Date" style="width:90px">
-                <input type="file" accept="image/*" id="logo-in" onchange="handleLogo(this)" style="display:none">
-                <button class="tool-btn fr-icon-image-fill" onclick="document.getElementById('logo-in').click()" title="Changer le logo d'en-tête (Bureau)"></button>
-            </div>
+    <div class="toolbar-row">
+        
+        <div class="toolbar-group" role="group" aria-label="Couleurs du document">
+            <label for="cfg-palette" class="fr-sr-only">Couleur thématique</label>
+            <select id="cfg-palette" onchange="applyPalette()" class="fr-select" style="margin-bottom: 0; padding: 0.25rem 2rem 0.25rem 0.5rem; min-height: 32px; width: auto;" title="Couleur thématique">
+                <optgroup label="Marque de l'État">
+                    <option value="marianne">🔵 Bleu France</option>
+                    <option value="rouge">🔴 Rouge Marianne</option>
+                </optgroup>
+                <optgroup label="Tons Chauds">
+                    <option value="tuile">🧱 Rose Tuile</option>
+                    <option value="macaron">🌸 Rose Macaron</option>
+                    <option value="opera">🌺 Marron Opéra</option>
+                    <option value="terre_battue">🟠 Orange Terre Battue</option>
+                    <option value="tournesol">🌻 Jaune Tournesol</option>
+                    <option value="moutarde">🌾 Jaune Moutarde</option>
+                </optgroup>
+                <optgroup label="Tons Froids">
+                    <option value="ecume">🌊 Bleu Écume</option>
+                    <option value="cumulus">☁️ Bleu Cumulus</option>
+                    <option value="glycine">🪻 Violet Glycine</option>
+                </optgroup>
+                <optgroup label="Tons Verts">
+                    <option value="emeraude">🟩 Vert Émeraude</option>
+                    <option value="menthe">🍃 Vert Menthe</option>
+                    <option value="archipel">🏝️ Vert Archipel</option>
+                    <option value="bourgeon">🌿 Vert Bourgeon</option>
+                    <option value="tilleul">🍋 Tilleul Verveine</option>
+                </optgroup>
+                <optgroup label="Tons Neutres">
+                    <option value="cafe_creme">☕ Marron Café Crème</option>
+                    <option value="caramel">🍮 Marron Caramel</option>
+                    <option value="gris_galet">🪨 Beige Gris Galet</option>
+                </optgroup>
+            </select>
+        </div>
+        
+        <div class="toolbar-group" role="group" aria-label="Métadonnées du document">
+            <label for="cfg-bureau" class="fr-sr-only">Nom du bureau</label>
+            <input type="text" id="cfg-bureau" value="NOM DU BUREAU" oninput="syncMetadata()" class="fr-input" placeholder="Bureau" title="Nom du bureau" style="width:200px; margin-bottom: 0; padding: 0.25rem 0.5rem; min-height: 32px;">
 
-            <div class="toolbar-group">
-                <span class="group-label">Pied de page</span>
-                <input type="text" id="cfg-footer" value="lettre.information@institution.gouv.fr" oninput="syncMetadata()" class="input-text" placeholder="Contact pied de page" style="width:180px">
-            </div>
+            <label for="cfg-titre" class="fr-sr-only">Titre du document</label>
+            <input type="text" id="cfg-titre" value="TITRE DU DOCUMENT" oninput="syncMetadata()" class="fr-input" placeholder="Titre" title="Titre du document" style="width:200px; margin-bottom: 0; padding: 0.25rem 0.5rem; min-height: 32px;">
 
-            <div style="flex-grow:1"></div>
-            
-            <div class="toolbar-group">
-                <button class="fr-btn fr-btn--sm fr-btn--tertiary fr-icon-add-line" onclick="addNewPage()">Page</button>
-                <input type="file" accept=".json" id="restore-in" style="display:none" onchange="restoreJSON(this)">
-                <button class="fr-btn fr-btn--sm fr-btn--secondary fr-icon-refresh-line" onclick="document.getElementById('restore-in').click()" title="Restaurer une sauvegarde">Restaurer</button>
-                <button class="fr-btn fr-btn--sm fr-btn--secondary fr-icon-save-line" onclick="saveJSON()" title="Sauvegarder le travail en cours">JSON</button>
-                <button class="fr-btn fr-btn--sm fr-icon-printer-fill" onclick="window.print()" title="Imprimer ou Exporter en PDF">Imprimer</button>
-            </div>
+            <label for="cfg-date" class="fr-sr-only">Date de publication</label>
+            <input type="text" id="cfg-date" value="Avril 2026" oninput="syncMetadata()" class="fr-input" placeholder="Date" title="Date de publication" style="width:200px; margin-bottom: 0; padding: 0.25rem 0.5rem; min-height: 32px;">
+
+            <input type="file" accept="image/*" id="logo-in" onchange="handleLogo(this)" style="display:none" tabindex="-1" aria-hidden="true">
+            <button class="fr-btn fr-btn--sm fr-btn--tertiary fr-icon-image-fill" onclick="document.getElementById('logo-in').click()" title="Changer le logo d'en-tête (Bureau)">
+                <span class="fr-sr-only">Changer le logo d'en-tête</span>
+            </button>
         </div>
 
-        <div class="toolbar-row">
-            <div class="toolbar-group">
-                <span class="group-label">Hiérarchie</span>
-                <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline fr-btns-group--icon-left">
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'H1')" title="Titre principal">H1</button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'H2')" title="Titre de section">H2</button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'H3')" title="Sous-titre">H3</button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'H4')" title="Petit titre">H4</button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'P')" title="Paragraphe normal">¶</button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-quote-text" onclick="format('formatBlock', 'BLOCKQUOTE')" title="Citation simple"></button></li>
-                </ul>
-            </div>
-
-            <div class="toolbar-group">
-                <span class="group-label">Format</span>
-                <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-bold" onclick="format('bold')" title="Gras"></button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-italic" onclick="format('italic')" title="Italique"></button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-underline" onclick="format('underline')" title="Souligné"></button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-strikethrough-2" onclick="format('strikeThrough')" title="Barré"></button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline" style="font-weight:bold" onclick="format('superscript')" title="Exposant">X²</button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-eraser-fill" onclick="format('removeFormat')" title="Effacer le formatage local"></button></li>
-                </ul>
-            </div>
-
-            <div class="toolbar-group">
-                <span class="group-label">Alignement</span>
-                <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-align-left" onclick="format('justifyLeft')" title="Aligner à gauche"></button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-align-center" onclick="format('justifyCenter')" title="Centrer"></button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-align-right" onclick="format('justifyRight')" title="Aligner à droite"></button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-align-justify" onclick="format('justifyFull')" title="Justifier"></button></li>
-                </ul>
-            </div>
-
-            <div class="toolbar-group">
-                <span class="group-label">Listes</span>
-                <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-list-unordered" onclick="format('insertUnorderedList')" title="Liste à puces"></button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-list-ordered" onclick="format('insertOrderedList')" title="Liste numérotée"></button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-indent-increase" onclick="format('indent')" title="Indenter"></button></li>
-                    <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-indent-decrease" onclick="format('outdent')" title="Désindenter"></button></li>
-                </ul>
-            </div>
+        <div class="toolbar-group" role="group" aria-label="Pied de page">
+            <label for="cfg-footer" class="fr-sr-only">Adresse email de contact (Pied de page)</label>
+            <input type="text" id="cfg-footer" value="lettre.information@institution.gouv.fr" oninput="syncMetadata()" class="fr-input" placeholder="Contact pied de page" title="Contact pied de page" style="width:200px; margin-bottom: 0; padding: 0.25rem 0.5rem; min-height: 32px;">
         </div>
 
-        <div class="toolbar-row">
-            <div class="toolbar-group">
-                <span class="group-label">Médias & Séparation</span>
-                <button class="tool-btn fr-icon-image-add-line" onclick="insertImage()" title="Insérer une image dans le texte"></button>
-                <button class="tool-btn" onclick="insertDivider()" title="Insérer une ligne de séparation horizontale">Ligne</button>
-                <button class="tool-btn fr-icon-file-add-line" onclick="insertPageBreak()" title="Forcer le passage à la page suivante">Saut de page</button>
-            </div>
-            
-            <div class="toolbar-group">
-                <span class="group-label">Colonnes</span>
-                <button class="tool-btn fr-icon-layout-column-fill" onclick="insertGrid(2)"> 2 Cols</button>
-                <button class="tool-btn fr-icon-layout-grid-fill" onclick="insertGrid(3)"> 3 Cols</button>
-            </div>
-            
-            <div class="toolbar-group">
-                <span class="group-label">Modèles DSFR</span>
-                <button class="tool-btn fr-icon-list-check" onclick="insertSommaire()" title="Insérer un encart de Sommaire"> Sommaire</button>
-                <button class="tool-btn fr-icon-quote-fill" onclick="insertCallout()" title="Mise en exergue standard"> Exergue</button>
-                <button class="tool-btn" onclick="insertCitation()" title="Bloc citation officielle"> Citation</button>
-                <button class="tool-btn" onclick="insertChiffreCle()" title="Grand chiffre avec explication"> Chiffre Clé</button>
-                <button class="tool-btn fr-icon-table-fill" onclick="insertTable()" title="Générateur de tableau"> Tableau</button>
-            </div>
-            
-            <div class="toolbar-group">
-                <span class="group-label">Graphiques</span>
-                <button class="tool-btn" onclick="insertChart('bar')" title="Graphique en barres">📊 Barres</button>
-                <button class="tool-btn" onclick="insertChart('horizontalBar')" title="Graphique en barres horizontales">📏 Barres Horizontales</button>
-                <button class="tool-btn" onclick="insertChart('doughnut')" title="Graphique circulaire">🍩 Anneau</button>
-                <button class="tool-btn" onclick="insertChart('polarArea')" title="Graphique en zone polaire">🎯 Zone Polaire</button>
-                <button class="tool-btn" onclick="insertChart('radar')" title="Graphique en radar">🕸️ Radar</button>
-                <button class="tool-btn" onclick="insertChart('line')" title="Graphique en courbes">📈 Courbe</button>
-            </div>
+        <div style="flex-grow:1"></div>
+        
+        <div class="toolbar-group" role="group" aria-label="Actions globales" style="border-right: none; padding-right: 0;">
+            <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
+                <li><button class="fr-btn fr-btn--tertiary fr-icon-add-line fr-btn--icon-left" onclick="addNewPage()">Page</button></li>
+                <li>
+                    <input type="file" accept=".json" id="restore-in" style="display:none" onchange="restoreJSON(this)" tabindex="-1" aria-hidden="true">
+                    <button class="fr-btn fr-btn--secondary fr-icon-refresh-line fr-btn--icon-left" onclick="document.getElementById('restore-in').click()" title="Restaurer une sauvegarde">Restaurer</button>
+                </li>
+                <li><button class="fr-btn fr-btn--secondary fr-icon-save-line fr-btn--icon-left" onclick="saveJSON()" title="Sauvegarder le travail en cours">JSON</button></li>
+                <li><button class="fr-btn fr-icon-printer-fill fr-btn--icon-left" onclick="window.print()" title="Imprimer ou Exporter en PDF">Imprimer</button></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="toolbar-row">
+        
+        <div class="toolbar-group" role="group" aria-label="Niveaux de titre">
+            <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline fr-btns-group--icon-left">
+                <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'H1')" title="Titre de niveau 1">H1<span class="fr-sr-only"> (Titre principal)</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'H2')" title="Titre de niveau 2">H2<span class="fr-sr-only"> (Titre de section)</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'H3')" title="Titre de niveau 3">H3<span class="fr-sr-only"> (Sous-titre)</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'H4')" title="Titre de niveau 4">H4<span class="fr-sr-only"> (Petit titre)</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'P')" title="Paragraphe normal">¶<span class="fr-sr-only"> (Paragraphe)</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-quote-text" onclick="format('formatBlock', 'BLOCKQUOTE')" title="Citation simple"><span class="fr-sr-only">Citation simple</span></button></li>
+            </ul>
+        </div>
+
+        <div class="toolbar-group" role="group" aria-label="Styles de texte">
+            <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-bold" onclick="format('bold')" title="Mettre en gras"><span class="fr-sr-only">Mettre en gras</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-italic" onclick="format('italic')" title="Mettre en italique"><span class="fr-sr-only">Mettre en italique</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-underline" onclick="format('underline')" title="Souligner"><span class="fr-sr-only">Souligner</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-strikethrough-2" onclick="format('strikeThrough')" title="Barrer"><span class="fr-sr-only">Barrer</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline" style="font-weight:bold" onclick="format('superscript')" title="Mettre en exposant">X²<span class="fr-sr-only"> (Exposant)</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-eraser-fill" onclick="format('removeFormat')" title="Effacer le formatage"><span class="fr-sr-only">Effacer le formatage</span></button></li>
+            </ul>
+        </div>
+
+        <div class="toolbar-group" role="group" aria-label="Alignement du texte">
+            <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-align-left" onclick="format('justifyLeft')" title="Aligner à gauche"><span class="fr-sr-only">Aligner à gauche</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-align-center" onclick="format('justifyCenter')" title="Centrer"><span class="fr-sr-only">Centrer</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-align-right" onclick="format('justifyRight')" title="Aligner à droite"><span class="fr-sr-only">Aligner à droite</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-align-justify" onclick="format('justifyFull')" title="Justifier"><span class="fr-sr-only">Justifier</span></button></li>
+            </ul>
+        </div>
+
+        <div class="toolbar-group" role="group" aria-label="Listes et retraits" style="border-right: none;">
+            <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-list-unordered" onclick="format('insertUnorderedList')" title="Liste à puces"><span class="fr-sr-only">Liste à puces</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-list-ordered" onclick="format('insertOrderedList')" title="Liste numérotée"><span class="fr-sr-only">Liste numérotée</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-indent-increase" onclick="format('indent')" title="Augmenter le retrait"><span class="fr-sr-only">Augmenter le retrait</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-indent-decrease" onclick="format('outdent')" title="Diminuer le retrait"><span class="fr-sr-only">Diminuer le retrait</span></button></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="toolbar-row">
+        
+        <div class="toolbar-group" role="group" aria-label="Médias et structure">
+            <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-image-add-line" onclick="insertImage()">Image</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-separator" onclick="insertDivider()">Ligne</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-file-add-line" onclick="insertPageBreak()">Saut de page</button></li>
+            </ul>
+        </div>
+        
+        <div class="toolbar-group" role="group" aria-label="Colonnes">
+            <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-layout-column-line" onclick="insertGrid(2)">2 Cols</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-layout-grid-line" onclick="insertGrid(3)">3 Cols</button></li>
+            </ul>
+        </div>
+        
+        <div class="toolbar-group" role="group" aria-label="Modèles DSFR">
+            <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-list-check" onclick="insertSommaire()">Sommaire</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-quote-line" onclick="insertCallout()">Exergue</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-chat-quote-line" onclick="insertCitation()">Citation</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-hashtag" onclick="insertChiffreCle()">Chiffre Clé</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-table-line" onclick="insertTable()">Tableau</button></li>
+            </ul>
+        </div>
+        
+        <div class="toolbar-group" role="group" aria-label="Graphiques interactifs" style="border-right: none;">
+            <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-bar-chart-line" onclick="insertChart('bar')">Barres</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-bar-chart-horizontal-line" onclick="insertChart('horizontalBar')">Horizontales</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-donut-chart-line" onclick="insertChart('doughnut')">Anneau</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-pie-chart-2-line" onclick="insertChart('polarArea')">Polaire</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-radar-line" onclick="insertChart('radar')">Radar</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-line-chart-line" onclick="insertChart('line')">Courbe</button></li>
+            </ul>
         </div>
         
     </div>
-
+    
+</div>
     <div class="workspace" id="pages-container">
         <div class="page-a4" id="page-1">
             <button class="delete-page-btn" onclick="deletePage(this)">
