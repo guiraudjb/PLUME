@@ -532,22 +532,40 @@ async function insertCarte() {
     const updateCascade = () => {
         cascadeContainer.innerHTML = '';
         if (scaleSelect.value === 'national') { renderPreview(); return; }
+        
+        // Étape 1 : Choix de la Région
         const regSel = createSelect('sel-region', 'Région', getUniqueRegions());
+        
         regSel.onchange = () => {
+            // Nettoyage des menus enfants
             Array.from(cascadeContainer.children).slice(Array.from(cascadeContainer.children).indexOf(regSel) + 1).forEach(c => c.remove());
-            if (scaleSelect.value === 'region') renderPreview();
-            else if (['departement', 'commune'].includes(scaleSelect.value)) {
+            
+            if (scaleSelect.value === 'region') {
+                renderPreview();
+            } else if (['departement', 'commune', 'epci'].includes(scaleSelect.value)) {
+                
+                // Étape 2 : Choix du Département (Désormais commun aux EPCI !)
                 const depSel = createSelect('sel-dept', 'Département', getDeptsByRegion(regSel.value));
+                
                 depSel.onchange = () => {
+                    // Nettoyage des menus enfants
                     Array.from(cascadeContainer.children).slice(Array.from(cascadeContainer.children).indexOf(depSel) + 1).forEach(c => c.remove());
-                    if (scaleSelect.value === 'departement') renderPreview();
-                    else createSelect('sel-com', 'Commune', getCommunesByDept(depSel.value)).onchange = renderPreview;
+                    
+                    if (scaleSelect.value === 'departement') {
+                        renderPreview();
+                    } else if (scaleSelect.value === 'commune') {
+                        // Étape 3A : Choix de la Commune
+                        createSelect('sel-com', 'Commune', getCommunesByDept(depSel.value)).onchange = renderPreview;
+                    } else if (scaleSelect.value === 'epci') {
+                        // Étape 3B : Choix de l'EPCI (Filtré sur le département)
+                        createSelect('sel-epci', 'EPCI', getEPCIsByDept(depSel.value)).onchange = renderPreview;
+                    }
                 };
-            } else if (scaleSelect.value === 'epci') createSelect('sel-epci', 'EPCI', getEPCIsByRegion(regSel.value)).onchange = renderPreview;
+            }
         };
         renderPreview();
     };
-
+    
     scaleSelect.onchange = updateCascade;
     updateCascade();
 
@@ -673,6 +691,16 @@ function getDeptsByRegion(r) { return [...new Set(geoReferential.communes.filter
 function getEPCIsByRegion(r) { 
     const coms = new Set(geoReferential.communes.filter(c => getSafeCol(c, 'REG') === String(r).trim()).map(c => getSafeCol(c, 'COM'))); 
     return [...new Map(geoReferential.epci.filter(e => coms.has(getSafeCol(e, 'CODGEO'))).map(e => [getSafeCol(e, 'EPCI'), getSafeCol(e, 'LIBEPCI')]))].map(([code, name]) => ({ code, name })); 
+}
+
+function getEPCIsByDept(d) {
+    // 1. On trouve toutes les communes appartenant à ce département
+    const coms = new Set(geoReferential.communes.filter(c => getSafeCol(c, 'DEP') === String(d).trim()).map(c => getSafeCol(c, 'COM'))); 
+    
+    // 2. On trouve tous les EPCI qui contiennent au moins une de ces communes
+    return [...new Map(geoReferential.epci.filter(e => coms.has(getSafeCol(e, 'CODGEO'))).map(e => [getSafeCol(e, 'EPCI'), getSafeCol(e, 'LIBEPCI')]))]
+        .map(([code, name]) => ({ code, name }))
+        .sort((a, b) => a.name.localeCompare(b.name)); // Tri alphabétique pour le confort de lecture
 }
 function getCommunesByDept(d) { return geoReferential.communes.filter(c => getSafeCol(c, 'DEP') === String(d).trim()).map(c => ({ code: getSafeCol(c, 'COM'), name: getSafeCol(c, 'LIBELLE') })); }
 
