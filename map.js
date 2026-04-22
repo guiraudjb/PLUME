@@ -559,7 +559,6 @@ function getEPCIsByRegion(r) {
     return [...new Map(geoReferential.epci.filter(e => coms.has(getSafeCol(e, 'CODGEO'))).map(e => [getSafeCol(e, 'EPCI'), getSafeCol(e, 'LIBEPCI')]))].map(([code, name]) => ({ code, name })); 
 }
 function getCommunesByDept(d) { return geoReferential.communes.filter(c => getSafeCol(c, 'DEP') === String(d).trim()).map(c => ({ code: getSafeCol(c, 'COM'), name: getSafeCol(c, 'LIBELLE') })); }
-function getCommunesByDept(d) { return geoReferential.communes.filter(c => getSafeCol(c, 'DEP') === String(d).trim()).map(c => ({ code: getSafeCol(c, 'COM'), name: getSafeCol(c, 'LIBELLE') })); }
 
 /**
  * Scanne le document, lit la mémoire des cartes (data-map-config) 

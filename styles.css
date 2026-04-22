@@ -374,6 +374,4 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
 }
 
 /* On force la div Paysage à utiliser la règle d'impression Paysage */
-.page-a4.landscape {
-    page: landscape-page;
-}
+.page-a4.landscape { page: landscape-page; }

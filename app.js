@@ -51,343 +51,6 @@ function insertHTML(html) {
     document.execCommand('insertHTML', false, html + '<p><br></p>'); 
     }
 
-function insertImage() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/png, image/jpeg, image/webp';
-
-    input.onchange = function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-
-        reader.onload = function(readerEvent) {
-            // Au lieu d'insérer directement le gros fichier, on crée une image virtuelle
-            const img = new Image();
-            img.onload = function() {
-                // 1. Calcul des nouvelles dimensions (Max 800px de large pour une page A4)
-                const MAX_WIDTH = 800;
-                let width = img.width;
-                let height = img.height;
-
-                if (width > MAX_WIDTH) {
-                    height = Math.round((height * MAX_WIDTH) / width);
-                    width = MAX_WIDTH;
-                }
-
-                // 2. Création d'un Canvas invisible pour redimensionner
-                const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                
-                // Dessin de l'image redimensionnée sur le canvas
-                ctx.drawImage(img, 0, 0, width, height);
-
-                // 3. Export en format WEBP optimisé (qualité 75%)
-                // Une photo de 4 Mo passera à environ 80 Ko !
-                const compressedBase64 = canvas.toDataURL('image/webp', 0.75);
-
-                // 4. Insertion dans le document
-                const imgHTML = `
-                    <div style="display: flex; justify-content: center; margin: 1.5rem 0;" contenteditable="false">
-                        <img src="${compressedBase64}" alt="Image d'illustration" style="max-width: 100%; height: auto; object-fit: contain;">
-                    </div>
-                `;
-                
-                insertHTML(imgHTML);
-            };
-            
-            // On déclenche le chargement de l'image virtuelle
-            img.src = readerEvent.target.result;
-        };
-
-        reader.readAsDataURL(file);
-    };
-
-    input.click();
-}
-
-function insertDivider() {
-    // Remplacement du gris par var(--theme-sun) pour s'adapter dynamiquement
-    // J'ai également passé l'épaisseur à 2px pour qu'elle soit plus visible et élégante
-    const dividerHTML = `
-        <hr style="border: none; border-top: 2px solid var(--theme-sun); margin: 2rem 0;">
-    `;
-    
-    insertHTML(dividerHTML);
-}
-
-function insertPageBreak() {
-    // 1. On crée une nouvelle feuille A4 (réutilise la fonction existante)
-    addNewPage();
-    
-    // 2. On récupère toutes les pages (la nouvelle est forcément la dernière)
-    const pages = document.querySelectorAll('.page-a4');
-    const newPage = pages[pages.length - 1];
-    
-    // 3. On cible la zone de texte de cette nouvelle page
-    const contentEditable = newPage.querySelector('.content-editable');
-    
-    // 4. Défilement fluide (Scroll) pour amener l'utilisateur sur la nouvelle page
-    newPage.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    
-    // 5. Place le curseur actif dans la nouvelle zone de texte
-    // Cela permet à l'utilisateur de continuer à taper sans devoir cliquer
-    setTimeout(() => {
-        contentEditable.focus();
-    }, 500); // Léger délai pour laisser le temps au scroll de s'effectuer
-}
-
-function insertGrid(n) {
-    let colsHTML = ''; 
-    
-    // On crée les blocs pour chaque colonne avec un texte d'attente
-    for(let i = 0; i < n; i++) {
-        colsHTML += `
-            <div>
-                <p><em>Texte de la colonne ${i+1}...</em></p>
-            </div>
-        `;
-    }
-    
-    // L'astuce cruciale : on encapsule dans notre grille Flexbox
-    const gridHTML = `
-        <div class="custom-grid" contenteditable="false">
-            <div style="display: flex; gap: 1.5rem; width: 100%;" contenteditable="true">
-                ${colsHTML}
-            </div>
-        </div>
-    `;
-    
-    // Notre fonction utilitaire insertHTML ajoute automatiquement un <p><br></p> après !
-    // Cela garantit de toujours pouvoir cliquer SOUS les colonnes.
-    insertHTML(gridHTML);
-}
- 
-function insertTable() {
-    // 1. Demande des dimensions
-    const nbCols = parseInt(prompt("Nombre de colonnes :", "3"));
-    const nbRows = parseInt(prompt("Nombre de lignes (hors entête) :", "2"));
-    
-    if (isNaN(nbCols) || isNaN(nbRows)) return;
-
-    // 2. Demande du style d'entête
-    const choix = prompt(
-        "Style d'entête :\n" +
-        "1 : Colonnes uniquement (Haut)\n" +
-        "2 : Lignes uniquement (Gauche)\n" +
-        "3 : Les deux (Colonnes et Lignes)\n" +
-        "4 : Aucun", 
-        "1"
-    );
-
-    if (choix === null) return;
-
-    const hasColHeader = (choix === "1" || choix === "3");
-    const hasRowHeader = (choix === "2" || choix === "3");
-
-    let tableHTML = `<div class="fr-table" contenteditable="false">`;
-    tableHTML += `<table>`;
-
-    // --- CONSTRUCTION DE L'ENTÊTE DE COLONNE ---
-    if (hasColHeader) {
-        tableHTML += `<thead><tr>`;
-        for (let c = 0; c < nbCols; c++) {
-            tableHTML += `<th scope="col" contenteditable="true">Entête</th>`;
-        }
-        tableHTML += `</tr></thead>`;
-    }
-
-    // --- CONSTRUCTION DU CORPS DU TABLEAU ---
-    tableHTML += `<tbody contenteditable="true">`;
-    for (let r = 0; r < nbRows; r++) {
-        tableHTML += `<tr>`;
-        for (let c = 0; c < nbCols; c++) {
-            if (c === 0 && hasRowHeader) {
-                tableHTML += `<th scope="row">Ligne ${r+1}</th>`;
-            } else {
-                tableHTML += `<td>-</td>`;
-            }
-        }
-        tableHTML += `</tr>`;
-    }
-    tableHTML += `</tbody></table></div>`;
-
-    insertHTML(tableHTML);
-}
-
-function insertSommaire() {
-    // La structure est simplifiée au maximum pour laisser le CSS travailler
-    const sommaireHTML = `
-        <nav class="fr-summary" role="navigation" contenteditable="false">
-            <p class="fr-summary__title">Au sommaire de ce numéro</p>
-            <ol contenteditable="true">
-                <li>Titre du premier article</li>
-                <li>Titre du deuxième article</li>
-                <li>Titre du troisième article</li>
-            </ol>
-        </nav>
-    `;
-    
-    insertHTML(sommaireHTML);
-}
-
-function insertCallout() {
-    insertHTML(`<div class="fr-callout"><h3 class="fr-callout__title">Exergue</h3><p class="fr-callout__text">Contenu important.</p></div>`);
-}
-
-function insertCitation() {
-    // 1. Demande à l'utilisateur s'il souhaite une image
-    const wantsPhoto = confirm("Voulez-vous ajouter une photo de l'auteur à cette citation ?\n(Cliquez sur OK pour choisir une image, ou Annuler pour du texte seul)");
-
-    if (wantsPhoto) {
-        // --- CAS 1 : AVEC PHOTO ---
-        
-        // 2. NOUVEAU : Demande de quel côté placer la photo
-        const position = prompt(
-            "Position de la photo :\n" +
-            "1 : À gauche (par défaut)\n" +
-            "2 : À droite", 
-            "1"
-        );
-        
-        // Si l'utilisateur annule cette étape, on annule toute l'insertion
-        if (position === null) return;
-        
-        const photoOnRight = (position === "2");
-
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/png, image/jpeg, image/webp';
-        
-        input.onchange = function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            // Sécurité taille (max 2Mo)
-            if (file.size > 2 * 1024 * 1024) {
-                alert("L'image est trop lourde. Veuillez choisir une image de moins de 2 Mo.");
-                return;
-            }
-            
-            const reader = new FileReader();
-            reader.onload = function(readerEvent) {
-                const photoUrl = readerEvent.target.result;
-                
-                // --- CONSTRUCTION DYNAMIQUE DU HTML ---
-                // On prépare les deux blocs (image et texte)
-                const imgBlock = `<img src="${photoUrl}" alt="Portrait" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid var(--grey-900);">`;
-                
-                // Le bloc texte change légèrement de style selon le côté de l'image (border-left vs border-right)
-                const textBlockStyle = photoOnRight 
-                    ? `margin: 0; padding-right: 1.5rem; border-right: 4px solid var(--theme-sun); flex-grow: 1; text-align: right;` 
-                    : `margin: 0; padding-left: 1.5rem; border-left: 4px solid var(--theme-sun); flex-grow: 1;`;
-
-                const textBlock = `
-                    <blockquote style="${textBlockStyle}" contenteditable="true">
-                        <p style="font-size: 1.3rem; font-style: italic; font-weight: 700; color: #1e1e1e; margin-bottom: 0.75rem; line-height: 1.4;">
-                            « Saisissez la déclaration ici. »
-                        </p>
-                        <footer style="font-size: 0.95rem; font-weight: 700; color: #666;">
-                            — Prénom Nom, <span style="font-weight: normal; font-style: italic;">Fonction</span>
-                        </footer>
-                    </blockquote>
-                `;
-                
-                // On assemble dans le bon ordre
-                const contentHTML = photoOnRight ? textBlock + imgBlock : imgBlock + textBlock;
-
-                const citationAvecPhoto = `
-                    <div style="display: flex; gap: 1.5rem; align-items: flex-start; margin: 2rem 0 2rem 1rem;" contenteditable="false">
-                        ${contentHTML}
-                    </div>
-                `;
-                
-                insertHTML(citationAvecPhoto);
-            };
-            reader.readAsDataURL(file);
-        };
-        input.click(); 
-        
-    } else {
-        // --- CAS 2 : SANS PHOTO (Classique protégé) ---
-        const citationClassique = `
-            <div style="margin: 2rem 0 2rem 1rem;" contenteditable="false">
-                <blockquote style="margin: 0; padding-left: 1.5rem; border-left: 4px solid var(--theme-sun);" contenteditable="true">
-                    <p style="font-size: 1.3rem; font-style: italic; font-weight: 700; color: #1e1e1e; margin-bottom: 0.75rem; line-height: 1.4;">
-                        « Saisissez la déclaration ou l'extrait de discours ici. »
-                    </p>
-                    <footer style="font-size: 0.95rem; font-weight: 700; color: #666;">
-                        — Prénom Nom, <span style="font-weight: normal; font-style: italic;">Titre ou Fonction</span>
-                    </footer>
-                </blockquote>
-            </div>
-        `;
-        insertHTML(citationClassique);
-    }
-}
-
-function insertChiffreCle() {
-    // Ajout de contenteditable="false" sur le conteneur parent
-    // Ajout de contenteditable="true" sur le chiffre et le texte
-    const chiffreCleHTML = `
-        <div style="display: flex; align-items: center; gap: 1.5rem; margin: 2rem 0; padding: 1.5rem; background-color: var(--theme-bg); border-radius: 4px; border-left: 4px solid var(--theme-sun);" contenteditable="false">
-            
-            <div style="font-size: 3.5rem; font-weight: 800; color: var(--theme-sun); line-height: 1; min-width: max-content; outline: none;" contenteditable="true">
-                +42%
-            </div>
-            
-            <div style="font-size: 1.1rem; font-weight: 500; color: #1e1e1e; line-height: 1.4; outline: none;" contenteditable="true">
-                <p style="margin: 0;"><strong>Libellé du chiffre clé.</strong> Expliquez ici la signification de cette statistique.</p>
-            </div>
-            
-        </div>
-    `;
-    
-    insertHTML(chiffreCleHTML);
-}
-
-function insertLink() {
-    const url = prompt("Veuillez saisir l'URL du lien (ex: https://www.gouvernement.fr) :");
-    
-    // Si l'utilisateur annule ou laisse vide, on arrête tout
-    if (!url) return;
-    
-    if (/^\s*javascript:/i.test(url) || /^\s*data:/i.test(url) && !url.startsWith('data:image')) {
-        alert("Ce type de lien n'est pas autorisé par sécurité.");
-        return;
-    }
-
-    // Sécurisation de l'URL : on ajoute https:// si l'utilisateur l'a oublié
-    // (sauf s'il s'agit d'une adresse email avec mailto:)
-    let finalUrl = url;
-    if (!/^https?:\/\//i.test(finalUrl) && !/^mailto:/i.test(finalUrl)) {
-        finalUrl = 'https://' + finalUrl;
-    }
-
-    // Récupération de la sélection actuelle
-    const selection = window.getSelection();
-
-    // S'il n'y a pas de texte sélectionné (le curseur clignote juste)
-    if (selection.isCollapsed) {
-        // On insère l'URL sous forme de texte cliquable grâce à notre fonction existante
-        const linkHTML = `<a href="${finalUrl}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-        insertHTML(sanitizeHTML(linkHTML));
-    } else {
-        // S'il y a du texte sélectionné, on utilise la commande native du navigateur
-        document.execCommand('createLink', false, finalUrl);
-        
-        // Petite astuce pour forcer l'ouverture dans un nouvel onglet (target="_blank")
-        // sur le lien que le navigateur vient juste de générer
-        if (selection.anchorNode && selection.anchorNode.parentNode.tagName === 'A') {
-            selection.anchorNode.parentNode.setAttribute('target', '_blank');
-            selection.anchorNode.parentNode.setAttribute('rel', 'noopener noreferrer');
-        }
-    }
-}
-
 function syncMetadata() {
     document.querySelectorAll('.stamp-bureau').forEach(el => el.innerText = document.getElementById('cfg-bureau').value.toUpperCase());
     document.querySelectorAll('.stamp-titre').forEach(el => el.innerText = document.getElementById('cfg-titre').value.toUpperCase());
@@ -625,7 +288,7 @@ function renumberPages() {
 // =====================================================================
 const purifyConfig = {
     // On autorise explicitement les attributs dont notre éditeur a besoin
-    ADD_ATTR: ['contenteditable', 'data-chart-config', 'target', 'rel', 'scope'],
+    ADD_ATTR: ['contenteditable', 'data-chart-config', 'data-map-config', 'target', 'rel', 'scope'],
     // On autorise les URI de type "data:" pour conserver vos images en Base64
     ALLOW_DATA_ATTR: true,
     // On s'assure de ne pas supprimer les iframes ou autres objets non sollicités
@@ -645,34 +308,6 @@ function sanitizeHTML(dirtyHtml) {
     return dirtyHtml; // Fallback par défaut
 }
 
-
-// =====================================================================
-// MODULE DE GÉNÉRATION DE GRAPHIQUES (CHART.JS + PAPAPARSE -> BASE64)
-// =====================================================================
-
-function insertChart(type) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.csv, text/csv';
-
-    input.onchange = function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        // Papa Parse lit directement le fichier (plus besoin de FileReader !)
-        Papa.parse(file, {
-            skipEmptyLines: true, // Ignore intelligemment les lignes vides
-            complete: function(results) {
-                generateChartFromCSV(results.data, type);
-            },
-            error: function(err) {
-                alert("Erreur de lecture du fichier CSV avec Papa Parse.");
-            }
-        });
-    };
-    
-    input.click();
-}
 
 // =====================================================================
 // MODULE DE MASQUAGE AUTOMATIQUE DE LA BARRE D'OUTILS (MODE ZEN)
@@ -728,363 +363,6 @@ document.querySelector('.fr-header').addEventListener('click', wakeUpToolbar);
 // 4. Déclenchement automatique dès l'ouverture de la page web
 startIdleTimer();
 
-
-function insertChart(type) {
-    // 1. NOUVEAU : Sauvegarde de la position actuelle du curseur
-    const selection = window.getSelection();
-    let savedRange = null;
-    if (selection.rangeCount > 0) {
-        savedRange = selection.getRangeAt(0);
-    }
-
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.csv, text/csv';
-
-    input.onchange = function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        Papa.parse(file, {
-            skipEmptyLines: true,
-            complete: function(results) {
-                // On transmet la position mémorisée (savedRange) à la fonction suivante
-                generateChartFromCSV(results.data, type, savedRange);
-            },
-            error: function(err) {
-                alert("Erreur de lecture du fichier CSV.");
-            }
-        });
-    };
-    
-    input.click();
-}
-
-/**
- * Traite les données CSV, affiche une Modale WYSIWYG pour édition, puis insère l'image
- */
-function generateChartFromCSV(data, type, savedRange) {
-    if (!data || data.length < 2) {
-        alert("Erreur : Le fichier CSV semble vide ou incomplet.");
-        return;
-    }
-
-    // 1. DÉTECTION ET TRANSPOSITION AUTOMATIQUE
-    if (data.length === 2 && data[0].length > 2) {
-        const transposed = [];
-        for (let c = 0; c < data[0].length; c++) {
-            transposed.push([data[0][c], data[1][c]]);
-        }
-        let firstVal = String(transposed[0][1]).replace(',', '.');
-        if (!isNaN(parseFloat(firstVal))) {
-            transposed.unshift(["Libellés", "Valeurs"]);
-        }
-        data = transposed;
-    }
-
-    // 2. PALETTE DE COULEURS ÉTENDUE (Jusqu'à 8 séries)
-    const style = getComputedStyle(document.documentElement);
-    const themeMain = style.getPropertyValue('--theme-main').trim() || '#6a6af4';
-    const themeSun = style.getPropertyValue('--theme-sun').trim() || '#000091';
-    
-    const dynamicPalette = [
-        themeMain, 
-        themeSun,
-        `color-mix(in srgb, ${themeMain}, white 25%)`, // Nuance claire 1
-        `color-mix(in srgb, ${themeMain}, white 55%)`, // Nuance claire 2
-        `color-mix(in srgb, ${themeMain}, white 80%)`, // Nuance très claire
-        `color-mix(in srgb, ${themeSun}, black 20%)`,  // Nuance sombre 1
-        `color-mix(in srgb, ${themeSun}, black 45%)`,  // Nuance très sombre
-        '#666666'                                      // Gris de sécurité final
-    ];
-
-    // 3. PRÉPARATION DES DATASETS
-    const headers = data[0];
-    const numCols = headers.length;
-    const datasets = [];
-
-    for (let c = 1; c < numCols; c++) {
-        const color = dynamicPalette[(c - 1) % dynamicPalette.length];
-        datasets.push({
-            label: headers[c] ? String(headers[c]).trim() : `Série ${c}`,
-            data: [],
-            backgroundColor: (type === 'pie' || type === 'doughnut') 
-                ? dynamicPalette 
-                : (['line', 'radar'].includes(type) ? `color-mix(in srgb, ${color}, transparent 80%)` : color),
-            borderColor: (type === 'pie' || type === 'doughnut') ? '#ffffff' : color,
-            borderWidth: 2, borderRadius: type === 'bar' ? 4 : 0, fill: type === 'line' ? 'origin' : true, tension: 0.4
-        });
-    }
-
-    const labels = [];
-
-    for (let i = 1; i < data.length; i++) {
-        const row = data[i];
-        if (row && row.length >= 2) {
-            if (String(row[0]).trim() === '' && String(row[1]).trim() === '') continue;
-            labels.push(String(row[0]).trim());
-            for (let c = 1; c < numCols; c++) {
-                let rawValue = String(row[c] || '0').trim().replace(',', '.');
-                let parsedValue = parseFloat(rawValue);
-                datasets[c - 1].data.push(isNaN(parsedValue) ? 0 : parsedValue);
-            }
-        }
-    }
-
-    // 4. CRÉATION DE L'INTERFACE WYSIWYG (LA MODALE)
-    const defaultTitle = "Titre du graphique";
-    
-    const overlay = document.createElement('div');
-    overlay.className = 'chart-modal-overlay';
-    
-    // On génère dynamiquement les champs de texte pour chaque série de données
-    let seriesInputsHTML = '';
-    datasets.forEach((ds, i) => {
-        seriesInputsHTML += `
-            <div style="margin-top: 1rem;">
-                <label>Nom de la légende (Série ${i+1})</label>
-                <input type="text" class="chart-edit-serie" data-index="${i}" value="${ds.label}">
-            </div>
-        `;
-    });
-
-    overlay.innerHTML = `
-        <div class="chart-modal">
-            <div class="chart-modal-controls">
-                <h3 style="margin-top:0; color:var(--theme-sun); font-size:1.3rem;">Édition du graphique</h3>
-                <div>
-                    <label>Titre principal</label>
-                    <input type="text" id="chart-edit-title" value="${defaultTitle}">
-                </div>
-                ${seriesInputsHTML}
-                <div class="chart-modal-actions">
-                    <button id="chart-btn-cancel" style="padding:0.5rem 1rem; border:1px solid var(--theme-sun); background:#fff; color:var(--theme-sun); cursor:pointer; border-radius:4px;">Annuler</button>
-                    <button id="chart-btn-insert" style="padding:0.5rem 1rem; background:var(--theme-sun); color:#fff; border:none; cursor:pointer; border-radius:4px;">Insérer</button>
-                </div>
-            </div>
-            <div class="chart-modal-preview">
-                <canvas id="chart-preview-canvas"></canvas>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-
-    // 5. INITIALISATION DE CHART.JS DANS LA MODALE
-    const ctx = document.getElementById('chart-preview-canvas');
-    // On fixe la taille du canvas pour l'export final
-    ctx.width = 640; 
-    ctx.height = 380;
-
-// Détermination du vrai type pour Chart.js
-    const actualType = type === 'horizontalBar' ? 'bar' : type;
-    const isHorizontal = type === 'horizontalBar';
-    const isCircular = ['pie', 'doughnut', 'radar', 'polarArea'].includes(actualType);
-
-    const chart = new Chart(ctx, {
-        type: actualType,
-        data: { labels: labels, datasets: datasets },
-        plugins: [ChartDataLabels],
-        options: {
-            indexAxis: isHorizontal ? 'y' : 'x', // NOUVEAU : Pivote le graphique si nécessaire
-            responsive: false, 
-            animation: false,
-            layout: { padding: { top: 30, bottom: 10, left: 10, right: 10 } },
-            plugins: {
-                title: { display: true, text: defaultTitle, font: { size: 16, weight: 'bold', family: 'Marianne' }, padding: { bottom: 10 } },
-                legend: { display: true, position: 'bottom', labels: { usePointStyle: true, padding: 20, font: { family: 'Marianne' } } },
-                datalabels: {
-                    display: 'auto', 
-                    backgroundColor: isCircular ? 'transparent' : 'rgba(255, 255, 255, 0.8)',
-                    borderRadius: 3,
-                    padding: 2,
-                    color: isCircular ? '#ffffff' : themeSun,
-                    font: { weight: 'bold', family: 'Marianne', size: 11 },
-                    anchor: isCircular ? 'center' : 'end',
-                    align: isCircular ? 'center' : (isHorizontal ? 'right' : 'top'), // Ajustement des étiquettes
-                    offset: 4,
-                    formatter: (value) => (!value || isNaN(value)) ? '' : new Intl.NumberFormat('fr-FR').format(value)
-                }
-            },
-            // Inversion des échelles de lecture (x/y) si le graphique est horizontal
-            scales: isCircular ? {} : {
-                y: { 
-                    beginAtZero: true, 
-                    grid: { color: isHorizontal ? 'transparent' : 'rgba(0, 0, 0, 0.05)' }, 
-                    ticks: { font: { family: 'Marianne' }, callback: (v) => isHorizontal ? v : new Intl.NumberFormat('fr-FR').format(v) } 
-                },
-                x: { 
-                    grid: { color: isHorizontal ? 'rgba(0, 0, 0, 0.05)' : 'transparent' }, 
-                    ticks: { font: { family: 'Marianne' }, callback: (v) => isHorizontal ? new Intl.NumberFormat('fr-FR').format(v) : v } 
-                }
-            }
-        }
-    });
-    
-    // 6. MÉCANISME DE MISE À JOUR EN TEMPS RÉEL (WYSIWYG)
-    document.getElementById('chart-edit-title').addEventListener('input', function(e) {
-        chart.options.plugins.title.text = e.target.value;
-        chart.update(); // Demande à Chart.js de se redessiner
-    });
-
-    document.querySelectorAll('.chart-edit-serie').forEach(input => {
-        input.addEventListener('input', function(e) {
-            const index = e.target.getAttribute('data-index');
-            chart.data.datasets[index].label = e.target.value;
-            chart.update();
-        });
-    });
-
-    // 7. ACTIONS DES BOUTONS
-    // 7. ACTIONS DES BOUTONS
-    document.getElementById('chart-btn-cancel').addEventListener('click', () => {
-        chart.destroy();
-        overlay.remove();
-    });
-
-    document.getElementById('chart-btn-insert').addEventListener('click', () => {
-        const imgData = chart.toBase64Image();
-        
-        // --- NOUVEAU : Sauvegarde de l'état final du graphique ---
-        // On extrait uniquement ce qui est nécessaire pour le redessiner plus tard
-        const finalDatasets = chart.data.datasets.map(ds => ({
-            label: ds.label,
-            data: ds.data
-        }));
-        
-        const chartConfig = {
-            type: chart.config.type,
-            title: chart.options.plugins.title.text,
-            labels: chart.data.labels,
-            datasets: finalDatasets
-        };
-        
-        // On convertit cet objet en texte sécurisé pour l'intégrer dans le HTML
-        const safeConfig = encodeURIComponent(JSON.stringify(chartConfig));
-        // ---------------------------------------------------------
-
-        chart.destroy();
-        overlay.remove();
-
-        if (savedRange) {
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(savedRange);
-        }
-
-        // --- MODIFIÉ : Ajout de l'attribut data-chart-config ---
-        const chartHTML = `
-            <div class="chart-container" data-chart-config="${safeConfig}" style="display: flex; justify-content: center; margin: 2.5rem 0;" contenteditable="false">
-                <img src="${imgData}" alt="Graphique de données" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; padding: 1.2rem; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-            </div>
-            <p><br></p>
-        `;
-        
-        insertHTML(chartHTML);
-    });
-
-}
-
-/**
- * Scanne le document, lit la mémoire des graphiques et les met à jour avec la palette actuelle
- */
-function refreshAllCharts() {
-    const chartContainers = document.querySelectorAll('.chart-container[data-chart-config]');
-    if (chartContainers.length === 0) return;
-
-    // 1. Récupération des nouvelles couleurs
-    const style = getComputedStyle(document.documentElement);
-    const themeMain = style.getPropertyValue('--theme-main').trim() || '#6a6af4';
-    const themeSun = style.getPropertyValue('--theme-sun').trim() || '#000091';
-    
-    // PALETTE DE COULEURS ÉTENDUE
-    const dynamicPalette = [
-        themeMain, 
-        themeSun,
-        `color-mix(in srgb, ${themeMain}, white 25%)`,
-        `color-mix(in srgb, ${themeMain}, white 55%)`,
-        `color-mix(in srgb, ${themeMain}, white 80%)`,
-        `color-mix(in srgb, ${themeSun}, black 20%)`,
-        `color-mix(in srgb, ${themeSun}, black 45%)`,
-        '#666666'
-    ];
-
-    // 2. Traitement de chaque graphique
-    chartContainers.forEach(container => {
-        try {
-            // Lecture de la mémoire (sac à dos)
-            const rawConfig = container.getAttribute('data-chart-config');
-            const config = JSON.parse(decodeURIComponent(rawConfig));
-            
-            // Reconstitution des datasets avec les NOUVELLES couleurs
-            const newDatasets = config.datasets.map((ds, index) => {
-                const color = dynamicPalette[index % dynamicPalette.length];
-                return {
-                    label: ds.label,
-                    data: ds.data,
-                    backgroundColor: (config.type === 'pie' || config.type === 'doughnut') 
-                        ? dynamicPalette 
-                        : (['line', 'radar'].includes(config.type) ? `color-mix(in srgb, ${color}, transparent 80%)` : color),
-                    borderColor: (config.type === 'pie' || config.type === 'doughnut') ? '#ffffff' : color,
-                    borderWidth: 2, borderRadius: config.type === 'bar' ? 4 : 0, fill: config.type === 'line' ? 'origin' : true, tension: 0.4
-                };
-            });
-
-            // Création d'un Canvas temporaire
-            const canvas = document.createElement('canvas');
-            canvas.width = 640; canvas.height = 380;
-            canvas.style.display = 'none';
-            document.body.appendChild(canvas);
-
-            const actualType = config.type === 'horizontalBar' ? 'bar' : config.type;
-            const isHorizontal = config.type === 'horizontalBar';
-            const isCircular = ['pie', 'doughnut', 'radar', 'polarArea'].includes(actualType);
-
-            // Génération silencieuse
-            const chart = new Chart(canvas, {
-                type: actualType,
-                data: { labels: config.labels, datasets: newDatasets },
-                plugins: [ChartDataLabels],
-                options: {
-                    indexAxis: isHorizontal ? 'y' : 'x',
-                    responsive: false, animation: false,
-                    layout: { padding: { top: 30, bottom: 10, left: 10, right: 10 } },
-                    plugins: {
-                        title: { display: true, text: config.title, font: { size: 16, weight: 'bold', family: 'Marianne' }, padding: { bottom: 10 } },
-                        legend: { display: true, position: 'bottom', labels: { usePointStyle: true, padding: 20, font: { family: 'Marianne' } } },
-                        datalabels: {
-                            display: 'auto',
-                            backgroundColor: isCircular ? 'transparent' : 'rgba(255, 255, 255, 0.8)',
-                            borderRadius: 3, padding: 2,
-                            color: isCircular ? '#ffffff' : themeSun,
-                            font: { weight: 'bold', family: 'Marianne', size: 11 },
-                            anchor: isCircular ? 'center' : 'end',
-                            align: isCircular ? 'center' : (isHorizontal ? 'right' : 'top'),
-                            offset: 4,
-                            formatter: (v) => (!v || isNaN(v)) ? '' : new Intl.NumberFormat('fr-FR').format(v)
-                        }
-                    },
-                    scales: isCircular ? {} : {
-                        y: { beginAtZero: true, grid: { color: isHorizontal ? 'transparent' : 'rgba(0,0,0,0.05)' }, ticks: { font: { family: 'Marianne' }, callback: (v) => isHorizontal ? v : new Intl.NumberFormat('fr-FR').format(v) } },
-                        x: { grid: { color: isHorizontal ? 'rgba(0,0,0,0.05)' : 'transparent' }, ticks: { font: { family: 'Marianne' }, callback: (v) => isHorizontal ? new Intl.NumberFormat('fr-FR').format(v) : v } }
-                    }
-                }
-            });
-
-            // Remplacement de l'image
-            const imgElement = container.querySelector('img');
-            if (imgElement) {
-                imgElement.src = chart.toBase64Image();
-            }
-
-            // Nettoyage
-            chart.destroy();
-            canvas.remove();
-
-        } catch (e) {
-            console.error("Impossible de rafraîchir le graphique", e);
-        }
-    });
-}
 
 // =====================================================================
 // MODULE DE MÉMOIRE GLOBALE DU CURSEUR (SÉCURITÉ FOCUS)
@@ -1142,9 +420,8 @@ function enforceFocus() {
     }
 }
 
-
 // =====================================================================
-// INTERCEPTEUR DE COLLAGE (SPECIAL TABLEUR EXCEL / SHEETS)
+// INTERCEPTEUR DE COLLAGE (SPECIAL TABLEUR EXCEL / SHEETS / CALC)
 // =====================================================================
 document.addEventListener('paste', function(e) {
     const editor = e.target.closest('.content-editable');
@@ -1154,393 +431,85 @@ document.addEventListener('paste', function(e) {
     const textData = clipboardData.getData('text/plain');
     const htmlData = clipboardData.getData('text/html');
     
+    // Détection d'une structure de type Tableur (Tabulations + Sauts de ligne)
     const isSpreadsheet = textData.includes('\t') && textData.includes('\n');
+
+    // On vérifie immédiatement où se trouve le curseur de l'utilisateur
+    const activeElement = document.activeElement;
+    const inExistingTable = activeElement.closest('table');
 
     if (isSpreadsheet) {
         e.preventDefault(); // On bloque l'insertion catastrophique du navigateur
 
-        const rows = textData.trim().split('\n');
-        const activeElement = document.activeElement;
-        const inExistingTable = activeElement.closest('table');
-
-        let htmlClean = '';
-
+        // --- SÉCURITÉ : REFUS DE COLLER DANS UN TABLEAU EXISTANT ---
         if (inExistingTable) {
-            // --- CAS 1 : COLLAGE DANS UN TABLEAU EXISTANT ---
-            rows.forEach(row => {
-                if (row.trim() !== '') {
-                    const cols = row.split('\t');
-                    htmlClean += '<tr>';
+            alert("⚠️ Vous ne pouvez pas coller un tableau à l'intérieur d'un autre tableau.\nVeuillez cliquer sur une ligne vide en dehors du tableau pour coller vos données.");
+            return; // On arrête tout immédiatement
+        }
+
+        // --- CRÉATION D'UN NOUVEAU TABLEAU ---
+        const rows = textData.trim().split('\n');
+        let htmlClean = '';
+        
+        const choix = prompt(
+            "Vous collez des données de tableur. Choisissez le style d'entête :\n" +
+            "1 : Colonnes uniquement (Haut)\n" +
+            "2 : Lignes uniquement (Gauche)\n" +
+            "3 : Les deux (Colonnes et Lignes)\n" +
+            "4 : Aucun", 
+            "1"
+        );
+
+        if (choix === null) return;
+
+        const hasColHeader = (choix === "1" || choix === "3");
+        const hasRowHeader = (choix === "2" || choix === "3");
+
+        htmlClean += `<div class="fr-table" contenteditable="false">`;
+        htmlClean += `<table contenteditable="true">`;
+        
+        let tbodyOpened = false;
+
+        rows.forEach((row, rowIndex) => {
+            if (row.trim() !== '') {
+                const cols = row.split('\t');
+                
+                if (rowIndex === 0 && hasColHeader) {
+                    htmlClean += `<thead><tr>`;
                     cols.forEach(col => {
-                        htmlClean += `<td>${col.trim()}</td>`;
+                        htmlClean += `<th scope="col">${col.trim()}</th>`;
                     });
-                    htmlClean += '</tr>';
-                }
-            });
-            document.execCommand('insertHTML', false, htmlClean);
-            
-        } else {
-            // --- CAS 2 : COLLAGE DANS LE VIDE (CRÉATION D'UN NOUVEAU TABLEAU) ---
-            
-            // On pose la même question que lors de la création manuelle d'un tableau
-            const choix = prompt(
-                "Vous collez des données de tableur. Choisissez le style d'entête :\n" +
-                "1 : Colonnes uniquement (Haut)\n" +
-                "2 : Lignes uniquement (Gauche)\n" +
-                "3 : Les deux (Colonnes et Lignes)\n" +
-                "4 : Aucun", 
-                "1"
-            );
-
-            // Si l'utilisateur clique sur Annuler, on stoppe l'action
-            if (choix === null) return;
-
-            const hasColHeader = (choix === "1" || choix === "3");
-            const hasRowHeader = (choix === "2" || choix === "3");
-
-            htmlClean += `<div class="fr-table" contenteditable="false">`;
-            htmlClean += `<table contenteditable="true">`;
-            
-            let tbodyOpened = false;
-
-            rows.forEach((row, rowIndex) => {
-                if (row.trim() !== '') {
-                    const cols = row.split('\t');
-                    
-                    // Si on est sur la première ligne ET qu'on a demandé des entêtes de colonnes
-                    if (rowIndex === 0 && hasColHeader) {
-                        htmlClean += `<thead><tr>`;
-                        cols.forEach(col => {
-                            htmlClean += `<th scope="col">${col.trim()}</th>`;
-                        });
-                        htmlClean += `</tr></thead>`;
-                    } else {
-                        // On ouvre le corps du tableau si ce n'est pas déjà fait
-                        if (!tbodyOpened) {
-                            htmlClean += `<tbody>`;
-                            tbodyOpened = true;
-                        }
-                        
-                        htmlClean += `<tr>`;
-                        cols.forEach((col, colIndex) => {
-                            // Si on est sur la première colonne ET qu'on a demandé des entêtes de lignes
-                            if (colIndex === 0 && hasRowHeader) {
-                                htmlClean += `<th scope="row">${col.trim()}</th>`;
-                            } else {
-                                htmlClean += `<td>${col.trim()}</td>`;
-                            }
-                        });
-                        htmlClean += `</tr>`;
+                    htmlClean += `</tr></thead>`;
+                } else {
+                    if (!tbodyOpened) {
+                        htmlClean += `<tbody>`;
+                        tbodyOpened = true;
                     }
+                    
+                    htmlClean += `<tr>`;
+                    cols.forEach((col, colIndex) => {
+                        if (colIndex === 0 && hasRowHeader) {
+                            htmlClean += `<th scope="row">${col.trim()}</th>`;
+                        } else {
+                            htmlClean += `<td>${col.trim()}</td>`;
+                        }
+                    });
+                    htmlClean += `</tr>`;
                 }
-            });
-            
-            if (tbodyOpened) htmlClean += `</tbody>`;
-            htmlClean += `</table></div><p><br></p>`;
-            
-            document.execCommand('insertHTML', false, htmlClean);
-        }
-    document.execCommand('insertHTML', false, sanitizeHTML(htmlClean));
-    }else if (htmlData) {
-        // --- NOUVEAU : SÉCURISATION DU COLLAGE CLASSIQUE ---
-        e.preventDefault(); // On bloque l'insertion brute du navigateur
-        
-        // On nettoie le HTML copié depuis Word, un autre site, etc.
-        const cleanPaste = sanitizeHTML(htmlData);
-        
-        // On insère la version propre
-        document.execCommand('insertHTML', false, cleanPaste);
-    }
-});
-// =====================================================================
-// MODULE D'OUTILS FLOTTANTS (CORBEILLE, REGLAGES, IMAGES & TEXTE)
-// =====================================================================
-
-// 1. Création du conteneur de la barre d'outils
-const floatToolbar = document.createElement('div');
-floatToolbar.style.cssText = `
-    position: absolute;
-    display: none;
-    z-index: 10000;
-    gap: 0.3rem;
-    background-color: #fff;
-    padding: 0.3rem;
-    border: 1px solid var(--grey-900);
-    border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    align-items: center;
-`;
-
-// 2. Outils de Texte existants
-const textStyleSelect = document.createElement('select');
-textStyleSelect.innerHTML = `<option value="P">Paragraphe</option><option value="H2">Titre 2</option><option value="H3">Titre 3</option><option value="H4">Titre 4</option><option value="BLOCKQUOTE">Citation</option>`;
-textStyleSelect.style.cssText = `padding: 0.2rem 0.5rem; border: 1px solid var(--grey-900); border-radius: 4px; font-family: inherit; font-size: 0.85rem; background: #f5f5fe; cursor: pointer; outline: none;`;
-
-const cleanBtn = document.createElement('button');
-cleanBtn.innerHTML = '🧹'; cleanBtn.title = "Nettoyer les styles parasites";
-cleanBtn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;`;
-
-const resizeBtn = document.createElement('button');
-resizeBtn.innerHTML = '📏'; resizeBtn.title = "Modifier la largeur des colonnes";
-resizeBtn.style.cssText = `background-color: #f5f5fe; border: 1px solid var(--theme-sun); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;`;
-
-const trashBtn = document.createElement('button');
-trashBtn.innerHTML = '<span class="fr-icon-delete-bin-fill"></span>'; trashBtn.title = "Supprimer ce bloc";
-trashBtn.style.cssText = `background-color: #ffe8e5; color: #e1000f; border: 1px solid #e1000f; border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center;`;
-
-// 3. NOUVEAU : Outils d'Image
-function createImgBtn(icon, title) {
-    const btn = document.createElement('button');
-    btn.innerHTML = `<span class="${icon}"></span>`; btn.title = title;
-    btn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--theme-sun);`;
-    return btn;
-}
-
-const imgAlignLeft = createImgBtn('fr-icon-align-left', 'Aligner à gauche (Habillage texte)');
-const imgAlignCenter = createImgBtn('fr-icon-align-center', 'Centrer (Bloc)');
-const imgAlignRight = createImgBtn('fr-icon-align-right', 'Aligner à droite (Habillage texte)');
-const imgMoveUp = createImgBtn('fr-icon-arrow-up-line', 'Monter l\'image');
-const imgMoveDown = createImgBtn('fr-icon-arrow-down-line', 'Descendre l\'image');
-const imgCropBtn = createImgBtn('fr-icon-image-edit-line', 'Recadrer (Original / Carré / 16:9)');
-
-const imgResizeSlider = document.createElement('input');
-imgResizeSlider.type = 'range'; imgResizeSlider.min = '15'; imgResizeSlider.max = '100'; imgResizeSlider.value = '100';
-imgResizeSlider.title = "Ajuster la taille";
-imgResizeSlider.style.cssText = "width: 70px; margin: 0 0.5rem; cursor: pointer;";
-
-const imgToolsContainer = document.createElement('div');
-imgToolsContainer.style.cssText = "display: none; align-items: center; gap: 0.3rem; border-right: 1px solid var(--grey-900); padding-right: 0.5rem; margin-right: 0.2rem;";
-imgToolsContainer.append(imgAlignLeft, imgAlignCenter, imgAlignRight, imgMoveUp, imgMoveDown, imgCropBtn, imgResizeSlider);
-
-// Ajout des éléments à la barre (ordre d'apparition)
-floatToolbar.appendChild(textStyleSelect);
-floatToolbar.appendChild(cleanBtn);
-floatToolbar.appendChild(imgToolsContainer); // S'intercale ici
-floatToolbar.appendChild(resizeBtn);
-floatToolbar.appendChild(trashBtn);
-document.body.appendChild(floatToolbar);
-
-let hoveredBlock = null;
-
-// NOUVEAU : Sélecteur élargi
-const blockSelectors = '.fr-table, .custom-grid, .fr-summary, .fr-callout, hr, img, [contenteditable="false"], p, h1, h2, h3, h4, h5, h6, blockquote, ul, ol';
-
-// 4. Traque de la souris
-document.addEventListener('mousemove', function(e) {
-    if (e.target === floatToolbar || floatToolbar.contains(e.target)) return;
-
-    const editor = e.target.closest('.content-editable');
-    if (!editor) { hideFloatToolbar(); return; }
-
-    const block = e.target.closest(blockSelectors);
-
-    if (block && editor.contains(block)) {
-        if (hoveredBlock !== block) {
-            hideFloatToolbar();
-            hoveredBlock = block;
-            hoveredBlock.classList.add('block-hover-focus');
-            
-            const tagName = hoveredBlock.tagName.toUpperCase();
-            
-            // --- Logique d'affichage contextuel ---
-            
-            // Si c'est du Texte
-            if (['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE'].includes(tagName)) {
-                textStyleSelect.style.display = 'block';
-                textStyleSelect.value = ['H1', 'H5', 'H6'].includes(tagName) ? 'P' : tagName; 
-                cleanBtn.style.display = 'flex';
-            } else {
-                textStyleSelect.style.display = 'none';
-                cleanBtn.style.display = 'none';
-            }
-
-            // Si c'est une Image
-            if (tagName === 'IMG') {
-                imgToolsContainer.style.display = 'flex';
-                // Synchronise le slider avec la largeur actuelle
-                const currentWidth = hoveredBlock.style.width || '100%';
-                imgResizeSlider.value = parseInt(currentWidth);
-            } else {
-                imgToolsContainer.style.display = 'none';
-            }
-
-            // Si c'est un Tableau ou une Grille
-            if (hoveredBlock.classList.contains('custom-grid') || hoveredBlock.classList.contains('fr-table')) {
-                resizeBtn.style.display = 'flex';
-            } else {
-                resizeBtn.style.display = 'none';
-            }
-
-            // Positionnement
-            const rect = hoveredBlock.getBoundingClientRect();
-            floatToolbar.style.top = (window.scrollY + rect.top - 40) + 'px';
-            floatToolbar.style.left = (window.scrollX + rect.left) + 'px';
-            floatToolbar.style.display = 'flex';
-        }
-    } else {
-        hideFloatToolbar();
-    }
-});
-
-function hideFloatToolbar() {
-    if (hoveredBlock) {
-        hoveredBlock.classList.remove('block-hover-focus');
-        hoveredBlock = null;
-    }
-    floatToolbar.style.display = 'none';
-}
-
-// =====================================================================
-// 5. ACTIONS DES BOUTONS IMAGES (NOUVEAU)
-// =====================================================================
-
-// Pour les manipulations structurelles, on cible le conteneur parent généré lors de l'insertion
-function getImgWrapper(img) {
-    return img.closest('div[contenteditable="false"]') || img;
-}
-
-imgAlignLeft.onclick = () => {
-    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
-    const w = getImgWrapper(hoveredBlock);
-    w.style.display = 'block'; w.style.float = 'left'; w.style.margin = '0 1.5rem 1rem 0';
-};
-
-imgAlignCenter.onclick = () => {
-    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
-    const w = getImgWrapper(hoveredBlock);
-    w.style.display = 'flex'; w.style.justifyContent = 'center'; w.style.float = 'none'; w.style.margin = '1.5rem 0';
-};
-
-imgAlignRight.onclick = () => {
-    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
-    const w = getImgWrapper(hoveredBlock);
-    w.style.display = 'block'; w.style.float = 'right'; w.style.margin = '0 0 1rem 1.5rem';
-};
-
-imgMoveUp.onclick = () => {
-    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
-    const w = getImgWrapper(hoveredBlock);
-    const prev = w.previousElementSibling;
-    if (prev) w.parentNode.insertBefore(w, prev);
-    hideFloatToolbar();
-};
-
-imgMoveDown.onclick = () => {
-    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
-    const w = getImgWrapper(hoveredBlock);
-    const next = w.nextElementSibling;
-    if (next) w.parentNode.insertBefore(w, next.nextElementSibling);
-    hideFloatToolbar();
-};
-
-imgResizeSlider.oninput = (e) => {
-    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
-    hoveredBlock.style.width = e.target.value + '%';
-    hoveredBlock.style.height = 'auto'; // Force le respect du ratio
-};
-
-const ratios = ['auto', '1 / 1', '16 / 9', '4 / 3'];
-let currentRatioIdx = 0;
-imgCropBtn.onclick = () => {
-    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
-    currentRatioIdx = (currentRatioIdx + 1) % ratios.length;
-    const ratio = ratios[currentRatioIdx];
-    
-    if (ratio === 'auto') {
-        hoveredBlock.style.aspectRatio = 'auto';
-        hoveredBlock.style.objectFit = 'contain';
-        imgCropBtn.style.backgroundColor = '#fff';
-    } else {
-        hoveredBlock.style.aspectRatio = ratio;
-        hoveredBlock.style.objectFit = 'cover';
-        imgCropBtn.style.backgroundColor = '#e3e3fd'; // Indicateur visuel d'activation
-    }
-};
-
-// =====================================================================
-// 6. ACTIONS DES OUTILS EXISTANTS
-// =====================================================================
-
-textStyleSelect.addEventListener('change', function(e) {
-    if (!hoveredBlock) return;
-    const newTag = e.target.value;
-    if (hoveredBlock.tagName.toUpperCase() !== newTag) {
-        const newElement = document.createElement(newTag);
-        newElement.innerHTML = hoveredBlock.innerHTML;
-        if (hoveredBlock.className) newElement.className = hoveredBlock.className;
-        hoveredBlock.parentNode.replaceChild(newElement, hoveredBlock);
-        hideFloatToolbar(); 
-    }
-});
-
-cleanBtn.addEventListener('click', function() {
-    if (!hoveredBlock) return;
-    hoveredBlock.removeAttribute('style');
-    if (!hoveredBlock.className.includes('fr-')) {
-        hoveredBlock.removeAttribute('class');
-        hoveredBlock.classList.add('block-hover-focus'); 
-    }
-    const children = hoveredBlock.querySelectorAll('*');
-    children.forEach(child => {
-        child.removeAttribute('style');
-        Array.from(child.attributes).forEach(attr => {
-            if (attr.name !== 'href' && attr.name !== 'src' && attr.name !== 'alt') {
-                child.removeAttribute(attr.name);
             }
         });
-        if (child.tagName === 'FONT' || child.tagName === 'SPAN') {
-            const fragment = document.createDocumentFragment();
-            while (child.firstChild) fragment.appendChild(child.firstChild);
-            child.parentNode.replaceChild(fragment, child);
-        }
-    });
-    cleanBtn.innerHTML = '✨'; cleanBtn.style.backgroundColor = '#c3fad5';
-    setTimeout(() => { cleanBtn.innerHTML = '🧹'; cleanBtn.style.backgroundColor = '#fff'; }, 1000);
-});
+        
+        if (tbodyOpened) htmlClean += `</tbody>`;
+        htmlClean += `</table></div><p><br></p>`;
+        
+        // Insertion sécurisée du tableau généré
+        document.execCommand('insertHTML', false, sanitizeHTML(htmlClean));
 
-trashBtn.addEventListener('click', function() {
-    if (hoveredBlock) {
-        // Supprime le wrapper entier si c'est une image
-        const target = hoveredBlock.tagName === 'IMG' ? getImgWrapper(hoveredBlock) : hoveredBlock;
-        target.remove();
-        hideFloatToolbar();
-    }
-});
-
-resizeBtn.addEventListener('click', function() {
-    if (!hoveredBlock) return;
-    if (hoveredBlock.classList.contains('custom-grid')) {
-        const gridInner = hoveredBlock.querySelector('div[style*="display: flex"]');
-        if (!gridInner) return;
-        const cols = Array.from(gridInner.children).filter(c => c.tagName === 'DIV');
-        const n = cols.length;
-        const input = prompt(`Répartition de vos ${n} colonnes.\nEntrez les proportions (ex: 30/70) :`, n === 2 ? "50/50" : "33/33/33");
-        if (!input) return;
-        const parts = input.split(/[\/\-\+,;\s]+/).map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
-        if (parts.length === n) cols.forEach((col, i) => { col.style.flex = parts[i]; col.style.maxWidth = "none"; });
-        else alert("Format invalide.");
-    }
-    else if (hoveredBlock.classList.contains('fr-table')) {
-        const table = hoveredBlock.querySelector('table');
-        if (!table) return;
-        const firstRow = table.querySelector('tr');
-        if (!firstRow) return;
-        const n = firstRow.children.length;
-        const input = prompt(`Répartition des ${n} colonnes.\nEntrez les proportions (ex: 30/70) :`, n === 2 ? "50/50" : "33/33/33");
-        if (!input) return;
-        const parts = input.split(/[\/\-\+,;\s]+/).map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
-        if (parts.length === n) {
-            const total = parts.reduce((sum, val) => sum + val, 0);
-            let colgroup = table.querySelector('colgroup');
-            if (!colgroup) { colgroup = document.createElement('colgroup'); table.insertBefore(colgroup, table.firstChild); }
-            else colgroup.innerHTML = '';
-            parts.forEach(part => {
-                const col = document.createElement('col');
-                col.style.width = `${((part / total) * 100).toFixed(2)}%`;
-                colgroup.appendChild(col);
-            });
-            table.style.tableLayout = 'fixed';
-        } else { alert("Format invalide."); }
+    } else if (htmlData) {
+        // --- SÉCURISATION DU COLLAGE CLASSIQUE (Texte, images, etc.) ---
+        e.preventDefault(); 
+        const cleanPaste = sanitizeHTML(htmlData);
+        document.execCommand('insertHTML', false, cleanPaste);
     }
 });
 
