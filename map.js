@@ -104,9 +104,14 @@ function computeValorAggregation(rawData, targetScale, calcMode, colCode, col1, 
 // =====================================================================
 // 3. MOTEUR DE RENDU D3.JS
 // =====================================================================
+// =====================================================================
+// 3. MOTEUR DE RENDU D3.JS
+// =====================================================================
 async function drawD3Map(container, config, dataMap) {
-    container.innerHTML = '';
     const width = container.clientWidth, height = container.clientHeight;
+    const pStrength = config.physStrength !== undefined ? config.physStrength : 0.15;
+    const pPadding = config.physPadding !== undefined ? config.physPadding : 4;
+    const pRatio = config.physRatio !== undefined ? config.physRatio : 0.62;
     
     let jsonFile = (config.scale === 'national' || config.scale === 'region') 
                    ? './data/departement_2025.json' 
@@ -114,11 +119,15 @@ async function drawD3Map(container, config, dataMap) {
     
     let geoJSON;
     try { 
+        // L'attente (await) se fait AVANT de vider le conteneur
         geoJSON = await d3.json(jsonFile); 
     } catch (e) {
         container.innerHTML = `<p style="color:red; text-align:center;">Fichier ${jsonFile} introuvable.</p>`;
         return false;
     }
+
+    // CORRECTION DU GLITCH : On vide le conteneur juste avant de dessiner !
+    container.innerHTML = '';
 
     let features = [];
     if (geoJSON && geoJSON.type === "Topology" && geoJSON.objects) {
@@ -184,9 +193,10 @@ async function drawD3Map(container, config, dataMap) {
         })
         .attr("stroke", "#ffffff").attr("stroke-width", 0.5);
 
-    if (config.labelType !== 'none') {
+    // Rendu des étiquettes (Opti Collision)
+if (config.labelType !== 'none') {
         
-        // 1. Préparation des "noeuds" physiques (les étiquettes)
+        // 1. Préparation des boîtes (Bounding Boxes)
         const labelNodes = [];
         features.forEach(d => {
             const centroid = path.centroid(d);
@@ -204,46 +214,87 @@ async function drawD3Map(container, config, dataMap) {
                 else if (config.labelType === 'value') textLen = valStr.length;
                 else textLen = Math.max(name.length, valStr.length);
                 
-                // BULLE DE COLLISION AGRANDIE :
-                // On donne plus d'espace en largeur (0.28) et on grossit fortement
-                // la bulle (+30%) si le texte est sur deux lignes (both)
-                let r = Math.max((textLen * config.labelSize * 0.28), config.labelSize * 1.5);
-                if (config.labelType === 'both') {
-                    r *= 1.35; 
-                }
-
-                const currentFill = dataMap && dataMap.has(code) ? colorScale(dataMap.get(code)) : "#e5e5e5";
-                const textColor = getContrastingColor(currentFill);
+                // NOUVEAU : Au lieu d'un rayon (r), on calcule la Largeur et la Hauteur réelles
+                // La largeur d'un caractère Marianne est d'environ 55% de sa hauteur
+                const estimatedWidth = textLen * (config.labelSize * pRatio);
+                const estimatedHeight = config.labelSize * (config.labelType === 'both' ? 2.4 : 1.2);
 
                 labelNodes.push({
                     feature: d, code: code, name: name, valStr: valStr,
                     cx: centroid[0], cy: centroid[1],
                     x: centroid[0], y: centroid[1],
-                    r: r, textColor: textColor
+                    width: estimatedWidth, 
+                    height: estimatedHeight
                 });
             }
         });
 
-        // 2. Le moteur physique : Priorité à la répulsion
+        // 2. Création de la Force de Collision Rectangulaire (Custom D3)
+        function rectCollide() {
+            let nodes;
+            function force(alpha) {
+                const padding = pPadding; // Marge de respiration entre les mots (2 pixels)
+                // Le Quadtree partitionne l'espace pour ne pas avoir à comparer toutes les étiquettes entre elles (Optimisation)
+                const quad = d3.quadtree().x(d => d.x).y(d => d.y).addAll(nodes);
+                
+                for (const d of nodes) {
+                    quad.visit((q, x1, y1, x2, y2) => {
+                        if (!q.length && q.data !== d) {
+                            const d2 = q.data;
+                            // Calcul des distances d'intersection
+                            const w = (d.width + d2.width) / 2 + padding * 2;
+                            const h = (d.height + d2.height) / 2 + padding * 2;
+                            let x = d.x - d2.x;
+                            let y = d.y - d2.y;
+                            const absX = Math.abs(x) || 0.01; 
+                            const absY = Math.abs(y) || 0.01;
+
+                            // Si les deux boîtes se chevauchent sur X ET sur Y
+                            if (absX < w && absY < h) {
+                                // On les repousse sur l'axe le plus facile (celui qui nécessite le moins de mouvement)
+                                const lx = (w - absX) / w;
+                                const ly = (h - absY) / h;
+                                if (lx < ly) {
+                                    x *= lx * alpha;
+                                    d.x += x; d2.x -= x;
+                                } else {
+                                    y *= ly * alpha;
+                                    d.y += y; d2.y -= y;
+                                }
+                            }
+                        }
+                        // Limites de recherche pour le Quadtree
+                        const nx1 = d.x - d.width / 2 - padding,
+                              ny1 = d.y - d.height / 2 - padding,
+                              nx2 = d.x + d.width / 2 + padding,
+                              ny2 = d.y + d.height / 2 + padding;
+                        return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
+                    });
+                }
+            }
+            force.initialize = _ => nodes = _;
+            return force;
+        }
+
+        // 3. Le moteur physique optimisé
         const simulation = d3.forceSimulation(labelNodes)
-            // L'élastique est très relâché (0.3 au lieu de 1.5)
-            // Les étiquettes ont maintenant le droit d'aller très loin si nécessaire
-            .force("x", d3.forceX(d => d.cx).strength(0.3)) 
-            .force("y", d3.forceY(d => d.cy).strength(0.3))
-            // L'anti-collision est renforcé avec plus d'itérations (12) pour éviter les superpositions têtues
-            .force("collide", d3.forceCollide(d => d.r + 3).iterations(12)) 
+            // Élastiques de rappel vers le centre (force équilibrée)
+            .force("x", d3.forceX(d => d.cx).strength(pStrength)) 
+            .force("y", d3.forceY(d => d.cy).strength(pStrength))
+            // On injecte notre collision rectangulaire personnalisée !
+            .force("collide", rectCollide()) 
             .stop();
 
-        // Comme l'élastique est plus lâche, il faut plus de temps au système pour se stabiliser
-        for (let i = 0; i < 300; ++i) simulation.tick();
+        // 200 cycles pour bien "tasser" les boîtes rectangulaires comme des briques
+        for (let i = 0; i < 250; ++i) simulation.tick();
 
-        // La "Cage" : interdiction stricte de sortir de l'image
+        // La "Cage" (pour ne pas sortir de la carte)
         labelNodes.forEach(d => {
             d.x = Math.max(20, Math.min(width - 20, d.x));
             d.y = Math.max(20, Math.min(height - 20, d.y));
         });
 
-        // 3. Dessin des traits de liaison (leaders)
+        // 4. Dessin des traits de liaison
         g.selectAll("line.leader")
             .data(labelNodes)
             .enter()
@@ -254,15 +305,15 @@ async function drawD3Map(container, config, dataMap) {
             .attr("x2", d => d.x)
             .attr("y2", d => d.y)
             .attr("stroke", d => {
-                // On trace le trait dès que l'étiquette a un peu bougé (0.4 au lieu de 0.6)
+                // On trace si l'étiquette s'est éloignée d'au moins la moitié de sa hauteur
                 const dist = Math.sqrt(Math.pow(d.x - d.cx, 2) + Math.pow(d.y - d.cy, 2));
-                return dist > (d.r * 0.4) ? "#161616" : "none";
+                return dist > (d.height * 0.8) ? mainColor : "none";
             })
             .attr("stroke-width", 0.8)
             .attr("stroke-dasharray", "2,2")
-            .attr("opacity", 0.6);
+            .attr("opacity", 0.7);
 
-        // 4. Dessin du texte positionné
+        // 5. Dessin du texte (Halo Opaque)
         g.selectAll("text.label")
             .data(labelNodes)
             .enter()
@@ -274,40 +325,31 @@ async function drawD3Map(container, config, dataMap) {
             .style("font-size", `${config.labelSize}px`)
             .style("font-family", "Marianne")
             .style("pointer-events", "none")
-            // Halo renforcé pour assurer la lisibilité même au-dessus des lignes pointillées
-            .style("text-shadow", "0px 0px 4px rgba(255,255,255,1), 0px 0px 6px rgba(255,255,255,0.7)") 
-            .style("fill", d => d.textColor)
+            .style("text-shadow", "-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff, 0px 0px 6px #fff") 
+            .style("fill", mainColor)
+            .style("font-weight", "700")
             .each(function(d) {
                 const el = d3.select(this);
-                
                 if (config.labelType === 'name') el.text(d.name);
                 else if (config.labelType === 'value' && d.valStr) el.text(d.valStr);
                 else if (config.labelType === 'both' && d.valStr) {
                     el.append("tspan").attr("x", d.x).attr("dy", "-0.2em").text(d.name);
-                    el.append("tspan").attr("x", d.x).attr("dy", "1.1em").style("font-weight", "bold").text(d.valStr);
+                    el.append("tspan").attr("x", d.x).attr("dy", "1.1em").text(d.valStr);
                 }
             });
     }
     
     // Titre de la carte
-    svg.append("text")
-        .attr("x", 20)
-        .attr("y", 35)
-        .style("font-weight", "bold")
-        .style("font-size", "1.1rem")
-        .style("fill", mainColor)
-        .text(config.title);
+    svg.append("text").attr("x", 20).attr("y", 35).style("font-weight", "bold").style("font-size", "1.1rem").style("fill", mainColor).text(config.title);
 
-    // Dessin de la Légende (si présence de données)
+    // Légende
     if (dataMap && dataMap.size > 0 && minVal !== maxVal) {
         const legendWidth = 200, legendHeight = 12;
         const legendX = width - legendWidth - 30, legendY = height - 30;
-        
         const defs = svg.append("defs");
         const grad = defs.append("linearGradient").attr("id", "map-grad").attr("x1","0%").attr("x2","100%");
         grad.append("stop").attr("offset", "0%").attr("stop-color", bgColor);
         grad.append("stop").attr("offset", "100%").attr("stop-color", mainColor);
-
         const leg = svg.append("g").attr("transform", `translate(${legendX}, ${legendY})`);
         leg.append("rect").attr("width", legendWidth).attr("height", legendHeight).style("fill", "url(#map-grad)").style("stroke", "#ccc");
         leg.append("text").attr("x", 0).attr("y", -6).style("font-size", "0.75rem").text(frenchNumberFormat.format(minVal));
@@ -376,8 +418,45 @@ async function insertCarte() {
                         <option value="both">Nom + Valeur</option>
                         <option value="none">Aucune</option>
                     </select>
-                    <label class="fr-label" style="font-size:0.8rem">Taille</label>
-                    <input type="range" id="label-size" min="6" max="24" value="10" style="width:100%">
+                    
+                    <label class="fr-label" style="font-size:0.8rem; display:flex; justify-content:space-between;">
+                        Taille <span id="label-size-display" style="color:var(--theme-main); font-weight:bold;">10px</span>
+                    </label>
+                    <input type="range" id="label-size" min="6" max="30" value="10" style="width:100%">
+
+                    <details style="margin-top:1rem; padding-top:1rem; border-top:1px dashed var(--grey-900);">
+                        <summary style="font-size:0.85rem; font-weight:700; cursor:pointer; color:var(--theme-main); outline:none; user-select:none;">
+                            ⚙️ Moteur anti-collision
+                        </summary>
+                        <div style="margin-top:1rem; display:flex; flex-direction:column; gap:1rem;">
+                            
+                            <div>
+                                <label class="fr-label" style="font-size:0.75rem; display:flex; justify-content:space-between; margin-bottom:0.2rem;">
+                                    Tension de l'élastique <span id="phys-strength-display" style="font-weight:bold;">0.15</span>
+                                </label>
+                                <input type="range" id="phys-strength" min="0" max="1" step="0.05" value="0.15" style="width:100%">
+                            </div>
+
+                            <div>
+                                <label class="fr-label" style="font-size:0.75rem; display:flex; justify-content:space-between; margin-bottom:0.2rem;">
+                                    Marge entre les mots <span id="phys-padding-display" style="font-weight:bold;">4px</span>
+                                </label>
+                                <input type="range" id="phys-padding" min="0" max="15" step="1" value="4" style="width:100%">
+                            </div>
+
+                            <div>
+                                <label class="fr-label" style="font-size:0.75rem; display:flex; justify-content:space-between; margin-bottom:0.2rem;">
+                                    Largeur de la boîte <span id="phys-ratio-display" style="font-weight:bold;">0.62</span>
+                                </label>
+                                <input type="range" id="phys-ratio" min="0.3" max="1.5" step="0.02" value="0.62" style="width:100%">
+                            </div>
+
+                            <button class="fr-btn fr-btn--sm fr-btn--tertiary fr-icon-refresh-line fr-btn--icon-left" id="btn-phys-reset" style="width:100%; justify-content:center; margin-top:0.5rem;">
+                                Réinitialiser le moteur
+                            </button>
+
+                        </div>
+                    </details>
                 </div>
                 <div style="margin-top:auto; display:flex; gap:0.5rem;"><button class="fr-btn fr-btn--secondary" id="btn-map-cancel">Annuler</button><button class="fr-btn" id="btn-map-insert" disabled>Insérer</button></div>
             </div>
@@ -387,6 +466,27 @@ async function insertCarte() {
     document.body.appendChild(overlay);
 
     const scaleSelect = document.getElementById('map-scale');
+    document.getElementById('btn-phys-reset').onclick = () => {
+        // Valeurs par défaut définies
+        const defaults = {
+            'phys-strength': 0.15,
+            'phys-padding': 4,
+            'phys-ratio': 0.62
+        };
+
+        // On remet les curseurs et les affichages à zéro
+        Object.keys(defaults).forEach(id => {
+            const val = defaults[id];
+            const input = document.getElementById(id);
+            input.value = val;
+            
+            let unit = id === 'phys-padding' ? 'px' : '';
+            document.getElementById(`${id}-display`).innerText = `${val}${unit}`;
+        });
+
+        // On relance le rendu de la carte
+        renderPreview();
+    };
     const cascadeContainer = document.getElementById('cascade-menus');
     let rawCsvData = [];
     let mapData = null;
@@ -419,7 +519,11 @@ async function insertCarte() {
             commune: document.getElementById('sel-com')?.value,
             labelType: document.getElementById('label-type').value,
             labelSize: document.getElementById('label-size').value,
-            title: document.getElementById('map-title').value
+            title: document.getElementById('map-title').value,
+            physStrength: parseFloat(document.getElementById('phys-strength').value),
+            physPadding: parseInt(document.getElementById('phys-padding').value),
+            physRatio: parseFloat(document.getElementById('phys-ratio').value)
+            
         };
         const success = await drawD3Map(preview, config, mapData);
         document.getElementById('btn-map-insert').disabled = !success;
@@ -468,18 +572,28 @@ async function insertCarte() {
 
     document.getElementById('calc-mode').onchange = (e) => { document.getElementById('wrap-col2').style.display = ['ratio', 'growth'].includes(e.target.value) ? 'block' : 'none'; renderPreview(); };
    ['calc-col1', 'calc-col2', 'label-type', 'map-title'].forEach(id => document.getElementById(id).onchange = renderPreview);
-    document.getElementById('label-size').oninput = renderPreview;
+    // 1. Écouteur pour la taille du texte (ISOLÉ)
+    document.getElementById('label-size').oninput = (e) => {
+        document.getElementById('label-size-display').innerText = `${e.target.value}px`;
+        renderPreview();
+    };
 
-    // --- DÉBUT DU BLOC CORRIGÉ ET NETTOYÉ ---
+    // 2. Écouteurs pour le moteur physique (SÉPARÉS PROPREMENT)
+    ['phys-strength', 'phys-padding', 'phys-ratio'].forEach(id => {
+        document.getElementById(id).oninput = (e) => {
+            let unit = id === 'phys-padding' ? 'px' : '';
+            document.getElementById(`${id}-display`).innerText = `${e.target.value}${unit}`;
+            renderPreview();
+        };
+    });
 
     // Bouton Annuler
     document.getElementById('btn-map-cancel').onclick = () => overlay.remove();
 
     // Bouton Insérer
-    // Bouton Insérer
     document.getElementById('btn-map-insert').onclick = async () => {
         
-        // 1. Sauvegarde de la configuration
+        // 1. Sauvegarde de la configuration (avec TOUS les réglages du moteur physique inclus)
         const configToSave = {
             scale: scaleSelect.value,
             region: document.getElementById('sel-region')?.value,
@@ -489,12 +603,14 @@ async function insertCarte() {
             labelType: document.getElementById('label-type').value,
             labelSize: document.getElementById('label-size').value,
             title: document.getElementById('map-title').value,
+            physStrength: parseFloat(document.getElementById('phys-strength').value),
+            physPadding: parseInt(document.getElementById('phys-padding').value),
+            physRatio: parseFloat(document.getElementById('phys-ratio').value),
             mapDataEntries: mapData ? Array.from(mapData.entries()) : []
         };
         const safeConfig = encodeURIComponent(JSON.stringify(configToSave));
 
-        // 2. NOUVEAU : Création du "Studio invisible" 800x600
-        // Garantit un format Paysage compact, indépendamment de la taille de l'écran
+        // 2. Création du "Studio invisible" 800x600
         const tempDiv = document.createElement('div');
         tempDiv.style.position = 'absolute';
         tempDiv.style.left = '-10000px';
@@ -504,7 +620,7 @@ async function insertCarte() {
         tempDiv.style.backgroundColor = '#ffffff';
         document.body.appendChild(tempDiv);
 
-        // Dessin de la carte dans le studio aux dimensions parfaites
+        // Dessin de la carte dans le studio
         await drawD3Map(tempDiv, configToSave, mapData);
 
         // 3. Capture propre et ciblée
@@ -520,7 +636,7 @@ async function insertCarte() {
         
         // 4. Nettoyage
         tempDiv.remove();
-        overlay.remove(); // Ferme la modale
+        overlay.remove(); 
         
         // 5. Restauration du curseur
         if (savedRange) {
