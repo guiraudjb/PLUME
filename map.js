@@ -113,9 +113,10 @@ async function drawD3Map(container, config, dataMap) {
     const pPadding = config.physPadding !== undefined ? config.physPadding : 4;
     const pRatio = config.physRatio !== undefined ? config.physRatio : 0.62;
     
-    let jsonFile = (config.scale === 'national' || config.scale === 'region') 
-                   ? './data/departement_2025.json' 
-                   : './data/commune_2025.json';
+    let jsonFile = './data/commune_2025.json'; // Par défaut
+    if (config.scale === 'national' || config.scale === 'region') jsonFile = './data/departement_2025.json';
+    if (config.scale === 'europe') jsonFile = './data/europe_2025.json';
+    if (config.scale === 'world') jsonFile = './data/world_2025.json';
     
     let geoJSON;
     try { 
@@ -156,13 +157,24 @@ async function drawD3Map(container, config, dataMap) {
         return true; 
     });
 
-    if (features.length === 0 || ((config.scale !== 'national') && !config.region && !config.epci && !config.commune)) {
+    if (features.length === 0 || (!['national', 'world', 'europe'].includes(config.scale) && !config.region && !config.epci && !config.commune)) {
         container.innerHTML = `<div style="text-align:center; color:#999; padding:2rem;"><span class="fr-icon-map-pin-2-fill" style="font-size:3rem; display:block; margin-bottom:1rem;"></span><p>Veuillez préciser la zone géographique.</p></div>`;
         return false;
     }
 
     const svg = d3.select(container).append("svg").attr("width", width).attr("height", height);
-    const projection = d3.geoConicConformal().center([2.45, 46.2]).scale(1).translate([0,0]);
+    
+    let projection;
+    if (config.scale === 'world') {
+        // Projection Mercator classique pour le monde
+        projection = d3.geoMercator().scale(1).translate([0,0]);
+    } else if (config.scale === 'europe') {
+        // Mercator centré sur l'Europe
+        projection = d3.geoMercator().center([15, 50]).scale(1).translate([0,0]);
+    } else {
+        // Projection spécifique pour la France métropolitaine
+        projection = d3.geoConicConformal().center([2.45, 46.2]).scale(1).translate([0,0]);
+    }
     const path = d3.geoPath().projection(projection);
     
     const bounds = path.bounds({type: "FeatureCollection", features: features});
@@ -188,7 +200,11 @@ async function drawD3Map(container, config, dataMap) {
     g.selectAll("path").data(features).enter().append("path")
         .attr("d", path)
         .attr("fill", d => {
-            const code = String(d.properties.code_insee || "");
+            const code = String(
+                (config.scale === 'world' || config.scale === 'europe') 
+                ? (d.id || d.properties.iso_a3 || d.properties.ISO3 || d.properties.ADM0_A3 || "") 
+                : (d.properties.code_insee || "")
+            );
             return dataMap && dataMap.has(code) ? colorScale(dataMap.get(code)) : "#e5e5e5";
         })
         .attr("stroke", "#ffffff").attr("stroke-width", 0.5);
@@ -202,7 +218,14 @@ if (config.labelType !== 'none') {
             const centroid = path.centroid(d);
             if (!isNaN(centroid[0]) && !isNaN(centroid[1])) {
                 const code = String(d.properties.code_insee || "");
-                const name = d.properties.nom_officiel || "";
+                let name = "";
+                if (config.scale === 'world' || config.scale === 'europe') {
+                    // On balaye les formats internationaux les plus courants (avec priorité au français si disponible)
+                    name = d.properties.name_fr || d.properties.name || d.properties.NAME || d.properties.admin || d.properties.ADMIN || "";
+                } else {
+                    // Format standard INSEE pour la France
+                    name = d.properties.nom_officiel || d.properties.nom || "";
+                }
                 
                 let valStr = "";
                 if (dataMap && dataMap.has(code) && dataMap.get(code) !== undefined) {
@@ -380,11 +403,13 @@ async function insertCarte() {
                 <div class="geo-selection">
                     <label class="fr-label" style="font-weight:700">Échelle</label>
                     <select class="fr-select" id="map-scale">
+                        <option value="world">Monde entier</option>
+                        <option value="europe">Europe</option>
                         <option value="national">France entière</option>
-                        <option value="region">Région</option>
-                        <option value="departement">Département</option>
-                        <option value="epci">EPCI</option>
-                        <option value="commune">Commune unique</option>
+                        <option value="region">Région (FR)</option>
+                        <option value="departement">Département (FR)</option>
+                        <option value="epci">EPCI (FR)</option>
+                        <option value="commune">Commune unique (FR)</option>
                     </select>
                     <div id="cascade-menus" style="margin-top:1rem; display:flex; flex-direction:column; gap:0.75rem;"></div>
                 </div>
@@ -531,33 +556,34 @@ async function insertCarte() {
 
     const updateCascade = () => {
         cascadeContainer.innerHTML = '';
-        if (scaleSelect.value === 'national') { renderPreview(); return; }
         
-        // Étape 1 : Choix de la Région
+        // CORRECTION ICI : On inclut 'world' et 'europe' dans les échelles qui ne nécessitent pas de sous-menus !
+        if (['national', 'world', 'europe'].includes(scaleSelect.value)) { 
+            renderPreview(); 
+            return; 
+        }
+        
+        // Étape 1 : Choix de la Région (pour les échelles locales)
         const regSel = createSelect('sel-region', 'Région', getUniqueRegions());
         
         regSel.onchange = () => {
-            // Nettoyage des menus enfants
             Array.from(cascadeContainer.children).slice(Array.from(cascadeContainer.children).indexOf(regSel) + 1).forEach(c => c.remove());
             
             if (scaleSelect.value === 'region') {
                 renderPreview();
             } else if (['departement', 'commune', 'epci'].includes(scaleSelect.value)) {
                 
-                // Étape 2 : Choix du Département (Désormais commun aux EPCI !)
+                // Étape 2 : Choix du Département
                 const depSel = createSelect('sel-dept', 'Département', getDeptsByRegion(regSel.value));
                 
                 depSel.onchange = () => {
-                    // Nettoyage des menus enfants
                     Array.from(cascadeContainer.children).slice(Array.from(cascadeContainer.children).indexOf(depSel) + 1).forEach(c => c.remove());
                     
                     if (scaleSelect.value === 'departement') {
                         renderPreview();
                     } else if (scaleSelect.value === 'commune') {
-                        // Étape 3A : Choix de la Commune
                         createSelect('sel-com', 'Commune', getCommunesByDept(depSel.value)).onchange = renderPreview;
                     } else if (scaleSelect.value === 'epci') {
-                        // Étape 3B : Choix de l'EPCI (Filtré sur le département)
                         createSelect('sel-epci', 'EPCI', getEPCIsByDept(depSel.value)).onchange = renderPreview;
                     }
                 };
