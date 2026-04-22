@@ -157,29 +157,54 @@ body {
 img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important; outline-offset: 2px; background-color: transparent !important; }
 .fr-table.block-hover-focus, .custom-grid.block-hover-focus { background-color: transparent !important; }
 
-/* Bouton de suppression de page A4 */
-.delete-page-btn {
+/* ===================================================================== */
+/* ACTIONS ET ORIENTATION DE LA PAGE A4                                  */
+/* ===================================================================== */
+
+/* Dimensions en mode paysage */
+.page-a4.landscape {
+    width: 297mm;
+    height: 210mm;
+}
+
+/* Conteneur des boutons au survol */
+.page-actions {
     position: absolute;
     top: 20px;
     right: 20px;
-    background-color: #ffe8e5;
-    color: #e1000f;
-    border: 1px solid #e1000f;
-    border-radius: 4px;
-    padding: 0.4rem 0.8rem;
-    cursor: pointer;
+    display: flex;
+    gap: 0.5rem;
     z-index: 100;
     opacity: 0;
     transition: opacity 0.2s ease-in-out;
+}
+.page-a4:hover .page-actions { opacity: 1; }
+
+/* Style des boutons d'action */
+.page-action-btn {
+    background-color: #fff;
+    border: 1px solid var(--grey-900);
+    border-radius: 4px;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     font-size: 0.85rem;
     font-weight: 700;
+    color: var(--theme-sun);
+    transition: background-color 0.2s, color 0.2s;
 }
-.page-a4:hover .delete-page-btn { opacity: 1; }
-.page-a4:only-child .delete-page-btn { display: none; }
+.page-action-btn:hover { background-color: var(--theme-bg); }
 
+/* Spécificité du bouton supprimer */
+.page-action-btn.delete {
+    background-color: #ffe8e5;
+    color: #e1000f;
+    border-color: #e1000f;
+}
+.page-action-btn.delete:hover { background-color: #fddede; }
+.page-a4:only-child .page-action-btn.delete { display: none; }
 
 /* ===================================================================== */
 /* MODALE D'ÉDITION DE GRAPHIQUES (CHART.JS)                             */
@@ -253,6 +278,11 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
     .page-a4:last-child { 
         page-break-after: auto; 
     }
+    
+    .page-a4.landscape {
+        width: 297mm !important;
+        height: 210mm !important;
+    }
 
     /* 4. VERROUILLAGE DES COMPOSANTS SPÉCIFIQUES */
     
@@ -324,10 +354,26 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
         font-weight: 800 !important;
         color: var(--theme-sun) !important;
     }
+.page-actions { display: none !important; }
 }
 
-/* Paramètre global d'impression (Sans marges du navigateur) */
+/* ===================================================================== */
+/* PARAMÈTRES GLOBAUX D'IMPRESSION (À L'EXTÉRIEUR DU @MEDIA PRINT)       */
+/* ===================================================================== */
+
+/* Page par défaut (Portrait) */
 @page { 
     size: A4 portrait; 
     margin: 0; 
+}
+
+/* Règle spécifique pour le format Paysage */
+@page landscape-page { 
+    size: A4 landscape; 
+    margin: 0; 
+}
+
+/* On force la div Paysage à utiliser la règle d'impression Paysage */
+.page-a4.landscape {
+    page: landscape-page;
 }

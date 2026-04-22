@@ -336,7 +336,12 @@ function insertLink() {
     const url = prompt("Veuillez saisir l'URL du lien (ex: https://www.gouvernement.fr) :");
     
     // Si l'utilisateur annule ou laisse vide, on arrête tout
-    if (!url) return; 
+    if (!url) return;
+    
+    if (/^\s*javascript:/i.test(url) || /^\s*data:/i.test(url) && !url.startsWith('data:image')) {
+        alert("Ce type de lien n'est pas autorisé par sécurité.");
+        return;
+    }
 
     // Sécurisation de l'URL : on ajoute https:// si l'utilisateur l'a oublié
     // (sauf s'il s'agit d'une adresse email avec mailto:)
@@ -352,7 +357,7 @@ function insertLink() {
     if (selection.isCollapsed) {
         // On insère l'URL sous forme de texte cliquable grâce à notre fonction existante
         const linkHTML = `<a href="${finalUrl}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-        insertHTML(linkHTML);
+        insertHTML(sanitizeHTML(linkHTML));
     } else {
         // S'il y a du texte sélectionné, on utilise la commande native du navigateur
         document.execCommand('createLink', false, finalUrl);
@@ -405,7 +410,10 @@ function saveJSON() {
         logo: logoDataUrl,
         
         // Sauvegarde des pages
-        pages: Array.from(document.querySelectorAll('.content-editable')).map(el => el.innerHTML)
+        pages: Array.from(document.querySelectorAll('.page-a4')).map(page => ({
+    content: page.querySelector('.content-editable').innerHTML,
+    isLandscape: page.classList.contains('landscape')
+}))
     };
     
     const a = document.createElement('a');
@@ -436,22 +444,38 @@ function restoreJSON(input) {
             
             applyPalette(); // Applique les couleurs
             
-            // 2. Restauration des pages A4
+            // 2. Restauration des pages A4 (Mettez à jour ce bloc dans restoreJSON)
             if (state.pages && Array.isArray(state.pages)) {
                 const container = document.getElementById('pages-container');
-                container.innerHTML = ''; // Vide l'espace de travail actuel
+                container.innerHTML = ''; 
                 
-                state.pages.forEach((pageContent, index) => {
+                state.pages.forEach((pageData, index) => {
                     const pageNum = index + 1;
                     const pageDiv = document.createElement('div');
                     pageDiv.className = 'page-a4';
                     pageDiv.id = `page-${pageNum}`;
                     
-                    // Reconstruit la structure stricte de la page
+                    // Rétrocompatibilité : si c'est une ancienne sauvegarde (texte simple)
+                    const rawContent = typeof pageData === 'string' ? pageData : pageData.content;
+                    const pageContent = sanitizeHTML(rawContent); // Passage au crible de DOMPurify
+                    
+                    const isLandscape = typeof pageData === 'object' ? pageData.isLandscape : false;
+                    if (isLandscape) pageDiv.classList.add('landscape');
+                    
+                    // On détermine le bon texte du bouton selon l'état restauré
+                    const btnText = isLandscape ? "Portrait" : "Paysage";
+                    const btnIcon = isLandscape ? "fr-icon-file-text-line" : "fr-icon-refresh-line";
+                    const btnTitle = isLandscape ? "Repasser en mode Portrait" : "Passer en mode Paysage";
+
                     pageDiv.innerHTML = `
-                        <button class="delete-page-btn" onclick="deletePage(this)">
-                            <span class="fr-icon-delete-bin-line"></span> Supprimer la page
-                        </button>
+                        <div class="page-actions" contenteditable="false">
+                            <button class="page-action-btn" onclick="toggleOrientation(this)" title="${btnTitle}">
+                                <span class="${btnIcon}"></span> ${btnText}
+                            </button>
+                            <button class="page-action-btn delete" onclick="deletePage(this)" title="Supprimer la page">
+                                <span class="fr-icon-delete-bin-line"></span> Supprimer
+                            </button>
+                        </div>
                         <div class="safe-area">
                             <div class="header-brand">
                                 <div class="fr-header__brand">
@@ -483,7 +507,6 @@ function restoreJSON(input) {
                     container.appendChild(pageDiv);
                 });
             }
-            
             // 3. Resynchronisation globale (tamponnage des textes sur toutes les pages)
             syncMetadata();
             
@@ -520,6 +543,28 @@ function deletePage(btn) {
     }
 }
 
+function toggleOrientation(btn) {
+    // 1. On cible la page parente
+    const page = btn.closest('.page-a4');
+    
+    // 2. On bascule la classe CSS (Le vrai mécanisme d'orientation)
+    const isLandscape = page.classList.toggle('landscape');
+    
+    // 3. UX : On met à jour l'interface du bouton
+    if (isLandscape) {
+        // Si on vient de passer en Paysage, le bouton propose de revenir en Portrait
+        btn.innerHTML = '<span class="fr-icon-file-text-line"></span> Portrait';
+        btn.title = "Repasser en mode Portrait";
+    } else {
+        // Si on vient de revenir en Portrait, le bouton propose de passer en Paysage
+        btn.innerHTML = '<span class="fr-icon-refresh-line"></span> Paysage';
+        btn.title = "Passer en mode Paysage";
+    }
+    
+    // 4. Sécurité visuelle : on force le recalcul du zoom pour que la page reste bien cadrée à l'écran
+    if (typeof scaleUI === 'function') scaleUI();
+}
+
 function renumberPages() {
     const pages = document.querySelectorAll('.page-a4');
     pages.forEach((page, index) => {
@@ -534,6 +579,31 @@ function renumberPages() {
             numDisplay.innerText = `Page ${pageNum}`;
         }
     });
+}
+
+// =====================================================================
+// CONFIGURATION DE SÉCURITÉ DOMPURIFY
+// =====================================================================
+const purifyConfig = {
+    // On autorise explicitement les attributs dont notre éditeur a besoin
+    ADD_ATTR: ['contenteditable', 'data-chart-config', 'target', 'rel', 'scope'],
+    // On autorise les URI de type "data:" pour conserver vos images en Base64
+    ALLOW_DATA_ATTR: true,
+    // On s'assure de ne pas supprimer les iframes ou autres objets non sollicités
+    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
+    // Force target="_blank" et rel="noopener noreferrer" sur tous les liens pour la sécurité
+    ADD_TAGS: ['a'] 
+};
+
+/**
+ * Nettoie une chaîne HTML de tout code malveillant
+ */
+function sanitizeHTML(dirtyHtml) {
+    if (typeof DOMPurify !== 'undefined') {
+        return DOMPurify.sanitize(dirtyHtml, purifyConfig);
+    }
+    console.warn("⚠️ DOMPurify n'est pas chargé. Nettoyage ignoré.");
+    return dirtyHtml; // Fallback par défaut
 }
 
 
@@ -1038,14 +1108,13 @@ function enforceFocus() {
 // INTERCEPTEUR DE COLLAGE (SPECIAL TABLEUR EXCEL / SHEETS)
 // =====================================================================
 document.addEventListener('paste', function(e) {
-    // 1. On vérifie que l'on colle bien à l'intérieur de notre zone de travail
     const editor = e.target.closest('.content-editable');
     if (!editor) return;
 
-    // 2. Récupération des données brutes en texte simple
-    const textData = (e.clipboardData || window.clipboardData).getData('text/plain');
+    const clipboardData = e.clipboardData || window.clipboardData;
+    const textData = clipboardData.getData('text/plain');
+    const htmlData = clipboardData.getData('text/html');
     
-    // 3. Détection d'un tableur : présence de tabulations (\t) ET de retours à la ligne (\n)
     const isSpreadsheet = textData.includes('\t') && textData.includes('\n');
 
     if (isSpreadsheet) {
@@ -1132,6 +1201,16 @@ document.addEventListener('paste', function(e) {
             
             document.execCommand('insertHTML', false, htmlClean);
         }
+    document.execCommand('insertHTML', false, sanitizeHTML(htmlClean));
+    }else if (htmlData) {
+        // --- NOUVEAU : SÉCURISATION DU COLLAGE CLASSIQUE ---
+        e.preventDefault(); // On bloque l'insertion brute du navigateur
+        
+        // On nettoie le HTML copié depuis Word, un autre site, etc.
+        const cleanPaste = sanitizeHTML(htmlData);
+        
+        // On insère la version propre
+        document.execCommand('insertHTML', false, cleanPaste);
     }
 });
 // =====================================================================

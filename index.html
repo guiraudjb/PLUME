@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Éditeur Newsletter - DSFR Expert</title>
+    <title>Plateforme de Lettres Unifiées pour les Ministères et l'État</title>
     <link rel="apple-touch-icon" href="./libs/dsfr-v1.14.3/dist/favicon/apple-touch-icon.png"><link rel="icon" href="./libs/dsfr-v1.14.3/dist/favicon/favicon.svg" type="image/svg+xml">
     <link rel="shortcut icon" href="./libs/dsfr-v1.14.3/dist/favicon/favicon.ico" type="image/x-icon"><link rel="manifest" href="./libs/dsfr-v1.14.3/dist/favicon/manifest.webmanifest" crossorigin="use-credentials">
     <link rel="stylesheet" href="./libs/dsfr-v1.14.3/dist/dsfr.min.css">
@@ -170,6 +170,7 @@
         
         <div class="toolbar-group" role="group" aria-label="Médias et structure">
             <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-link" onclick="insertLink()" title="Insérer un lien">Lien</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-image-add-line" onclick="insertImage()">Image</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-separator" onclick="insertDivider()">Ligne</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-file-add-line" onclick="insertPageBreak()">Saut de page</button></li>
@@ -186,6 +187,7 @@
         <div class="toolbar-group" role="group" aria-label="Modèles DSFR">
             <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-list-check" onclick="insertSommaire()">Sommaire</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-france-line" onclick="insertCarte()">Carte</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-quote-line" onclick="insertCallout()">Exergue</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-chat-quote-line" onclick="insertCitation()">Citation</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-hashtag" onclick="insertChiffreCle()">Chiffre Clé</button></li>
@@ -209,9 +211,14 @@
 </div>
     <div class="workspace" id="pages-container">
         <div class="page-a4" id="page-1">
-            <button class="delete-page-btn" onclick="deletePage(this)">
-            <span class="fr-icon-delete-bin-line"></span> Supprimer la page
-            </button>
+            <div class="page-actions" contenteditable="false">
+                <button class="page-action-btn" onclick="toggleOrientation(this)" title="Passer en mode Paysage">
+                    <span class="fr-icon-refresh-line"></span> Paysage
+                </button>
+                <button class="page-action-btn delete" onclick="deletePage(this)" title="Supprimer la page">
+                    <span class="fr-icon-delete-bin-line"></span> Supprimer
+                </button>
+            </div>
             <div class="safe-area">
                 <div class="header-brand">
                     <div class="fr-header__brand">
@@ -246,8 +253,14 @@
     </div>
 
     <script src="app.js"></script>
+    <script src="map.js"></script>
     <script src="./libs/papaparse.min.js"></script>
     <script src="./libs/chart.min.js"></script>
     <script src="./libs/chartjs-plugin-datalabels.min.js"></script>
+    <script src="./libs/purify.min.js"></script>
+    <script src="./libs/d3.v7.min.js"></script>
+    <script src="./libs/topojson.v3.min.js"></script>
+    <script src="./libs/html2canvas.min.js"></script>
+    
 </body>
 </html>
