@@ -113,7 +113,9 @@ async function drawD3Map(container, config, dataMap) {
                    : './data/commune_2025.json';
     
     let geoJSON;
-    try { geoJSON = await d3.json(jsonFile); } catch (e) {
+    try { 
+        geoJSON = await d3.json(jsonFile); 
+    } catch (e) {
         container.innerHTML = `<p style="color:red; text-align:center;">Fichier ${jsonFile} introuvable.</p>`;
         return false;
     }
@@ -182,49 +184,125 @@ async function drawD3Map(container, config, dataMap) {
         })
         .attr("stroke", "#ffffff").attr("stroke-width", 0.5);
 
-    // Rendu des étiquettes avec luminance dynamique
     if (config.labelType !== 'none') {
-        g.selectAll("text.label").data(features).enter().append("text")
-            .attr("class", "label")
-            .attr("transform", d => {
-                const c = path.centroid(d);
-                return `translate(${c})`;
+        
+        // 1. Préparation des "noeuds" physiques (les étiquettes)
+        const labelNodes = [];
+        features.forEach(d => {
+            const centroid = path.centroid(d);
+            if (!isNaN(centroid[0]) && !isNaN(centroid[1])) {
+                const code = String(d.properties.code_insee || "");
+                const name = d.properties.nom_officiel || "";
+                
+                let valStr = "";
+                if (dataMap && dataMap.has(code) && dataMap.get(code) !== undefined) {
+                    valStr = frenchNumberFormat.format(dataMap.get(code));
+                }
+
+                let textLen = 0;
+                if (config.labelType === 'name') textLen = name.length;
+                else if (config.labelType === 'value') textLen = valStr.length;
+                else textLen = Math.max(name.length, valStr.length);
+                
+                // BULLE DE COLLISION AGRANDIE :
+                // On donne plus d'espace en largeur (0.28) et on grossit fortement
+                // la bulle (+30%) si le texte est sur deux lignes (both)
+                let r = Math.max((textLen * config.labelSize * 0.28), config.labelSize * 1.5);
+                if (config.labelType === 'both') {
+                    r *= 1.35; 
+                }
+
+                const currentFill = dataMap && dataMap.has(code) ? colorScale(dataMap.get(code)) : "#e5e5e5";
+                const textColor = getContrastingColor(currentFill);
+
+                labelNodes.push({
+                    feature: d, code: code, name: name, valStr: valStr,
+                    cx: centroid[0], cy: centroid[1],
+                    x: centroid[0], y: centroid[1],
+                    r: r, textColor: textColor
+                });
+            }
+        });
+
+        // 2. Le moteur physique : Priorité à la répulsion
+        const simulation = d3.forceSimulation(labelNodes)
+            // L'élastique est très relâché (0.3 au lieu de 1.5)
+            // Les étiquettes ont maintenant le droit d'aller très loin si nécessaire
+            .force("x", d3.forceX(d => d.cx).strength(0.3)) 
+            .force("y", d3.forceY(d => d.cy).strength(0.3))
+            // L'anti-collision est renforcé avec plus d'itérations (12) pour éviter les superpositions têtues
+            .force("collide", d3.forceCollide(d => d.r + 3).iterations(12)) 
+            .stop();
+
+        // Comme l'élastique est plus lâche, il faut plus de temps au système pour se stabiliser
+        for (let i = 0; i < 300; ++i) simulation.tick();
+
+        // La "Cage" : interdiction stricte de sortir de l'image
+        labelNodes.forEach(d => {
+            d.x = Math.max(20, Math.min(width - 20, d.x));
+            d.y = Math.max(20, Math.min(height - 20, d.y));
+        });
+
+        // 3. Dessin des traits de liaison (leaders)
+        g.selectAll("line.leader")
+            .data(labelNodes)
+            .enter()
+            .append("line")
+            .attr("class", "leader")
+            .attr("x1", d => d.cx)
+            .attr("y1", d => d.cy)
+            .attr("x2", d => d.x)
+            .attr("y2", d => d.y)
+            .attr("stroke", d => {
+                // On trace le trait dès que l'étiquette a un peu bougé (0.4 au lieu de 0.6)
+                const dist = Math.sqrt(Math.pow(d.x - d.cx, 2) + Math.pow(d.y - d.cy, 2));
+                return dist > (d.r * 0.4) ? "#161616" : "none";
             })
+            .attr("stroke-width", 0.8)
+            .attr("stroke-dasharray", "2,2")
+            .attr("opacity", 0.6);
+
+        // 4. Dessin du texte positionné
+        g.selectAll("text.label")
+            .data(labelNodes)
+            .enter()
+            .append("text")
+            .attr("class", "label")
+            .attr("x", d => d.x)
+            .attr("y", d => d.y)
             .attr("text-anchor", "middle")
             .style("font-size", `${config.labelSize}px`)
             .style("font-family", "Marianne")
             .style("pointer-events", "none")
+            // Halo renforcé pour assurer la lisibilité même au-dessus des lignes pointillées
+            .style("text-shadow", "0px 0px 4px rgba(255,255,255,1), 0px 0px 6px rgba(255,255,255,0.7)") 
+            .style("fill", d => d.textColor)
             .each(function(d) {
                 const el = d3.select(this);
-                const code = String(d.properties.code_insee || "");
-                const name = d.properties.nom_officiel || "";
                 
-                // Récupération de la couleur du fond pour le contraste
-                const currentFill = dataMap && dataMap.has(code) ? colorScale(dataMap.get(code)) : "#e5e5e5";
-                const textColor = getContrastingColor(currentFill);
-                el.style("fill", textColor);
-
-                let val = null;
-                if (dataMap && dataMap.has(code)) {
-                    val = dataMap.get(code);
-                    val = frenchNumberFormat.format(val);
-                }
-
-                if (config.labelType === 'name') el.text(name);
-                else if (config.labelType === 'value' && val !== null) el.text(val);
-                else if (config.labelType === 'both' && val !== null) {
-                    el.append("tspan").attr("x", 0).attr("dy", "-0.2em").text(name);
-                    el.append("tspan").attr("x", 0).attr("dy", "1.1em").style("font-weight", "bold").text(val);
+                if (config.labelType === 'name') el.text(d.name);
+                else if (config.labelType === 'value' && d.valStr) el.text(d.valStr);
+                else if (config.labelType === 'both' && d.valStr) {
+                    el.append("tspan").attr("x", d.x).attr("dy", "-0.2em").text(d.name);
+                    el.append("tspan").attr("x", d.x).attr("dy", "1.1em").style("font-weight", "bold").text(d.valStr);
                 }
             });
     }
     
-    // Titre et Légende
-    svg.append("text").attr("x", 20).attr("y", 35).style("font-weight", "bold").style("font-size", "1.1rem").style("fill", mainColor).text(config.title);
+    // Titre de la carte
+    svg.append("text")
+        .attr("x", 20)
+        .attr("y", 35)
+        .style("font-weight", "bold")
+        .style("font-size", "1.1rem")
+        .style("fill", mainColor)
+        .text(config.title);
 
+    // Dessin de la Légende (si présence de données)
     if (dataMap && dataMap.size > 0 && minVal !== maxVal) {
         const legendWidth = 200, legendHeight = 12;
         const legendX = width - legendWidth - 30, legendY = height - 30;
+        
         const defs = svg.append("defs");
         const grad = defs.append("linearGradient").attr("id", "map-grad").attr("x1","0%").attr("x2","100%");
         grad.append("stop").attr("offset", "0%").attr("stop-color", bgColor);
@@ -311,6 +389,7 @@ async function insertCarte() {
     const scaleSelect = document.getElementById('map-scale');
     const cascadeContainer = document.getElementById('cascade-menus');
     let rawCsvData = [];
+    let mapData = null;
 
     const createSelect = (id, label, options) => {
         const sel = document.createElement('select');
@@ -327,7 +406,7 @@ async function insertCarte() {
 
     async function renderPreview() {
         const preview = document.getElementById('map-preview-area');
-        let mapData = null;
+        mapData = null;
         if (rawCsvData.length > 0) {
             const codeCol = Object.keys(rawCsvData[0])[0];
             mapData = computeValorAggregation(rawCsvData, scaleSelect.value, document.getElementById('calc-mode').value, codeCol, document.getElementById('calc-col1').value, document.getElementById('calc-col2').value);
@@ -388,37 +467,71 @@ async function insertCarte() {
     };
 
     document.getElementById('calc-mode').onchange = (e) => { document.getElementById('wrap-col2').style.display = ['ratio', 'growth'].includes(e.target.value) ? 'block' : 'none'; renderPreview(); };
-    ['calc-col1', 'calc-col2', 'label-type', 'map-title'].forEach(id => document.getElementById(id).onchange = renderPreview);
+   ['calc-col1', 'calc-col2', 'label-type', 'map-title'].forEach(id => document.getElementById(id).onchange = renderPreview);
     document.getElementById('label-size').oninput = renderPreview;
 
+    // --- DÉBUT DU BLOC CORRIGÉ ET NETTOYÉ ---
+
+    // Bouton Annuler
+    document.getElementById('btn-map-cancel').onclick = () => overlay.remove();
+
+    // Bouton Insérer
+    // Bouton Insérer
     document.getElementById('btn-map-insert').onclick = async () => {
-        const mapArea = document.getElementById('map-preview-area');
         
-        // 1. Capture Propre : On force les dimensions pour éviter l'ascenseur
-        const canvas = await html2canvas(mapArea, {
+        // 1. Sauvegarde de la configuration
+        const configToSave = {
+            scale: scaleSelect.value,
+            region: document.getElementById('sel-region')?.value,
+            dept: document.getElementById('sel-dept')?.value,
+            epci: document.getElementById('sel-epci')?.value,
+            commune: document.getElementById('sel-com')?.value,
+            labelType: document.getElementById('label-type').value,
+            labelSize: document.getElementById('label-size').value,
+            title: document.getElementById('map-title').value,
+            mapDataEntries: mapData ? Array.from(mapData.entries()) : []
+        };
+        const safeConfig = encodeURIComponent(JSON.stringify(configToSave));
+
+        // 2. NOUVEAU : Création du "Studio invisible" 800x600
+        // Garantit un format Paysage compact, indépendamment de la taille de l'écran
+        const tempDiv = document.createElement('div');
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.left = '-10000px';
+        tempDiv.style.top = '-10000px';
+        tempDiv.style.width = '800px';
+        tempDiv.style.height = '600px';
+        tempDiv.style.backgroundColor = '#ffffff';
+        document.body.appendChild(tempDiv);
+
+        // Dessin de la carte dans le studio aux dimensions parfaites
+        await drawD3Map(tempDiv, configToSave, mapData);
+
+        // 3. Capture propre et ciblée
+        const canvas = await html2canvas(tempDiv, {
             scale: 2,
             backgroundColor: "#ffffff",
             logging: false,
-            // On s'assure de capturer toute la zone sans scroll
-            width: mapArea.scrollWidth,
-            height: mapArea.scrollHeight
+            width: 800,
+            height: 600
         });
         
         const imgData = canvas.toDataURL('image/png');
-        overlay.remove();
         
+        // 4. Nettoyage
+        tempDiv.remove();
+        overlay.remove(); // Ferme la modale
+        
+        // 5. Restauration du curseur
         if (savedRange) {
             const sel = window.getSelection();
             sel.removeAllRanges();
             sel.addRange(savedRange);
         }
 
-        // 2. Insertion avec Contraintes Intelligentes
-        // max-width: 100% -> Ne dépasse jamais les bords latéraux (colonnes, marges)
-        // max-height: 70vh -> Ne dépasse jamais environ 70% de la hauteur de la page
-        // object-fit: contain -> Garde les proportions sans déformer
+        // 6. Insertion HTML
         const mapHTML = `
-            <div class="map-container" style="display:block; margin:1rem 0; width:100%; text-align:center; break-inside: avoid;" contenteditable="false">
+            <div class="map-container" data-map-config="${safeConfig}" style="display:block; margin:1rem 0; width:100%; text-align:center; break-inside: avoid;" contenteditable="false">
                 <img src="${imgData}" style="
                     display:inline-block; 
                     width:auto; 
@@ -433,9 +546,12 @@ async function insertCarte() {
             
         insertHTML(sanitizeHTML(mapHTML));
     };
-    document.getElementById('btn-map-cancel').onclick = () => overlay.remove();
-}
-// --- HELPERS CASCADE ---
+
+} // <-- FIN OFFICIELLE DE LA FONCTION insertCarte()
+
+// =====================================================================
+// HELPERS CASCADE (Ne pas modifier)
+// =====================================================================
 function getUniqueRegions() { return [...new Set(geoReferential.communes.map(c => getSafeCol(c, 'REG')))].filter(Boolean).map(c => ({ code: c, name: REGIONS_DICT[c] || c })).sort((a,b) => a.name.localeCompare(b.name)); }
 function getDeptsByRegion(r) { return [...new Set(geoReferential.communes.filter(c => getSafeCol(c, 'REG') === String(r).trim()).map(c => getSafeCol(c, 'DEP')))].filter(Boolean).map(c => ({ code: c, name: `Dpt ${c}` })); }
 function getEPCIsByRegion(r) { 
@@ -443,3 +559,73 @@ function getEPCIsByRegion(r) {
     return [...new Map(geoReferential.epci.filter(e => coms.has(getSafeCol(e, 'CODGEO'))).map(e => [getSafeCol(e, 'EPCI'), getSafeCol(e, 'LIBEPCI')]))].map(([code, name]) => ({ code, name })); 
 }
 function getCommunesByDept(d) { return geoReferential.communes.filter(c => getSafeCol(c, 'DEP') === String(d).trim()).map(c => ({ code: getSafeCol(c, 'COM'), name: getSafeCol(c, 'LIBELLE') })); }
+function getCommunesByDept(d) { return geoReferential.communes.filter(c => getSafeCol(c, 'DEP') === String(d).trim()).map(c => ({ code: getSafeCol(c, 'COM'), name: getSafeCol(c, 'LIBELLE') })); }
+
+/**
+ * Scanne le document, lit la mémoire des cartes (data-map-config) 
+ * et les met à jour avec la palette actuelle.
+ */
+async function refreshAllMaps() {
+    const mapContainers = document.querySelectorAll('.map-container[data-map-config]');
+    if (mapContainers.length === 0) return;
+
+    // Sécurité : Si l'utilisateur charge une sauvegarde JSON et change la couleur
+    // tout de suite, il faut s'assurer que les référentiels Géo sont chargés en mémoire.
+    if (!geoReferential.loaded) {
+        await loadMapReferentials();
+    }
+
+    // On traite chaque carte (boucle asynchrone for...of)
+    for (const container of mapContainers) {
+        try {
+            // 1. Lecture de la mémoire
+            const rawConfig = container.getAttribute('data-map-config');
+            const config = JSON.parse(decodeURIComponent(rawConfig));
+            
+            // Reconstitution des données (Array vers objet Map JavaScript)
+            let mapData = null;
+            if (config.mapDataEntries && config.mapDataEntries.length > 0) {
+                mapData = new Map(config.mapDataEntries);
+            }
+
+            // 2. Création d'un "Studio invisible" pour redessiner la carte
+            // On lui donne des proportions standards pour garder un beau rendu
+            const tempDiv = document.createElement('div');
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-10000px'; // Hors de l'écran
+            tempDiv.style.top = '-10000px';
+            tempDiv.style.width = '800px';
+            tempDiv.style.height = '600px';
+            tempDiv.style.backgroundColor = '#ffffff';
+            document.body.appendChild(tempDiv);
+
+            // 3. Dessin de la carte (D3.js va utiliser les nouvelles couleurs CSS automatiquement)
+            const success = await drawD3Map(tempDiv, config, mapData);
+
+            if (success) {
+                // 4. Capture en image (html2canvas)
+                const canvas = await html2canvas(tempDiv, {
+                    scale: 2,
+                    backgroundColor: "#ffffff",
+                    logging: false,
+                    width: tempDiv.clientWidth,
+                    height: tempDiv.clientHeight
+                });
+
+                // 5. Remplacement de l'ancienne image
+                const imgElement = container.querySelector('img');
+                if (imgElement) {
+                    imgElement.src = canvas.toDataURL('image/png');
+                }
+            }
+
+            // 6. Nettoyage du studio invisible
+            tempDiv.remove();
+
+        } catch (e) {
+            console.error("Impossible de rafraîchir la carte :", e);
+        }
+    }
+}
+
+

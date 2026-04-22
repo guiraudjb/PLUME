@@ -36,6 +36,9 @@ function applyPalette() {
     document.documentElement.style.setProperty('--theme-sun', p.sun);
     document.documentElement.style.setProperty('--theme-bg', p.bg);
     refreshAllCharts();
+    if (typeof refreshAllMaps === 'function') {
+        refreshAllMaps();
+    }
 }
 
 function format(cmd, val = null) {
@@ -49,46 +52,60 @@ function insertHTML(html) {
     }
 
 function insertImage() {
-    // 1. Création d'un sélecteur de fichier invisible
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/png, image/jpeg, image/webp';
 
-    // 2. Écoute de l'événement quand l'utilisateur a choisi une image
     input.onchange = function(e) {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Vérification de la taille (optionnel mais recommandé, ex: limite à 2 Mo)
-        if (file.size > 2 * 1024 * 1024) {
-            alert("L'image est trop volumineuse. Veuillez choisir une image de moins de 2 Mo.");
-            return;
-        }
-
         const reader = new FileReader();
 
-        // 3. Quand l'image est lue, on l'injecte dans le HTML
         reader.onload = function(readerEvent) {
-            const base64Data = readerEvent.target.result;
+            // Au lieu d'insérer directement le gros fichier, on crée une image virtuelle
+            const img = new Image();
+            img.onload = function() {
+                // 1. Calcul des nouvelles dimensions (Max 800px de large pour une page A4)
+                const MAX_WIDTH = 800;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > MAX_WIDTH) {
+                    height = Math.round((height * MAX_WIDTH) / width);
+                    width = MAX_WIDTH;
+                }
+
+                // 2. Création d'un Canvas invisible pour redimensionner
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                
+                // Dessin de l'image redimensionnée sur le canvas
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // 3. Export en format WEBP optimisé (qualité 75%)
+                // Une photo de 4 Mo passera à environ 80 Ko !
+                const compressedBase64 = canvas.toDataURL('image/webp', 0.75);
+
+                // 4. Insertion dans le document
+                const imgHTML = `
+                    <div style="display: flex; justify-content: center; margin: 1.5rem 0;" contenteditable="false">
+                        <img src="${compressedBase64}" alt="Image d'illustration" style="max-width: 100%; height: auto; object-fit: contain;">
+                    </div>
+                `;
+                
+                insertHTML(imgHTML);
+            };
             
-            // Formatage de l'image pour le DSFR et le format A4
-            // Le conteneur Flex permet de centrer l'image
-            // max-width: 100% empêche le débordement des marges
-            const imgHTML = `
-                <div style="display: flex; justify-content: center; margin: 1.5rem 0;" contenteditable="false">
-                    <img src="${base64Data}" alt="Image d'illustration" style="max-width: 100%; max-height: 400px; object-fit: contain;">
-                </div>
-            `;
-            
-            // On utilise notre moteur d'insertion qui ajoute un paragraphe vide à la suite
-            insertHTML(imgHTML);
+            // On déclenche le chargement de l'image virtuelle
+            img.src = readerEvent.target.result;
         };
 
-        // Lecture du fichier
         reader.readAsDataURL(file);
     };
 
-    // Déclenche l'ouverture de la fenêtre Windows/Mac
     input.click();
 }
 
@@ -398,27 +415,44 @@ function addNewPage() {
 }
 
 function saveJSON() {
+    // 1. On capture l'état global (Palette, Titres, etc.)
     const state = {
-        // Ajout de la palette manquante
         palette: document.getElementById('cfg-palette').value,
-        
-        // Aplatissement des métadonnées à la racine de l'objet
         bureau: document.getElementById('cfg-bureau').value,
         titre: document.getElementById('cfg-titre').value,
         date: document.getElementById('cfg-date').value,
         footer: document.getElementById('cfg-footer').value,
         logo: logoDataUrl,
-        
-        // Sauvegarde des pages
-        pages: Array.from(document.querySelectorAll('.page-a4')).map(page => ({
-    content: page.querySelector('.content-editable').innerHTML,
-    isLandscape: page.classList.contains('landscape')
-}))
+        pages: []
     };
     
+    // 2. On traite chaque page une par une
+    document.querySelectorAll('.page-a4').forEach(page => {
+        // On crée un clone "fantôme" (non attaché au DOM visible)
+        const clone = page.cloneNode(true);
+        const editor = clone.querySelector('.content-editable');
+        
+        // --- LA PURGE (Le secret de la performance) ---
+        // On repère toutes les images générées par nos outils
+        const generatedImages = editor.querySelectorAll('.chart-container img, .map-container img');
+        
+        generatedImages.forEach(img => {
+            // On vide le SRC (qui contient le Base64 massif)
+            // On le remplace par un pixel transparent ou un placeholder léger
+            img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; 
+        });
+        
+        // On sauvegarde le HTML purgé de ce clone
+        state.pages.push({
+            content: editor.innerHTML,
+            isLandscape: page.classList.contains('landscape')
+        });
+    });
+    
+    // 3. Téléchargement (qui sera instantané maintenant)
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(state)], { type: 'application/json' }));
-    a.download = 'newsletter.json'; 
+    a.download = 'lettre-plume.json'; 
     a.click();
 }
 
@@ -428,23 +462,21 @@ function restoreJSON(input) {
     const file = input.files[0];
     const reader = new FileReader();
     
-    reader.onload = function(e) {
+    reader.onload = async function(e) { // <-- AJOUT de 'async' pour pouvoir utiliser 'await'
         try {
             const state = JSON.parse(e.target.result);
             
-            // 1. Restauration des réglages de la barre d'outils
+            // 1. Restauration des réglages
             if (state.palette) document.getElementById('cfg-palette').value = state.palette;
             if (state.bureau) document.getElementById('cfg-bureau').value = state.bureau;
             if (state.titre) document.getElementById('cfg-titre').value = state.titre;
             if (state.date) document.getElementById('cfg-date').value = state.date;
             if (state.footer) document.getElementById('cfg-footer').value = state.footer;
             
-            // Restauration du logo personnalisé s'il y en avait un
             logoDataUrl = state.logo || "";
+            applyPalette(); 
             
-            applyPalette(); // Applique les couleurs
-            
-            // 2. Restauration des pages A4 (Mettez à jour ce bloc dans restoreJSON)
+            // 2. Restauration du HTML (qui contient des cadres d'images vides)
             if (state.pages && Array.isArray(state.pages)) {
                 const container = document.getElementById('pages-container');
                 container.innerHTML = ''; 
@@ -455,14 +487,12 @@ function restoreJSON(input) {
                     pageDiv.className = 'page-a4';
                     pageDiv.id = `page-${pageNum}`;
                     
-                    // Rétrocompatibilité : si c'est une ancienne sauvegarde (texte simple)
                     const rawContent = typeof pageData === 'string' ? pageData : pageData.content;
-                    const pageContent = sanitizeHTML(rawContent); // Passage au crible de DOMPurify
+                    const pageContent = sanitizeHTML(rawContent); 
                     
                     const isLandscape = typeof pageData === 'object' ? pageData.isLandscape : false;
                     if (isLandscape) pageDiv.classList.add('landscape');
                     
-                    // On détermine le bon texte du bouton selon l'état restauré
                     const btnText = isLandscape ? "Portrait" : "Paysage";
                     const btnIcon = isLandscape ? "fr-icon-file-text-line" : "fr-icon-refresh-line";
                     const btnTitle = isLandscape ? "Repasser en mode Portrait" : "Passer en mode Paysage";
@@ -507,11 +537,21 @@ function restoreJSON(input) {
                     container.appendChild(pageDiv);
                 });
             }
-            // 3. Resynchronisation globale (tamponnage des textes sur toutes les pages)
-            syncMetadata();
             
-            // Réinitialise l'input pour permettre de recharger le même fichier si besoin
+            syncMetadata();
             input.value = "";
+            
+            // --- LA MAGIE (Redessin dynamique) ---
+            // On laisse le temps au navigateur d'afficher la page avec les cadres blancs
+            // Puis on lance les moteurs pour repeindre les graphiques et les cartes
+            setTimeout(async () => {
+                refreshAllCharts();
+                if (typeof refreshAllMaps === 'function') {
+                    // On affiche un petit message dans la console pour le debug
+                    console.log("Reconstruction des médias vectoriels en cours...");
+                    await refreshAllMaps();
+                }
+            }, 100);
             
         } catch (err) {
             alert("Erreur lors de la lecture du fichier de sauvegarde. Le fichier est peut-être corrompu.");
@@ -519,7 +559,6 @@ function restoreJSON(input) {
         }
     };
     
-    // Lit le fichier en tant que texte
     reader.readAsText(file);
 }
 
@@ -1214,13 +1253,13 @@ document.addEventListener('paste', function(e) {
     }
 });
 // =====================================================================
-// MODULE D'OUTILS FLOTTANTS (CORBEILLE, REGLAGES & FORMATAGE TEXTE)
+// MODULE D'OUTILS FLOTTANTS (CORBEILLE, REGLAGES, IMAGES & TEXTE)
 // =====================================================================
 
 // 1. Création du conteneur de la barre d'outils
 const floatToolbar = document.createElement('div');
 floatToolbar.style.cssText = `
-    position: absolute; /* Modifié de fixed à absolute pour suivre le défilement */
+    position: absolute;
     display: none;
     z-index: 10000;
     gap: 0.3rem;
@@ -1232,82 +1271,61 @@ floatToolbar.style.cssText = `
     align-items: center;
 `;
 
-// 2. NOUVEAU : Sélecteur de style de texte
+// 2. Outils de Texte existants
 const textStyleSelect = document.createElement('select');
-textStyleSelect.innerHTML = `
-    <option value="P">Paragraphe</option>
-    <option value="H2">Titre 2</option>
-    <option value="H3">Titre 3</option>
-    <option value="H4">Titre 4</option>
-    <option value="BLOCKQUOTE">Citation</option>
-`;
-textStyleSelect.style.cssText = `
-    padding: 0.2rem 0.5rem;
-    border: 1px solid var(--grey-900);
-    border-radius: 4px;
-    font-family: inherit;
-    font-size: 0.85rem;
-    background: #f5f5fe;
-    cursor: pointer;
-    outline: none;
-`;
+textStyleSelect.innerHTML = `<option value="P">Paragraphe</option><option value="H2">Titre 2</option><option value="H3">Titre 3</option><option value="H4">Titre 4</option><option value="BLOCKQUOTE">Citation</option>`;
+textStyleSelect.style.cssText = `padding: 0.2rem 0.5rem; border: 1px solid var(--grey-900); border-radius: 4px; font-family: inherit; font-size: 0.85rem; background: #f5f5fe; cursor: pointer; outline: none;`;
 
-// 3. NOUVEAU : Bouton de Nettoyage (Balai)
 const cleanBtn = document.createElement('button');
-cleanBtn.innerHTML = '🧹';
-cleanBtn.title = "Nettoyer les styles parasites (Copier-Coller)";
-cleanBtn.style.cssText = `
-    background-color: #fff;
-    border: 1px solid var(--grey-900);
-    border-radius: 4px;
-    width: 30px; height: 30px;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.1rem;
-    transition: background-color 0.2s;
-`;
+cleanBtn.innerHTML = '🧹'; cleanBtn.title = "Nettoyer les styles parasites";
+cleanBtn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;`;
 
-// 4. Bouton Redimensionner (Règle)
 const resizeBtn = document.createElement('button');
-resizeBtn.innerHTML = '📏';
-resizeBtn.title = "Modifier la largeur des colonnes";
-resizeBtn.style.cssText = `
-    background-color: #f5f5fe;
-    border: 1px solid var(--theme-sun);
-    border-radius: 4px;
-    width: 30px; height: 30px;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.1rem;
-`;
+resizeBtn.innerHTML = '📏'; resizeBtn.title = "Modifier la largeur des colonnes";
+resizeBtn.style.cssText = `background-color: #f5f5fe; border: 1px solid var(--theme-sun); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;`;
 
-// 5. Bouton Corbeille
 const trashBtn = document.createElement('button');
-trashBtn.innerHTML = '<span class="fr-icon-delete-bin-fill"></span>';
-trashBtn.title = "Supprimer ce bloc";
-trashBtn.style.cssText = `
-    background-color: #ffe8e5;
-    color: #e1000f;
-    border: 1px solid #e1000f;
-    border-radius: 4px;
-    width: 30px; height: 30px;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-`;
+trashBtn.innerHTML = '<span class="fr-icon-delete-bin-fill"></span>'; trashBtn.title = "Supprimer ce bloc";
+trashBtn.style.cssText = `background-color: #ffe8e5; color: #e1000f; border: 1px solid #e1000f; border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center;`;
 
-// Ajout des boutons à la barre (ordre d'apparition)
+// 3. NOUVEAU : Outils d'Image
+function createImgBtn(icon, title) {
+    const btn = document.createElement('button');
+    btn.innerHTML = `<span class="${icon}"></span>`; btn.title = title;
+    btn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--theme-sun);`;
+    return btn;
+}
+
+const imgAlignLeft = createImgBtn('fr-icon-align-left', 'Aligner à gauche (Habillage texte)');
+const imgAlignCenter = createImgBtn('fr-icon-align-center', 'Centrer (Bloc)');
+const imgAlignRight = createImgBtn('fr-icon-align-right', 'Aligner à droite (Habillage texte)');
+const imgMoveUp = createImgBtn('fr-icon-arrow-up-line', 'Monter l\'image');
+const imgMoveDown = createImgBtn('fr-icon-arrow-down-line', 'Descendre l\'image');
+const imgCropBtn = createImgBtn('fr-icon-image-edit-line', 'Recadrer (Original / Carré / 16:9)');
+
+const imgResizeSlider = document.createElement('input');
+imgResizeSlider.type = 'range'; imgResizeSlider.min = '15'; imgResizeSlider.max = '100'; imgResizeSlider.value = '100';
+imgResizeSlider.title = "Ajuster la taille";
+imgResizeSlider.style.cssText = "width: 70px; margin: 0 0.5rem; cursor: pointer;";
+
+const imgToolsContainer = document.createElement('div');
+imgToolsContainer.style.cssText = "display: none; align-items: center; gap: 0.3rem; border-right: 1px solid var(--grey-900); padding-right: 0.5rem; margin-right: 0.2rem;";
+imgToolsContainer.append(imgAlignLeft, imgAlignCenter, imgAlignRight, imgMoveUp, imgMoveDown, imgCropBtn, imgResizeSlider);
+
+// Ajout des éléments à la barre (ordre d'apparition)
 floatToolbar.appendChild(textStyleSelect);
 floatToolbar.appendChild(cleanBtn);
+floatToolbar.appendChild(imgToolsContainer); // S'intercale ici
 floatToolbar.appendChild(resizeBtn);
 floatToolbar.appendChild(trashBtn);
 document.body.appendChild(floatToolbar);
 
 let hoveredBlock = null;
 
-// NOUVEAU : On ajoute les balises de texte (p, h2, h3...) au radar
+// NOUVEAU : Sélecteur élargi
 const blockSelectors = '.fr-table, .custom-grid, .fr-summary, .fr-callout, hr, img, [contenteditable="false"], p, h1, h2, h3, h4, h5, h6, blockquote, ul, ol';
 
-// 6. Traque de la souris
+// 4. Traque de la souris
 document.addEventListener('mousemove', function(e) {
     if (e.target === floatToolbar || floatToolbar.contains(e.target)) return;
 
@@ -1322,14 +1340,13 @@ document.addEventListener('mousemove', function(e) {
             hoveredBlock = block;
             hoveredBlock.classList.add('block-hover-focus');
             
-            // Logique d'affichage contextuel des boutons
             const tagName = hoveredBlock.tagName.toUpperCase();
-            const isTextNode = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE'].includes(tagName);
             
-            // Affiche les contrôles de texte uniquement si c'est du texte
-            if (isTextNode) {
+            // --- Logique d'affichage contextuel ---
+            
+            // Si c'est du Texte
+            if (['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE'].includes(tagName)) {
                 textStyleSelect.style.display = 'block';
-                // Sélectionne automatiquement la bonne option dans la liste
                 textStyleSelect.value = ['H1', 'H5', 'H6'].includes(tagName) ? 'P' : tagName; 
                 cleanBtn.style.display = 'flex';
             } else {
@@ -1337,16 +1354,26 @@ document.addEventListener('mousemove', function(e) {
                 cleanBtn.style.display = 'none';
             }
 
-            // Affiche la règle uniquement pour les tableaux et grilles
+            // Si c'est une Image
+            if (tagName === 'IMG') {
+                imgToolsContainer.style.display = 'flex';
+                // Synchronise le slider avec la largeur actuelle
+                const currentWidth = hoveredBlock.style.width || '100%';
+                imgResizeSlider.value = parseInt(currentWidth);
+            } else {
+                imgToolsContainer.style.display = 'none';
+            }
+
+            // Si c'est un Tableau ou une Grille
             if (hoveredBlock.classList.contains('custom-grid') || hoveredBlock.classList.contains('fr-table')) {
                 resizeBtn.style.display = 'flex';
             } else {
                 resizeBtn.style.display = 'none';
             }
 
-            // Positionnement absolu pour suivre le scroll interne
+            // Positionnement
             const rect = hoveredBlock.getBoundingClientRect();
-            floatToolbar.style.top = (window.scrollY + rect.top - 35) + 'px';
+            floatToolbar.style.top = (window.scrollY + rect.top - 40) + 'px';
             floatToolbar.style.left = (window.scrollX + rect.left) + 'px';
             floatToolbar.style.display = 'flex';
         }
@@ -1363,83 +1390,125 @@ function hideFloatToolbar() {
     floatToolbar.style.display = 'none';
 }
 
-// 7. ACTIONS DES BOUTONS TEXTE (NOUVEAU)
+// =====================================================================
+// 5. ACTIONS DES BOUTONS IMAGES (NOUVEAU)
+// =====================================================================
 
-// Action : Changer de balise (Ex: Transformer un paragraphe en Titre 2)
+// Pour les manipulations structurelles, on cible le conteneur parent généré lors de l'insertion
+function getImgWrapper(img) {
+    return img.closest('div[contenteditable="false"]') || img;
+}
+
+imgAlignLeft.onclick = () => {
+    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
+    const w = getImgWrapper(hoveredBlock);
+    w.style.display = 'block'; w.style.float = 'left'; w.style.margin = '0 1.5rem 1rem 0';
+};
+
+imgAlignCenter.onclick = () => {
+    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
+    const w = getImgWrapper(hoveredBlock);
+    w.style.display = 'flex'; w.style.justifyContent = 'center'; w.style.float = 'none'; w.style.margin = '1.5rem 0';
+};
+
+imgAlignRight.onclick = () => {
+    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
+    const w = getImgWrapper(hoveredBlock);
+    w.style.display = 'block'; w.style.float = 'right'; w.style.margin = '0 0 1rem 1.5rem';
+};
+
+imgMoveUp.onclick = () => {
+    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
+    const w = getImgWrapper(hoveredBlock);
+    const prev = w.previousElementSibling;
+    if (prev) w.parentNode.insertBefore(w, prev);
+    hideFloatToolbar();
+};
+
+imgMoveDown.onclick = () => {
+    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
+    const w = getImgWrapper(hoveredBlock);
+    const next = w.nextElementSibling;
+    if (next) w.parentNode.insertBefore(w, next.nextElementSibling);
+    hideFloatToolbar();
+};
+
+imgResizeSlider.oninput = (e) => {
+    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
+    hoveredBlock.style.width = e.target.value + '%';
+    hoveredBlock.style.height = 'auto'; // Force le respect du ratio
+};
+
+const ratios = ['auto', '1 / 1', '16 / 9', '4 / 3'];
+let currentRatioIdx = 0;
+imgCropBtn.onclick = () => {
+    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
+    currentRatioIdx = (currentRatioIdx + 1) % ratios.length;
+    const ratio = ratios[currentRatioIdx];
+    
+    if (ratio === 'auto') {
+        hoveredBlock.style.aspectRatio = 'auto';
+        hoveredBlock.style.objectFit = 'contain';
+        imgCropBtn.style.backgroundColor = '#fff';
+    } else {
+        hoveredBlock.style.aspectRatio = ratio;
+        hoveredBlock.style.objectFit = 'cover';
+        imgCropBtn.style.backgroundColor = '#e3e3fd'; // Indicateur visuel d'activation
+    }
+};
+
+// =====================================================================
+// 6. ACTIONS DES OUTILS EXISTANTS
+// =====================================================================
+
 textStyleSelect.addEventListener('change', function(e) {
     if (!hoveredBlock) return;
-    
     const newTag = e.target.value;
     if (hoveredBlock.tagName.toUpperCase() !== newTag) {
-        // Au lieu d'utiliser execCommand (qui est capricieux), on remplace directement la balise HTML
         const newElement = document.createElement(newTag);
         newElement.innerHTML = hoveredBlock.innerHTML;
-        
-        // Copie de l'attribut class s'il y en avait un
         if (hoveredBlock.className) newElement.className = hoveredBlock.className;
-        
         hoveredBlock.parentNode.replaceChild(newElement, hoveredBlock);
-        hideFloatToolbar(); // On cache la barre pour forcer un rafraîchissement au prochain survol
+        hideFloatToolbar(); 
     }
 });
 
-// Action : Le Balai Magique (Nettoyage des styles)
 cleanBtn.addEventListener('click', function() {
     if (!hoveredBlock) return;
-    
-    // 1. On retire le style "en ligne" du bloc lui-même
     hoveredBlock.removeAttribute('style');
-    
-    // Si ce n'est pas un bloc protégé du DSFR (comme une citation complexe), on nettoie les classes
     if (!hoveredBlock.className.includes('fr-')) {
         hoveredBlock.removeAttribute('class');
-        hoveredBlock.classList.add('block-hover-focus'); // On garde juste la classe visuelle de survol
+        hoveredBlock.classList.add('block-hover-focus'); 
     }
-
-    // 2. On scanne TOUT le texte à l'intérieur du bloc
     const children = hoveredBlock.querySelectorAll('*');
     children.forEach(child => {
-        // On supprime les couleurs, tailles de police, marges cachées...
         child.removeAttribute('style');
-        
-        // On supprime les attributs bizarres souvent ajoutés par Word (dir="ltr", data-..., etc.)
         Array.from(child.attributes).forEach(attr => {
             if (attr.name !== 'href' && attr.name !== 'src' && attr.name !== 'alt') {
                 child.removeAttribute(attr.name);
             }
         });
-
-        // 3. Purge des balises invisibles (ex: <font> ou <span> vides) qui polluent le code
         if (child.tagName === 'FONT' || child.tagName === 'SPAN') {
-            // Remplace la balise par son propre contenu textuel brut
             const fragment = document.createDocumentFragment();
-            while (child.firstChild) {
-                fragment.appendChild(child.firstChild);
-            }
+            while (child.firstChild) fragment.appendChild(child.firstChild);
             child.parentNode.replaceChild(fragment, child);
         }
     });
-
-    // Effet visuel de confirmation
-    cleanBtn.innerHTML = '✨';
-    cleanBtn.style.backgroundColor = '#c3fad5'; // Vert succès
-    setTimeout(() => {
-        cleanBtn.innerHTML = '🧹';
-        cleanBtn.style.backgroundColor = '#fff';
-    }, 1000);
+    cleanBtn.innerHTML = '✨'; cleanBtn.style.backgroundColor = '#c3fad5';
+    setTimeout(() => { cleanBtn.innerHTML = '🧹'; cleanBtn.style.backgroundColor = '#fff'; }, 1000);
 });
 
-// 8. ACTIONS DES ANCIENS BOUTONS (Corbeille et Règle)
 trashBtn.addEventListener('click', function() {
     if (hoveredBlock) {
-        hoveredBlock.remove();
+        // Supprime le wrapper entier si c'est une image
+        const target = hoveredBlock.tagName === 'IMG' ? getImgWrapper(hoveredBlock) : hoveredBlock;
+        target.remove();
         hideFloatToolbar();
     }
 });
 
 resizeBtn.addEventListener('click', function() {
     if (!hoveredBlock) return;
-
     if (hoveredBlock.classList.contains('custom-grid')) {
         const gridInner = hoveredBlock.querySelector('div[style*="display: flex"]');
         if (!gridInner) return;
