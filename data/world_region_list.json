@@ -1,4 +1,10 @@
 [
+{
+    "code": "ARCMA",
+    "category": "Géographique",
+    "name": "Espace maritime Mer Rouge, Golfes d'Aden, d'Oman et Arabo-Persique",
+    "countries": ["ARE", "BHR", "DJI", "EGY", "ERI", "IRN", "IRQ", "ISR", "JOR", "KWT", "OMN", "PAK", "QAT", "SAU", "SDN", "SOM","ABV", "YEM"]
+  },
   {
     "code": "AMRNOR",
     "category": "Géographique",
@@ -41,6 +47,26 @@
     "name": "Asie de l'Est",
     "countries": ["CHN", "JPN", "KOR", "MNG", "PRK", "TWN"]
   },
+  {
+  "code": "AFRIQ",
+  "category": "Géographique",
+  "name": "Afrique",
+  "countries": [
+    "ABV", "AGO", "BDI", "BEN", "BFA", "BWA", "CAF", "CIV", "CMR", 
+    "COD", "COG", "COM", "CPV", "DJI", "DZA", "EGY", "ERI", "ESH", 
+    "ETH", "GAB", "GHA", "GIN", "GMB", "GNB", "GNQ", "KEN", "LBR", 
+    "LBY", "LSO", "MAR", "MDG", "MLI", "MOZ", "MRT", "MUS", "MWI", 
+    "NAM", "NER", "NGA", "RWA", "SDN", "SEN", "SLE", "SOM", "SSD", 
+    "STP", "SWZ", "SYC", "TCD", "TGO", "TUN", "TZA", "UGA", "ZAF", 
+    "ZMB", "ZWE"
+  ]
+},
+  {
+  "code": "AFRNOR",
+  "category": "Géographique",
+  "name": "Afrique du Nord",
+  "countries": ["DZA", "EGY", "ESH", "LBY", "MAR", "MRT", "SDN", "TUN"]
+},
   {
     "code": "AFROUE",
     "category": "Géographique",
@@ -282,6 +308,25 @@
     "countries": ["DZA", "LBY", "MAR", "MRT", "TUN"]
   },
   {
+  "code": "CEE",
+  "category": "Économique",
+  "name": "Communauté Économique Européenne (CEE)",
+  "countries": ["BEL", "DEU", "DNK", "ESP", "FRA", "GBR", "GRC", "IRL", "ITA", "LUX", "NLD", "PRT"]
+},
+{
+  "code": "UEURO",
+  "category": "Économique",
+  "name": "Union Européenne (UE)",
+  "countries": ["AUT", "BEL", "BGR", "HRV", "CYP", "CZE", "DNK", "ESP", "EST", "FIN", "FRA", "DEU", "GRC", "HUN", "IRL", "ITA", "LTU", "LUX", "LVA", "MLT", "NLD", "POL", "PRT", "ROU", "SVK", "SVN", "SWE"]
+},
+{
+  "code": "ZONEUR",
+  "category": "Économique",
+  "name": "Zone Euro",
+  "countries": ["AUT", "BEL", "HRV", "CYP", "EST", "FIN", "FRA", "DEU", "GRC", "IRL", "ITA", "LVA", "LTU", "LUX", "MLT", "NLD", "PRT", "SVK", "SVN", "ESP"]
+},
+
+  {
     "code": "OPEP",
     "category": "Économique",
     "name": "Organisation des Pays Exportateurs de Pétrole",
@@ -334,5 +379,53 @@
     "category": "Diplomatique",
     "name": "Organisation de la Coopération Islamique",
     "countries": ["AFG", "ALB", "ARE", "AZE", "BDI", "BFA", "BGD", "BHR", "BRN", "CIV", "CMR", "COM", "DJI", "DZA", "EGY", "GAB", "GIN", "GMB", "GNB", "GUY", "IDN", "IRN", "IRQ", "JOR", "KAZ", "KGZ", "KWT", "LBN", "LBY", "MAR", "MDV", "MLI", "MOZ", "MRT", "MYS", "NER", "NGA", "OMN", "PAK", "PSE", "QAT", "SAU", "SDN", "SEN", "SLE", "SOM", "SUR", "SYR", "TCD", "TGO", "TJK", "TKM", "TUN", "TUR", "UGA", "UZB", "YEM"]
+  },
+  {
+    "code": "UKRUS",
+    "category": "Conflit",
+    "name": "Théâtre de guerre Russo-Ukrainien",
+    "countries": ["UKR", "RUS"]
+  },
+  {
+    "code": "PROCHEO",
+    "category": "Conflit",
+    "name": "Zone de conflit Proche-Orientale",
+    "countries": ["ISR", "PSE", "LBN", "IRN", "SYR"]
+  },
+  {
+    "code": "SOUDAN",
+    "category": "Conflit",
+    "name": "Guerre civile soudanaise",
+    "countries": ["SDN", "TCD", "SSD"]
+  },
+  {
+    "code": "SAHEL_C",
+    "category": "Conflit",
+    "name": "Zone d'insurrection Sahélienne",
+    "countries": ["MLI", "BFA", "NER", "NGA"]
+  },
+  {
+    "code": "MYANM",
+    "category": "Conflit",
+    "name": "Guerre civile du Myanmar",
+    "countries": ["MMR", "THA", "CHN"]
+  },
+  {
+    "code": "RDC_EST",
+    "category": "Conflit",
+    "name": "Zone de conflit Kivu-Ituri",
+    "countries": ["COD", "RWA", "UGA"]
+  },
+  {
+    "code": "TAIWAN_S",
+    "category": "Conflit",
+    "name": "Point de friction Détroit de Taïwan",
+    "countries": ["CHN", "TWN", "USA"]
+  },
+  {
+    "code": "ARCMA",
+    "category": "Conflit",
+    "name": "Crise de sécurité maritime (Mer Rouge/Aden)",
+    "countries": ["YEM", "SAU", "USA", "GBR", "IRN"]
   }
 ]
