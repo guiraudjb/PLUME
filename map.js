@@ -5,7 +5,7 @@
 // =====================================================================
 // 1. RÉFÉRENTIELS ET MÉMOIRE
 // =====================================================================
-let geoReferential = { loaded: false, communes: [], epci: [], comToDep: new Map(), comToEpci: new Map() };
+let geoReferential = { loaded: false, communes: [], epci: [], worldRegions: [], comToDep: new Map(), comToEpci: new Map() };
 
 const REGIONS_DICT = {
     "11": "Île-de-France", "24": "Centre-Val de Loire", "27": "Bourgogne-Franche-Comté",
@@ -44,12 +44,15 @@ function getContrastingColor(color) {
 async function loadMapReferentials() {
     if (geoReferential.loaded) return; 
     try {
-        const [communesData, epciData] = await Promise.all([
+        // CORRECTION ICI : Ajout de worldData dans les crochets
+        const [communesData, epciData, worldData] = await Promise.all([
             fetchCSV('./data/v_commune_2025.csv', ','),
-            fetchCSV('./data/EPCI_2025.csv', ';')
+            fetchCSV('./data/EPCI_2025.csv', ';'),
+            d3.json('./data/world_region_list.json')
         ]);
         geoReferential.communes = communesData;
         geoReferential.epci = epciData;
+        geoReferential.worldRegions = worldData || [];
         communesData.forEach(c => geoReferential.comToDep.set(getSafeCol(c, 'COM'), getSafeCol(c, 'DEP')));
         epciData.forEach(e => geoReferential.comToEpci.set(getSafeCol(e, 'CODGEO'), getSafeCol(e, 'EPCI')));
         geoReferential.loaded = true;
@@ -102,17 +105,17 @@ function computeValorAggregation(rawData, targetScale, calcMode, colCode, col1, 
 }
 
 // =====================================================================
-// 3. MOTEUR DE RENDU D3.JS
-// =====================================================================
-// =====================================================================
-// 3. MOTEUR DE RENDU D3.JS
+// 3. MOTEUR DE RENDU D3.JS (International & Anti-Collision)
 // =====================================================================
 async function drawD3Map(container, config, dataMap) {
     const width = container.clientWidth, height = container.clientHeight;
+    
+    // Récupération des paramètres physiques (avec fallbacks)
     const pStrength = config.physStrength !== undefined ? config.physStrength : 0.15;
     const pPadding = config.physPadding !== undefined ? config.physPadding : 4;
     const pRatio = config.physRatio !== undefined ? config.physRatio : 0.62;
     
+    // Sélection du fichier TopoJSON/GeoJSON
     let jsonFile = './data/commune_2025.json'; // Par défaut
     if (config.scale === 'national' || config.scale === 'region') jsonFile = './data/departement_2025.json';
     if (config.scale === 'europe') jsonFile = './data/europe_2025.json';
@@ -120,16 +123,16 @@ async function drawD3Map(container, config, dataMap) {
     
     let geoJSON;
     try { 
-        // L'attente (await) se fait AVANT de vider le conteneur
         geoJSON = await d3.json(jsonFile); 
     } catch (e) {
         container.innerHTML = `<p style="color:red; text-align:center;">Fichier ${jsonFile} introuvable.</p>`;
         return false;
     }
 
-    // CORRECTION DU GLITCH : On vide le conteneur juste avant de dessiner !
+    // On vide le conteneur juste avant de dessiner (Évite les glitchs de superposition)
     container.innerHTML = '';
 
+    // Extraction des polygones (Features)
     let features = [];
     if (geoJSON && geoJSON.type === "Topology" && geoJSON.objects) {
         const objKey = Object.keys(geoJSON.objects)[0];
@@ -139,6 +142,7 @@ async function drawD3Map(container, config, dataMap) {
         features = geoJSON.features || [];
     }
 
+    // Filtrage spécifique pour les EPCI français
     let validEpciCommunes = new Set();
     if (config.scale === 'epci' && config.epci) {
         const targetEpci = String(config.epci).trim();
@@ -147,6 +151,7 @@ async function drawD3Map(container, config, dataMap) {
         });
     }
 
+    // Filtrage des territoires selon l'échelle choisie
     features = features.filter(f => {
         const p = f.properties;
         if (!p) return false;
@@ -157,6 +162,7 @@ async function drawD3Map(container, config, dataMap) {
         return true; 
     });
 
+    // Sécurité anti-plantage si aucune zone n'est sélectionnée
     if (features.length === 0 || (!['national', 'world', 'europe'].includes(config.scale) && !config.region && !config.epci && !config.commune)) {
         container.innerHTML = `<div style="text-align:center; color:#999; padding:2rem;"><span class="fr-icon-map-pin-2-fill" style="font-size:3rem; display:block; margin-bottom:1rem;"></span><p>Veuillez préciser la zone géographique.</p></div>`;
         return false;
@@ -164,26 +170,45 @@ async function drawD3Map(container, config, dataMap) {
 
     const svg = d3.select(container).append("svg").attr("width", width).attr("height", height);
     
+    // --- 1. DÉFINITION DE LA PROJECTION ---
     let projection;
     if (config.scale === 'world') {
-        // Projection Mercator classique pour le monde
         projection = d3.geoMercator().scale(1).translate([0,0]);
     } else if (config.scale === 'europe') {
-        // Mercator centré sur l'Europe
         projection = d3.geoMercator().center([15, 50]).scale(1).translate([0,0]);
     } else {
-        // Projection spécifique pour la France métropolitaine
         projection = d3.geoConicConformal().center([2.45, 46.2]).scale(1).translate([0,0]);
     }
     const path = d3.geoPath().projection(projection);
-    
-    const bounds = path.bounds({type: "FeatureCollection", features: features});
+
+    // --- 2. SYSTÈME DE CADRAGE DYNAMIQUE (AUTO-ZOOM) ---
+    let targetFeatures = features; 
+
+    if (config.scale === 'world' && config.worldRegion && config.worldRegion !== 'all') {
+        const getIso = (d) => String(d.id || d.properties.iso_a3 || d.properties.ISO3 || d.properties.ADM0_A3 || "");
+
+       if (config.worldRegion === 'auto' && dataMap && dataMap.size > 0) {
+            targetFeatures = features.filter(f => dataMap.has(getIso(f)));
+        } else {
+            // RECHERCHE DYNAMIQUE DANS LE RÉFÉRENTIEL
+            const selectedRegion = geoReferential.worldRegions.find(r => r.code === config.worldRegion);
+            if (selectedRegion && selectedRegion.countries) {
+                targetFeatures = features.filter(f => selectedRegion.countries.includes(getIso(f)));
+            }
+        }
+
+        // Sécurité
+        if (targetFeatures.length === 0) targetFeatures = features;
+    }
+
+    const bounds = path.bounds({type: "FeatureCollection", features: targetFeatures});
     const dx = bounds[1][0] - bounds[0][0], dy = bounds[1][1] - bounds[0][1];
-    
     const s = .85 / Math.max(dx / width, dy / height);
     const t = [(width - s * (bounds[1][0] + bounds[0][0])) / 2, ((height - 40) - s * (bounds[1][1] + bounds[0][1])) / 2];
+    
     projection.scale(s).translate(t);
 
+    // --- 3. GESTION DES COULEURS ---
     const rootStyle = getComputedStyle(document.documentElement);
     const mainColor = rootStyle.getPropertyValue('--theme-sun').trim() || '#000091';
     const bgColor = rootStyle.getPropertyValue('--theme-bg').trim() || '#f5f5fe';
@@ -196,10 +221,15 @@ async function drawD3Map(container, config, dataMap) {
 
     const g = svg.append("g");
     
-    // Rendu des polygones
+    // --- 4. DESSIN DES POLYGONES ---
     g.selectAll("path").data(features).enter().append("path")
         .attr("d", path)
         .attr("fill", d => {
+            // NOUVEAU : Si on a un cadrage spécifique, on ignore les pays hors-cadre
+            if (config.scale === 'world' && config.worldRegion && config.worldRegion !== 'all') {
+                if (!targetFeatures.includes(d)) return "#e5e5e5";
+            }
+
             const code = String(
                 (config.scale === 'world' || config.scale === 'europe') 
                 ? (d.id || d.properties.iso_a3 || d.properties.ISO3 || d.properties.ADM0_A3 || "") 
@@ -209,62 +239,67 @@ async function drawD3Map(container, config, dataMap) {
         })
         .attr("stroke", "#ffffff").attr("stroke-width", 0.5);
 
-    // Rendu des étiquettes (Opti Collision)
-if (config.labelType !== 'none') {
+    // --- 5. MOTEUR D'ÉTIQUETTES ANTI-COLLISION ---
+    if (config.labelType !== 'none') {
         
-        // 1. Préparation des boîtes (Bounding Boxes)
         const labelNodes = [];
-        features.forEach(d => {
+        targetFeatures.forEach(d => {
             const centroid = path.centroid(d);
             if (!isNaN(centroid[0]) && !isNaN(centroid[1])) {
-                const code = String(d.properties.code_insee || "");
+                
+                // Identification unifiée
+                const code = String(
+                    (config.scale === 'world' || config.scale === 'europe') 
+                    ? (d.id || d.properties.iso_a3 || d.properties.ISO3 || d.properties.ADM0_A3 || "") 
+                    : (d.properties.code_insee || "")
+                );
+                
+                // Noms unifiés
                 let name = "";
                 if (config.scale === 'world' || config.scale === 'europe') {
-                    // On balaye les formats internationaux les plus courants (avec priorité au français si disponible)
                     name = d.properties.name_fr || d.properties.name || d.properties.NAME || d.properties.admin || d.properties.ADMIN || "";
                 } else {
-                    // Format standard INSEE pour la France
                     name = d.properties.nom_officiel || d.properties.nom || "";
                 }
                 
+                // Valeurs
                 let valStr = "";
                 if (dataMap && dataMap.has(code) && dataMap.get(code) !== undefined) {
                     valStr = frenchNumberFormat.format(dataMap.get(code));
                 }
 
+                // Calcul taille boîte
                 let textLen = 0;
                 if (config.labelType === 'name') textLen = name.length;
                 else if (config.labelType === 'value') textLen = valStr.length;
                 else textLen = Math.max(name.length, valStr.length);
                 
-                // NOUVEAU : Au lieu d'un rayon (r), on calcule la Largeur et la Hauteur réelles
-                // La largeur d'un caractère Marianne est d'environ 55% de sa hauteur
                 const estimatedWidth = textLen * (config.labelSize * pRatio);
                 const estimatedHeight = config.labelSize * (config.labelType === 'both' ? 2.4 : 1.2);
 
-                labelNodes.push({
-                    feature: d, code: code, name: name, valStr: valStr,
-                    cx: centroid[0], cy: centroid[1],
-                    x: centroid[0], y: centroid[1],
-                    width: estimatedWidth, 
-                    height: estimatedHeight
-                });
+                if (textLen > 0) {
+                    labelNodes.push({
+                        feature: d, code: code, name: name, valStr: valStr,
+                        cx: centroid[0], cy: centroid[1],
+                        x: centroid[0], y: centroid[1],
+                        width: estimatedWidth, 
+                        height: estimatedHeight
+                    });
+                }
             }
         });
 
-        // 2. Création de la Force de Collision Rectangulaire (Custom D3)
+        // Force de collision rectangulaire
         function rectCollide() {
             let nodes;
             function force(alpha) {
-                const padding = pPadding; // Marge de respiration entre les mots (2 pixels)
-                // Le Quadtree partitionne l'espace pour ne pas avoir à comparer toutes les étiquettes entre elles (Optimisation)
+                const padding = pPadding; 
                 const quad = d3.quadtree().x(d => d.x).y(d => d.y).addAll(nodes);
                 
                 for (const d of nodes) {
                     quad.visit((q, x1, y1, x2, y2) => {
                         if (!q.length && q.data !== d) {
                             const d2 = q.data;
-                            // Calcul des distances d'intersection
                             const w = (d.width + d2.width) / 2 + padding * 2;
                             const h = (d.height + d2.height) / 2 + padding * 2;
                             let x = d.x - d2.x;
@@ -272,9 +307,7 @@ if (config.labelType !== 'none') {
                             const absX = Math.abs(x) || 0.01; 
                             const absY = Math.abs(y) || 0.01;
 
-                            // Si les deux boîtes se chevauchent sur X ET sur Y
                             if (absX < w && absY < h) {
-                                // On les repousse sur l'axe le plus facile (celui qui nécessite le moins de mouvement)
                                 const lx = (w - absX) / w;
                                 const ly = (h - absY) / h;
                                 if (lx < ly) {
@@ -286,7 +319,6 @@ if (config.labelType !== 'none') {
                                 }
                             }
                         }
-                        // Limites de recherche pour le Quadtree
                         const nx1 = d.x - d.width / 2 - padding,
                               ny1 = d.y - d.height / 2 - padding,
                               nx2 = d.x + d.width / 2 + padding,
@@ -299,25 +331,21 @@ if (config.labelType !== 'none') {
             return force;
         }
 
-        // 3. Le moteur physique optimisé
+        // Exécution physique
         const simulation = d3.forceSimulation(labelNodes)
-            // Élastiques de rappel vers le centre (force équilibrée)
             .force("x", d3.forceX(d => d.cx).strength(pStrength)) 
             .force("y", d3.forceY(d => d.cy).strength(pStrength))
-            // On injecte notre collision rectangulaire personnalisée !
             .force("collide", rectCollide()) 
             .stop();
 
-        // 200 cycles pour bien "tasser" les boîtes rectangulaires comme des briques
         for (let i = 0; i < 250; ++i) simulation.tick();
 
-        // La "Cage" (pour ne pas sortir de la carte)
         labelNodes.forEach(d => {
             d.x = Math.max(20, Math.min(width - 20, d.x));
             d.y = Math.max(20, Math.min(height - 20, d.y));
         });
 
-        // 4. Dessin des traits de liaison
+        // Traits de liaison
         g.selectAll("line.leader")
             .data(labelNodes)
             .enter()
@@ -328,7 +356,6 @@ if (config.labelType !== 'none') {
             .attr("x2", d => d.x)
             .attr("y2", d => d.y)
             .attr("stroke", d => {
-                // On trace si l'étiquette s'est éloignée d'au moins la moitié de sa hauteur
                 const dist = Math.sqrt(Math.pow(d.x - d.cx, 2) + Math.pow(d.y - d.cy, 2));
                 return dist > (d.height * 0.8) ? mainColor : "none";
             })
@@ -336,7 +363,7 @@ if (config.labelType !== 'none') {
             .attr("stroke-dasharray", "2,2")
             .attr("opacity", 0.7);
 
-        // 5. Dessin du texte (Halo Opaque)
+        // Dessin du texte
         g.selectAll("text.label")
             .data(labelNodes)
             .enter()
@@ -353,19 +380,27 @@ if (config.labelType !== 'none') {
             .style("font-weight", "700")
             .each(function(d) {
                 const el = d3.select(this);
-                if (config.labelType === 'name') el.text(d.name);
-                else if (config.labelType === 'value' && d.valStr) el.text(d.valStr);
-                else if (config.labelType === 'both' && d.valStr) {
-                    el.append("tspan").attr("x", d.x).attr("dy", "-0.2em").text(d.name);
-                    el.append("tspan").attr("x", d.x).attr("dy", "1.1em").text(d.valStr);
+                
+                if (config.labelType === 'name' && d.name) {
+                    el.text(d.name);
+                } 
+                else if (config.labelType === 'value' && d.valStr) {
+                    el.text(d.valStr);
+                } 
+                else if (config.labelType === 'both') {
+                    if (d.name) {
+                        el.append("tspan").attr("x", d.x).attr("dy", "-0.2em").text(d.name);
+                    }
+                    if (d.valStr) {
+                        el.append("tspan").attr("x", d.x).attr("dy", d.name ? "1.1em" : "0").text(d.valStr);
+                    }
                 }
             });
     }
     
-    // Titre de la carte
+    // --- 6. HABILLAGE (Titre & Légende) ---
     svg.append("text").attr("x", 20).attr("y", 35).style("font-weight", "bold").style("font-size", "1.1rem").style("fill", mainColor).text(config.title);
 
-    // Légende
     if (dataMap && dataMap.size > 0 && minVal !== maxVal) {
         const legendWidth = 200, legendHeight = 12;
         const legendX = width - legendWidth - 30, legendY = height - 30;
@@ -381,7 +416,6 @@ if (config.labelType !== 'none') {
 
     return true;
 }
-
 // =====================================================================
 // 4. INTERFACE
 // =====================================================================
@@ -538,6 +572,7 @@ async function insertCarte() {
         }
         const config = {
             scale: scaleSelect.value,
+            worldRegion: document.getElementById('sel-world-region')?.value, // <-- AJOUTEZ CETTE LIGNE
             region: document.getElementById('sel-region')?.value,
             dept: document.getElementById('sel-dept')?.value,
             epci: document.getElementById('sel-epci')?.value,
@@ -558,11 +593,29 @@ async function insertCarte() {
         cascadeContainer.innerHTML = '';
         
         // CORRECTION ICI : On inclut 'world' et 'europe' dans les échelles qui ne nécessitent pas de sous-menus !
-        if (['national', 'world', 'europe'].includes(scaleSelect.value)) { 
+       if (scaleSelect.value === 'world') {
+            // Options de base immuables
+            const options = [
+                {code: 'all', name: '🌍 Planisphère complet'},
+                {code: 'auto', name: '✨ Auto-cadrage (sur le CSV)'}
+            ];
+
+            // Ajout dynamique des régions chargées depuis le JSON
+            geoReferential.worldRegions.forEach(reg => {
+                options.push({ code: reg.code, name: reg.name });
+            });
+
+            const worldSel = createSelect('sel-world-region', 'Centrage', options);
+            worldSel.onchange = renderPreview;
+            worldSel.value = 'all';
+            renderPreview();
+            return;
+        }
+
+        if (['national', 'europe'].includes(scaleSelect.value)) { 
             renderPreview(); 
             return; 
         }
-        
         // Étape 1 : Choix de la Région (pour les échelles locales)
         const regSel = createSelect('sel-region', 'Région', getUniqueRegions());
         
@@ -640,6 +693,7 @@ async function insertCarte() {
         // 1. Sauvegarde de la configuration (avec TOUS les réglages du moteur physique inclus)
         const configToSave = {
             scale: scaleSelect.value,
+            worldRegion: document.getElementById('sel-world-region')?.value, // <-- AJOUTEZ CETTE LIGNE ICI AUSSI
             region: document.getElementById('sel-region')?.value,
             dept: document.getElementById('sel-dept')?.value,
             epci: document.getElementById('sel-epci')?.value,
