@@ -30,6 +30,45 @@ const palettes = {
     gris_galet:   { main: '#aea397', sun: '#6a6156', bg: '#f3ede5' }  // Beige Gris Galet (Remplace Terre)
 };
 
+// =====================================================================
+// SYSTÈME DE NOTIFICATIONS (TOASTS DSFR)
+// =====================================================================
+/**
+ * Affiche une notification non-bloquante en bas à droite de l'écran
+ * @param {string} title - Titre en gras
+ * @param {string} message - Texte d'explication
+ * @param {string} type - 'info' | 'success' | 'warning' | 'error'
+ */
+function showToast(title, message, type = 'info') {
+    // 1. Création du conteneur global s'il n'existe pas
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    // 2. Création de l'alerte basée sur le DSFR
+    const toast = document.createElement('div');
+    // On utilise les classes natives .fr-alert et .fr-alert--[type]
+    toast.className = `fr-alert fr-alert--${type} fr-alert--sm plume-toast`;
+    
+    toast.innerHTML = `
+        <h3 class="fr-alert__title">${title}</h3>
+        <p>${message}</p>
+    `;
+
+    // 3. Ajout à l'écran
+    container.appendChild(toast);
+
+    // 4. Disparition automatique après 4.5 secondes
+    setTimeout(() => {
+        toast.classList.add('toast-fade-out');
+        // On attend la fin de l'animation CSS (0.3s) pour détruire le noeud HTML
+        setTimeout(() => toast.remove(), 300);
+    }, 4500);
+}
+
 function applyPalette() {
     const p = palettes[document.getElementById('cfg-palette').value];
     document.documentElement.style.setProperty('--theme-main', p.main);
@@ -217,7 +256,7 @@ function restoreJSON(input) {
             }, 100);
             
         } catch (err) {
-            alert("Erreur lors de la lecture du fichier de sauvegarde. Le fichier est peut-être corrompu.");
+            showToast("Fichier corrompu", "Erreur lors de la lecture de la sauvegarde.", "error");
             console.error(err);
         }
     };
@@ -235,7 +274,7 @@ function deletePage(btn) {
     const totalPages = document.querySelectorAll('.page-a4').length;
 
     if (totalPages <= 1) {
-        alert("Impossible de supprimer cette page : un document doit contenir au moins une page.");
+        showToast("Action impossible", "Un document doit contenir au moins une page.", "warning");
         return;
     }
 
@@ -536,7 +575,7 @@ document.addEventListener('paste', function(e) {
         e.preventDefault(); 
 
         if (inExistingTable) {
-            alert("⚠️ Vous ne pouvez pas coller un tableau à l'intérieur d'un autre tableau.\nVeuillez cliquer sur une ligne vide en dehors du tableau pour coller vos données.");
+            showToast("Collage refusé", "Vous ne pouvez pas coller un tableau dans un autre tableau.", "warning");
             return; 
         }
 

@@ -358,6 +358,46 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
 }
 
 /* ===================================================================== */
+/* SYSTÈME DE NOTIFICATIONS (TOASTS)                                     */
+/* ===================================================================== */
+#toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: none; /* Ne bloque pas les clics quand c'est vide */
+}
+
+.plume-toast {
+    pointer-events: auto; /* Rend la notification cliquable/sélectionnable */
+    min-width: 300px;
+    max-width: 400px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    margin: 0; /* Écrase les marges par défaut du DSFR */
+}
+
+.plume-toast.toast-fade-out {
+    opacity: 0;
+    transform: translateX(50px);
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* On s'assure que les toasts n'apparaissent pas à l'impression */
+@media print {
+    #toast-container { display: none !important; }
+}
+
+
+/* ===================================================================== */
 /* PARAMÈTRES GLOBAUX D'IMPRESSION (À L'EXTÉRIEUR DU @MEDIA PRINT)       */
 /* ===================================================================== */
 
