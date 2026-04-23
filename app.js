@@ -420,8 +420,102 @@ function enforceFocus() {
     }
 }
 
+function openTablePasteModal(rawData, savedRange) {
+    // 1. Création de l'interface (On réutilise les styles de la modale Chart.js)
+    const overlay = document.createElement('div');
+    overlay.className = 'chart-modal-overlay';
+    
+    overlay.innerHTML = `
+        <div class="chart-modal" style="width: 850px; max-width: 95vw; height: 60vh; display: flex;">
+            <div class="chart-modal-controls" style="flex: 0 0 260px; padding: 1.5rem; background: var(--grey-975); border-right: 1px solid var(--grey-900); display: flex; flex-direction: column; gap: 1rem;">
+                <h3 style="margin:0; color:var(--theme-sun); font-size:1.1rem;"><span class="fr-icon-table-line"></span> Import de tableau</h3>
+                <p style="font-size: 0.8rem; margin: 0; color: #666;">Sélectionnez le format qui correspond à vos données copiées.</p>
+                
+                <div>
+                    <label class="fr-label" style="font-weight:700; font-size:0.9rem;">Style d'entête</label>
+                    <select id="paste-table-header" class="fr-select">
+                        <option value="col" selected>Colonnes uniquement (Haut)</option>
+                        <option value="row">Lignes uniquement (Gauche)</option>
+                        <option value="both">Colonnes et Lignes</option>
+                        <option value="none">Aucun entête</option>
+                    </select>
+                </div>
+                
+                <div style="margin-top:auto; display:flex; gap:0.5rem;">
+                    <button class="fr-btn fr-btn--secondary" id="btn-paste-cancel">Annuler</button>
+                    <button class="fr-btn" id="btn-paste-insert">Insérer</button>
+                </div>
+            </div>
+            <div style="flex:1; padding: 1.5rem; background:#fff; overflow: auto; display: flex; flex-direction: column;">
+                <h4 style="margin-top: 0; color: #666; font-size: 0.9rem;">Aperçu du rendu :</h4>
+                <div id="paste-table-preview" class="content-editable" onclick="event.stopPropagation()" style="flex: 1; border: 1px dashed var(--grey-900); padding: 1rem; border-radius: 4px; overflow: auto; background: transparent;"></div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // 2. Moteur de prévisualisation en temps réel
+    function renderPreview() {
+        const style = document.getElementById('paste-table-header').value;
+        const hasColHeader = style === 'col' || style === 'both';
+        const hasRowHeader = style === 'row' || style === 'both';
+
+        let html = '<div class="fr-table" contenteditable="false"><table contenteditable="true">';
+        let tbodyOpened = false;
+
+        rawData.forEach((row, rowIndex) => {
+            if (row.join('').trim() !== '') { // Ignore les lignes totalement vides
+                if (rowIndex === 0 && hasColHeader) {
+                    html += '<thead><tr>';
+                    row.forEach(col => html += `<th scope="col">${col.trim()}</th>`);
+                    html += '</tr></thead>';
+                } else {
+                    if (!tbodyOpened) { html += '<tbody>'; tbodyOpened = true; }
+                    html += '<tr>';
+                    row.forEach((col, colIndex) => {
+                        if (colIndex === 0 && hasRowHeader) html += `<th scope="row">${col.trim()}</th>`;
+                        else html += `<td>${col.trim()}</td>`;
+                    });
+                    html += '</tr>';
+                }
+            }
+        });
+        if (tbodyOpened) html += '</tbody>';
+        html += '</table></div>';
+
+        document.getElementById('paste-table-preview').innerHTML = html;
+        return html; // Retourne le HTML pour l'insertion finale
+    }
+
+    // Premier affichage
+    renderPreview();
+
+    // Mise à jour au changement de la liste déroulante
+    document.getElementById('paste-table-header').addEventListener('change', renderPreview);
+
+    // 3. Actions des boutons
+    document.getElementById('btn-paste-cancel').onclick = () => overlay.remove();
+
+    document.getElementById('btn-paste-insert').onclick = () => {
+        const finalHTML = renderPreview() + '<p><br></p>';
+        overlay.remove();
+
+        // On restaure précieusement le curseur là où l'utilisateur avait collé
+        if (savedRange) {
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(savedRange);
+        }
+
+        // Insertion sécurisée
+        document.execCommand('insertHTML', false, sanitizeHTML(finalHTML));
+    };
+}
+
+
+
 // =====================================================================
-// INTERCEPTEUR DE COLLAGE (SPECIAL TABLEUR EXCEL / SHEETS / CALC)
+// INTERCEPTEUR DE COLLAGE (SPECIAL TABLEUR + NETTOYAGE STRICT)
 // =====================================================================
 document.addEventListener('paste', function(e) {
     const editor = e.target.closest('.content-editable');
@@ -439,77 +533,61 @@ document.addEventListener('paste', function(e) {
     const inExistingTable = activeElement.closest('table');
 
     if (isSpreadsheet) {
-        e.preventDefault(); // On bloque l'insertion catastrophique du navigateur
+        e.preventDefault(); 
 
-        // --- SÉCURITÉ : REFUS DE COLLER DANS UN TABLEAU EXISTANT ---
         if (inExistingTable) {
             alert("⚠️ Vous ne pouvez pas coller un tableau à l'intérieur d'un autre tableau.\nVeuillez cliquer sur une ligne vide en dehors du tableau pour coller vos données.");
-            return; // On arrête tout immédiatement
+            return; 
         }
 
-        // --- CRÉATION D'UN NOUVEAU TABLEAU ---
-        const rows = textData.trim().split('\n');
-        let htmlClean = '';
-        
-        const choix = prompt(
-            "Vous collez des données de tableur. Choisissez le style d'entête :\n" +
-            "1 : Colonnes uniquement (Haut)\n" +
-            "2 : Lignes uniquement (Gauche)\n" +
-            "3 : Les deux (Colonnes et Lignes)\n" +
-            "4 : Aucun", 
-            "1"
-        );
+        // 1. On sauvegarde la position du curseur AVANT d'ouvrir la modale
+        const selection = window.getSelection();
+        let savedRange = null;
+        if (selection.rangeCount > 0) {
+            savedRange = selection.getRangeAt(0).cloneRange();
+        }
 
-        if (choix === null) return;
+        // 2. On transforme le texte brut en un tableau JavaScript propre (2 dimensions)
+        const rows = textData.trim().split('\n').map(row => row.split('\t'));
 
-        const hasColHeader = (choix === "1" || choix === "3");
-        const hasRowHeader = (choix === "2" || choix === "3");
-
-        htmlClean += `<div class="fr-table" contenteditable="false">`;
-        htmlClean += `<table contenteditable="true">`;
-        
-        let tbodyOpened = false;
-
-        rows.forEach((row, rowIndex) => {
-            if (row.trim() !== '') {
-                const cols = row.split('\t');
-                
-                if (rowIndex === 0 && hasColHeader) {
-                    htmlClean += `<thead><tr>`;
-                    cols.forEach(col => {
-                        htmlClean += `<th scope="col">${col.trim()}</th>`;
-                    });
-                    htmlClean += `</tr></thead>`;
-                } else {
-                    if (!tbodyOpened) {
-                        htmlClean += `<tbody>`;
-                        tbodyOpened = true;
-                    }
-                    
-                    htmlClean += `<tr>`;
-                    cols.forEach((col, colIndex) => {
-                        if (colIndex === 0 && hasRowHeader) {
-                            htmlClean += `<th scope="row">${col.trim()}</th>`;
-                        } else {
-                            htmlClean += `<td>${col.trim()}</td>`;
-                        }
-                    });
-                    htmlClean += `</tr>`;
-                }
-            }
-        });
-        
-        if (tbodyOpened) htmlClean += `</tbody>`;
-        htmlClean += `</table></div><p><br></p>`;
-        
-        // Insertion sécurisée du tableau généré
-        document.execCommand('insertHTML', false, sanitizeHTML(htmlClean));
+        // 3. On ouvre notre Studio de prévisualisation !
+        openTablePasteModal(rows, savedRange);
 
     } else if (htmlData) {
-        // --- SÉCURISATION DU COLLAGE CLASSIQUE (Texte, images, etc.) ---
+        // --- SÉCURISATION DU COLLAGE WEB/WORD (La Douane) ---
         e.preventDefault(); 
-        const cleanPaste = sanitizeHTML(htmlData);
+        
+        let cleanPaste = htmlData;
+
+        if (typeof DOMPurify !== 'undefined') {
+            // Configuration ultra-stricte réservée au collage
+            const pasteConfig = {
+                // On préserve uniquement la structure sémantique
+                ALLOWED_TAGS: ['p', 'br', 'b', 'strong', 'i', 'em', 'u', 'a', 'ul', 'ol', 'li', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
+                // On n'autorise QUE les liens
+                ALLOWED_ATTR: ['href'],
+                // On détruit tout le reste (styles en ligne, classes, IDs, divs, images externes)
+                FORBID_TAGS: ['style', 'script', 'img', 'table', 'div', 'span', 'iframe', 'form', 'input'],
+                FORBID_ATTR: ['style', 'class', 'id', 'data-chart-config', 'data-map-config']
+            };
+
+            // On nettoie le HTML
+            cleanPaste = DOMPurify.sanitize(htmlData, pasteConfig);
+            
+            // Sécurité UX : On force les liens collés à s'ouvrir dans un nouvel onglet pour ne pas perdre l'éditeur
+            cleanPaste = cleanPaste.replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" ');
+        } else {
+            console.warn("DOMPurify absent : repli sur l'importation en texte brut.");
+            cleanPaste = textData.replace(/\n/g, '<br>');
+        }
+
         document.execCommand('insertHTML', false, cleanPaste);
+        
+    } else if (textData) {
+        // --- COLLAGE DEPUIS LE BLOC-NOTES (Texte pur) ---
+        e.preventDefault();
+        const formattedText = textData.replace(/\n/g, '<br>');
+        document.execCommand('insertHTML', false, formattedText);
     }
 });
 

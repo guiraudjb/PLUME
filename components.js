@@ -76,23 +76,24 @@ function insertPageBreak() {
 function insertGrid(n) {
     let colsHTML = ''; 
     for(let i = 0; i < n; i++) {
+        // Le contenteditable="true" est déplacé ICI, isolant chaque colonne
         colsHTML += `
-            <div>
+            <div style="flex: 1 1 0%; min-width: 0; word-break: break-word;" contenteditable="true">
                 <p><em>Texte de la colonne ${i+1}...</em></p>
             </div>
         `;
     }
     
     const gridHTML = `
-        <div class="custom-grid" contenteditable="false">
-            <div style="display: flex; gap: 1.5rem; width: 100%;" contenteditable="true">
+        <div class="custom-grid" contenteditable="false" style="margin: 1.5rem 0;">
+            <div style="display: flex; gap: 1.5rem; width: 100%;" contenteditable="false">
                 ${colsHTML}
             </div>
         </div>
     `;
     insertHTML(gridHTML);
 }
- 
+
 function insertTable() {
     const nbCols = parseInt(prompt("Nombre de colonnes :", "3"));
     const nbRows = parseInt(prompt("Nombre de lignes (hors entête) :", "2"));

@@ -1,6 +1,7 @@
 /**
  * MODULE OUTILS FLOTTANTS - PLUME
  * Gestion de la barre contextuelle (Texte, Images, Tableaux, Grilles, Corbeille)
+ * Version optimisée : Déclenchement au clic, positionnement intelligent, menus intégrés.
  */
 
 // 1. Création de l'interface de la barre flottante
@@ -30,9 +31,33 @@ const resizeBtn = document.createElement('button');
 resizeBtn.innerHTML = '📏'; resizeBtn.title = "Modifier la largeur des colonnes";
 resizeBtn.style.cssText = `background-color: #f5f5fe; border: 1px solid var(--theme-sun); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;`;
 
+// Nouveau selecteur pour les grilles/tableaux (caché par défaut)
+const gridLayoutSelect = document.createElement('select');
+gridLayoutSelect.style.cssText = `display: none; padding: 0.2rem 0.5rem; border: 1px solid var(--theme-sun); border-radius: 4px; font-family: inherit; font-size: 0.85rem; background: #fff; cursor: pointer; outline: none; color: var(--theme-sun); font-weight: bold;`;
+
+// Champ texte pour saisie manuelle des ratios (caché par défaut)
+const gridLayoutInputWrapper = document.createElement('div');
+gridLayoutInputWrapper.style.cssText = `display: none; align-items: center; gap: 0.3rem;`;
+
+const gridLayoutInput = document.createElement('input');
+gridLayoutInput.type = 'text';
+gridLayoutInput.placeholder = "ex: 20/40/40";
+gridLayoutInput.style.cssText = `width: 90px; padding: 0.2rem 0.5rem; border: 1px solid var(--theme-sun); border-radius: 4px; font-family: inherit; font-size: 0.85rem; outline: none;`;
+
+const gridLayoutSubmit = document.createElement('button');
+gridLayoutSubmit.innerHTML = '✓';
+gridLayoutSubmit.title = "Valider les largeurs";
+gridLayoutSubmit.style.cssText = `background-color: var(--theme-sun); color: white; border: none; border-radius: 4px; width: 26px; height: 26px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: bold;`;
+
+gridLayoutInputWrapper.appendChild(gridLayoutInput);
+gridLayoutInputWrapper.appendChild(gridLayoutSubmit);
+
 const trashBtn = document.createElement('button');
 trashBtn.innerHTML = '<span class="fr-icon-delete-bin-fill"></span>'; trashBtn.title = "Supprimer ce bloc";
-trashBtn.style.cssText = `background-color: #ffe8e5; color: #e1000f; border: 1px solid #e1000f; border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center;`;
+trashBtn.style.cssText = `background-color: #ffe8e5; color: #e1000f; border: 1px solid #e1000f; border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;`;
+
+// État pour la confirmation de suppression
+let trashConfirmState = false; 
 
 // Outils d'Image
 function createImgBtn(icon, title) {
@@ -45,8 +70,19 @@ function createImgBtn(icon, title) {
 const imgAlignLeft = createImgBtn('fr-icon-align-left', 'Aligner à gauche (Habillage texte)');
 const imgAlignCenter = createImgBtn('fr-icon-align-center', 'Centrer (Bloc)');
 const imgAlignRight = createImgBtn('fr-icon-align-right', 'Aligner à droite (Habillage texte)');
-const imgMoveUp = createImgBtn('fr-icon-arrow-up-line', 'Monter l\'image');
-const imgMoveDown = createImgBtn('fr-icon-arrow-down-line', 'Descendre l\'image');
+
+// Boutons globaux de déplacement
+const moveUpBtn = document.createElement('button');
+moveUpBtn.innerHTML = '<span class="fr-icon-arrow-up-line"></span>'; 
+moveUpBtn.title = "Monter ce bloc";
+moveUpBtn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--theme-sun);`;
+
+const moveDownBtn = document.createElement('button');
+moveDownBtn.innerHTML = '<span class="fr-icon-arrow-down-line"></span>'; 
+moveDownBtn.title = "Descendre ce bloc";
+moveDownBtn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--theme-sun);`;
+
+// Boutons spécifiques aux images
 const imgCropBtn = createImgBtn('fr-icon-image-edit-line', 'Recadrer (Original / Carré / 16:9)');
 
 const imgResizeSlider = document.createElement('input');
@@ -56,31 +92,42 @@ imgResizeSlider.style.cssText = "width: 70px; margin: 0 0.5rem; cursor: pointer;
 
 const imgToolsContainer = document.createElement('div');
 imgToolsContainer.style.cssText = "display: none; align-items: center; gap: 0.3rem; border-right: 1px solid var(--grey-900); padding-right: 0.5rem; margin-right: 0.2rem;";
-imgToolsContainer.append(imgAlignLeft, imgAlignCenter, imgAlignRight, imgMoveUp, imgMoveDown, imgCropBtn, imgResizeSlider);
+imgToolsContainer.append(imgAlignLeft, imgAlignCenter, imgAlignRight, imgCropBtn, imgResizeSlider);
 
 // Assemblage final
 floatToolbar.appendChild(textStyleSelect);
 floatToolbar.appendChild(cleanBtn);
 floatToolbar.appendChild(imgToolsContainer);
+floatToolbar.appendChild(moveUpBtn);
+floatToolbar.appendChild(moveDownBtn);
 floatToolbar.appendChild(resizeBtn);
+floatToolbar.appendChild(gridLayoutSelect);
+floatToolbar.appendChild(gridLayoutInputWrapper);
 floatToolbar.appendChild(trashBtn);
 document.body.appendChild(floatToolbar);
 
 let hoveredBlock = null;
 const blockSelectors = '.fr-table, .custom-grid, .fr-summary, .fr-callout, hr, img, [contenteditable="false"], p, h1, h2, h3, h4, h5, h6, blockquote, ul, ol';
 
-// 2. Traque de la souris
-document.addEventListener('mousemove', function(e) {
+// 2. Traque par sélection (au clic)
+document.addEventListener('click', function(e) {
+    // Si on clique dans la barre d'outils, on ne fait rien
     if (e.target === floatToolbar || floatToolbar.contains(e.target)) return;
 
     const editor = e.target.closest('.content-editable');
-    if (!editor) { hideFloatToolbar(); return; }
+    
+    // Si on clique en dehors de l'éditeur, on cache la barre
+    if (!editor) { 
+        hideFloatToolbar(); 
+        return; 
+    }
 
     const block = e.target.closest(blockSelectors);
 
     if (block && editor.contains(block)) {
+        // Seulement si c'est un nouveau bloc
         if (hoveredBlock !== block) {
-            hideFloatToolbar();
+            hideFloatToolbar(); // Cache et réinitialise l'ancienne sélection
             hoveredBlock = block;
             hoveredBlock.classList.add('block-hover-focus');
             
@@ -110,8 +157,16 @@ document.addEventListener('mousemove', function(e) {
                 resizeBtn.style.display = 'none';
             }
 
+            // Calcul de la position (Positionnement intelligent)
             const rect = hoveredBlock.getBoundingClientRect();
-            floatToolbar.style.top = (window.scrollY + rect.top - 40) + 'px';
+            let topPosition = window.scrollY + rect.top - 45;
+            
+            // Sécurité : Si le bloc est trop haut, on affiche la barre en DESSOUS
+            if (rect.top < 50) {
+                topPosition = window.scrollY + rect.bottom + 10;
+            }
+
+            floatToolbar.style.top = topPosition + 'px';
             floatToolbar.style.left = (window.scrollX + rect.left) + 'px';
             floatToolbar.style.display = 'flex';
         }
@@ -126,6 +181,28 @@ function hideFloatToolbar() {
         hoveredBlock = null;
     }
     floatToolbar.style.display = 'none';
+    
+    // Réinitialiser les états spéciaux
+    resetTrashBtn();
+    resetResizeMenu();
+}
+
+// Réinitialisation de l'état du bouton poubelle
+function resetTrashBtn() {
+    trashConfirmState = false;
+    trashBtn.innerHTML = '<span class="fr-icon-delete-bin-fill"></span>';
+    trashBtn.style.backgroundColor = '#ffe8e5';
+    trashBtn.style.color = '#e1000f';
+    trashBtn.style.width = '30px';
+}
+
+// Réinitialisation des menus de redimensionnement
+function resetResizeMenu() {
+    resizeBtn.style.display = 'flex';
+    gridLayoutSelect.style.display = 'none';
+    gridLayoutInputWrapper.style.display = 'none';
+    gridLayoutSelect.value = "";
+    gridLayoutInput.value = "";
 }
 
 // 3. ACTIONS DES BOUTONS (Images)
@@ -151,20 +228,49 @@ imgAlignRight.onclick = () => {
     w.style.display = 'block'; w.style.float = 'right'; w.style.margin = '0 0 1rem 1.5rem';
 };
 
-imgMoveUp.onclick = () => {
-    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
-    const w = getImgWrapper(hoveredBlock);
-    const prev = w.previousElementSibling;
-    if (prev) w.parentNode.insertBefore(w, prev);
-    hideFloatToolbar();
+// Fonction pour cibler le conteneur racine absolu (déplace tout le bloc d'un coup)
+function getTargetBlock(block) {
+    let current = block;
+    let parent = current.parentNode;
+    
+    // On remonte l'arbre DOM jusqu'à trouver la zone d'édition principale
+    while (parent && !parent.classList.contains('content-editable')) {
+        if (parent.tagName === 'BODY') break;
+        current = parent;
+        parent = current.parentNode;
+    }
+    return current;
+}
+
+// Déplacement vers le haut
+moveUpBtn.onclick = () => {
+    if (!hoveredBlock) return;
+    const target = getTargetBlock(hoveredBlock);
+    const prev = target.previousElementSibling;
+    
+    if (prev) {
+        target.parentNode.insertBefore(target, prev);
+        // Force le recalcul visuel de la barre en simulant un "dé-focus/re-focus"
+        const rect = target.getBoundingClientRect();
+        let topPosition = window.scrollY + rect.top - 45;
+        if (rect.top < 50) topPosition = window.scrollY + rect.bottom + 10;
+        floatToolbar.style.top = topPosition + 'px';
+    }
 };
 
-imgMoveDown.onclick = () => {
-    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
-    const w = getImgWrapper(hoveredBlock);
-    const next = w.nextElementSibling;
-    if (next) w.parentNode.insertBefore(w, next.nextElementSibling);
-    hideFloatToolbar();
+// Déplacement vers le bas
+moveDownBtn.onclick = () => {
+    if (!hoveredBlock) return;
+    const target = getTargetBlock(hoveredBlock);
+    const next = target.nextElementSibling;
+    
+    if (next) {
+        target.parentNode.insertBefore(target, next.nextElementSibling);
+        const rect = target.getBoundingClientRect();
+        let topPosition = window.scrollY + rect.top - 45;
+        if (rect.top < 50) topPosition = window.scrollY + rect.bottom + 10;
+        floatToolbar.style.top = topPosition + 'px';
+    }
 };
 
 imgResizeSlider.oninput = (e) => {
@@ -206,70 +312,181 @@ textStyleSelect.addEventListener('change', function(e) {
 
 cleanBtn.addEventListener('click', function() {
     if (!hoveredBlock) return;
+    
     hoveredBlock.removeAttribute('style');
     if (!hoveredBlock.className.includes('fr-')) {
         hoveredBlock.removeAttribute('class');
-        hoveredBlock.classList.add('block-hover-focus'); 
     }
+    hoveredBlock.classList.add('block-hover-focus'); 
+
+    // Liste blanche
+    const allowedAttributes = ['href', 'src', 'alt', 'class', 'id', 'target', 'rel', 'title', 'scope'];
+
     const children = hoveredBlock.querySelectorAll('*');
     children.forEach(child => {
-        child.removeAttribute('style');
+        child.removeAttribute('style'); 
+        
         Array.from(child.attributes).forEach(attr => {
-            if (attr.name !== 'href' && attr.name !== 'src' && attr.name !== 'alt') {
-                child.removeAttribute(attr.name);
+            const attrName = attr.name.toLowerCase();
+            if (!allowedAttributes.includes(attrName) && !attrName.startsWith('data-') && !attrName.startsWith('aria-')) {
+                child.removeAttribute(attrName);
             }
         });
+
         if (child.tagName === 'FONT' || child.tagName === 'SPAN') {
             const fragment = document.createDocumentFragment();
             while (child.firstChild) fragment.appendChild(child.firstChild);
             child.parentNode.replaceChild(fragment, child);
         }
     });
+
     cleanBtn.innerHTML = '✨'; cleanBtn.style.backgroundColor = '#c3fad5';
     setTimeout(() => { cleanBtn.innerHTML = '🧹'; cleanBtn.style.backgroundColor = '#fff'; }, 1000);
 });
 
+// Bouton Poubelle à deux états
 trashBtn.addEventListener('click', function() {
-    if (hoveredBlock) {
+    if (!hoveredBlock) return;
+    
+    if (!trashConfirmState) {
+        // Premier clic : Demande de confirmation
+        trashConfirmState = true;
+        trashBtn.innerHTML = 'Confirmer ?';
+        trashBtn.style.backgroundColor = '#e1000f';
+        trashBtn.style.color = '#fff';
+        trashBtn.style.width = 'auto';
+        trashBtn.style.padding = '0 0.5rem';
+        
+        // Annule la confirmation après 3 secondes si pas d'action
+        setTimeout(() => {
+            if (trashConfirmState) resetTrashBtn();
+        }, 3000);
+    } else {
+        // Deuxième clic : Suppression effective
         const target = hoveredBlock.tagName === 'IMG' ? getImgWrapper(hoveredBlock) : hoveredBlock;
         target.remove();
         hideFloatToolbar();
     }
 });
 
+// Bouton Règle : Affichage des options
 resizeBtn.addEventListener('click', function() {
     if (!hoveredBlock) return;
+    
+    let n = 0;
     if (hoveredBlock.classList.contains('custom-grid')) {
         const gridInner = hoveredBlock.querySelector('div[style*="display: flex"]');
         if (!gridInner) return;
-        const cols = Array.from(gridInner.children).filter(c => c.tagName === 'DIV');
-        const n = cols.length;
-        const input = prompt(`Répartition de vos ${n} colonnes.\nEntrez les proportions (ex: 30/70) :`, n === 2 ? "50/50" : "33/33/33");
-        if (!input) return;
-        const parts = input.split(/[\/\-\+,;\s]+/).map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
-        if (parts.length === n) cols.forEach((col, i) => { col.style.flex = parts[i]; col.style.maxWidth = "none"; });
-        else alert("Format invalide.");
+        n = Array.from(gridInner.children).filter(c => c.tagName === 'DIV').length;
+    } else if (hoveredBlock.classList.contains('fr-table')) {
+        const table = hoveredBlock.querySelector('table');
+        if (table && table.querySelector('tr')) {
+            n = table.querySelector('tr').children.length;
+        }
     }
+
+    if (n < 2) {
+        // Au lieu d'un alert, on change brièvement l'apparence du bouton
+        resizeBtn.innerHTML = '❌';
+        setTimeout(() => { resizeBtn.innerHTML = '📏'; }, 1000);
+        return;
+    }
+
+    gridLayoutSelect.innerHTML = '<option value="" disabled selected>Répartition...</option>';
+    
+    if (n === 2) {
+        gridLayoutSelect.innerHTML += `<option value="50/50">50% - 50%</option><option value="30/70">30% - 70%</option><option value="70/30">70% - 30%</option><option value="25/75">25% - 75%</option><option value="75/25">75% - 25%</option><option value="uniform">Uniforme (50/50)</option><option value="custom">Saisie manuelle...</option>`;
+    } else if (n === 3) {
+        gridLayoutSelect.innerHTML += `<option value="33/33/33">33% - 33% - 33%</option><option value="20/60/20">20% - 60% - 20%</option><option value="25/50/25">25% - 50% - 25%</option><option value="50/25/25">50% - 25% - 25%</option><option value="25/25/50">25% - 25% - 50%</option><option value="uniform">Uniforme</option><option value="custom">Saisie manuelle...</option>`;
+    } else {
+        gridLayoutSelect.innerHTML += `<option value="uniform">Uniforme</option><option value="custom">Saisie manuelle...</option>`;
+    }
+
+    resizeBtn.style.display = 'none';
+    gridLayoutSelect.style.display = 'block';
+});
+
+// Appliquer les largeurs
+function applyGridWidths(partsStr) {
+    if (!hoveredBlock) return false;
+    
+    const parts = partsStr.split(/[\/\-\+,;\s]+/).map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
+    
+    let n = 0;
+    if (hoveredBlock.classList.contains('custom-grid')) n = hoveredBlock.querySelector('div[style*="display: flex"]').children.length;
+    else if (hoveredBlock.classList.contains('fr-table')) n = hoveredBlock.querySelector('table').querySelector('tr').children.length;
+
+    if (parts.length !== n) {
+        // Feedback erreur visuelle sur le champ texte
+        gridLayoutInput.style.borderColor = 'red';
+        setTimeout(() => { gridLayoutInput.style.borderColor = 'var(--theme-sun)'; }, 1000);
+        return false;
+    }
+
+    if (hoveredBlock.classList.contains('custom-grid')) {
+        const cols = Array.from(hoveredBlock.querySelector('div[style*="display: flex"]').children).filter(c => c.tagName === 'DIV');
+        cols.forEach((col, i) => { 
+            col.style.flex = `${parts[i]} 1 0%`; 
+            col.style.minWidth = "0"; 
+            col.style.wordBreak = "break-word"; 
+        });
+    } 
     else if (hoveredBlock.classList.contains('fr-table')) {
         const table = hoveredBlock.querySelector('table');
-        if (!table) return;
-        const firstRow = table.querySelector('tr');
-        if (!firstRow) return;
-        const n = firstRow.children.length;
-        const input = prompt(`Répartition des ${n} colonnes.\nEntrez les proportions (ex: 30/70) :`, n === 2 ? "50/50" : "33/33/33");
-        if (!input) return;
-        const parts = input.split(/[\/\-\+,;\s]+/).map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
-        if (parts.length === n) {
-            const total = parts.reduce((sum, val) => sum + val, 0);
-            let colgroup = table.querySelector('colgroup');
-            if (!colgroup) { colgroup = document.createElement('colgroup'); table.insertBefore(colgroup, table.firstChild); }
-            else colgroup.innerHTML = '';
-            parts.forEach(part => {
-                const col = document.createElement('col');
-                col.style.width = `${((part / total) * 100).toFixed(2)}%`;
-                colgroup.appendChild(col);
-            });
-            table.style.tableLayout = 'fixed';
-        } else { alert("Format invalide."); }
+        const total = parts.reduce((sum, val) => sum + val, 0);
+        let colgroup = table.querySelector('colgroup');
+        if (!colgroup) { colgroup = document.createElement('colgroup'); table.insertBefore(colgroup, table.firstChild); }
+        else colgroup.innerHTML = '';
+        
+        parts.forEach(part => {
+            const col = document.createElement('col');
+            col.style.width = `${((part / total) * 100).toFixed(2)}%`;
+            colgroup.appendChild(col);
+        });
+        table.style.tableLayout = 'fixed';
+    }
+    return true;
+}
+
+// Changement via le sélecteur
+gridLayoutSelect.addEventListener('change', function(e) {
+    const val = e.target.value;
+    if (!val) return;
+
+    if (val === 'custom') {
+        gridLayoutSelect.style.display = 'none';
+        gridLayoutInputWrapper.style.display = 'flex';
+        gridLayoutInput.focus();
+        return;
+    }
+
+    if (val === 'uniform') {
+        let n = 0;
+        if (hoveredBlock.classList.contains('custom-grid')) n = hoveredBlock.querySelector('div[style*="display: flex"]').children.length;
+        else if (hoveredBlock.classList.contains('fr-table')) n = hoveredBlock.querySelector('table').querySelector('tr').children.length;
+        
+        if(n>0) {
+            const part = 100/n;
+            const partsArr = Array(n).fill(part);
+            applyGridWidths(partsArr.join('/'));
+        }
+    } else {
+        applyGridWidths(val);
+    }
+    resetResizeMenu();
+});
+
+// Saisie manuelle via le champ texte
+gridLayoutSubmit.addEventListener('click', () => {
+    if (applyGridWidths(gridLayoutInput.value)) {
+        resetResizeMenu();
+    }
+});
+
+gridLayoutInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        if (applyGridWidths(gridLayoutInput.value)) {
+            resetResizeMenu();
+        }
     }
 });
