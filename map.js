@@ -181,32 +181,60 @@ async function drawD3Map(container, config, dataMap) {
     }
     const path = d3.geoPath().projection(projection);
 
-    // --- 2. SYSTÈME DE CADRAGE DYNAMIQUE (AUTO-ZOOM) ---
-    let targetFeatures = features; 
+    // --- 2. SYSTÈME DE CADRAGE DYNAMIQUE (AUTO-ZOOM INTELLIGENT) ---
+    let targetFeatures = features;
+    let cameraFeatures = features; // Variable dédiée uniquement au calcul de la Bounding Box
 
-    if (config.scale === 'world' && config.worldRegion && config.worldRegion !== 'all') {
+    if (config.scale === 'world' || config.scale === 'europe') {
         const getIso = (d) => String(d.id || d.properties.iso_a3 || d.properties.ISO3 || d.properties.ADM0_A3 || "");
 
-       if (config.worldRegion === 'auto' && dataMap && dataMap.size > 0) {
-            targetFeatures = features.filter(f => dataMap.has(getIso(f)));
-        } else {
-            // RECHERCHE DYNAMIQUE DANS LE RÉFÉRENTIEL
-            const selectedRegion = geoReferential.worldRegions.find(r => r.code === config.worldRegion);
-            if (selectedRegion && selectedRegion.countries) {
-                targetFeatures = features.filter(f => selectedRegion.countries.includes(getIso(f)));
+        // A. Détermination des territoires cibles
+        if (config.scale === 'world' && config.worldRegion && config.worldRegion !== 'all') {
+            if (config.worldRegion === 'auto' && dataMap && dataMap.size > 0) {
+                targetFeatures = features.filter(f => dataMap.has(getIso(f)));
+            } else {
+                const selectedRegion = geoReferential.worldRegions.find(r => r.code === config.worldRegion);
+                if (selectedRegion && selectedRegion.countries) {
+                    targetFeatures = features.filter(f => selectedRegion.countries.includes(getIso(f)));
+                }
             }
         }
-
-        // Sécurité
         if (targetFeatures.length === 0) targetFeatures = features;
+
+        // B. Astuce de cadrage et nettoyage (Antarctique + Pays Géants)
+        cameraFeatures = targetFeatures;
+
+        // 1. On exclut toujours l'Antarctique (ATA) de la vue caméra
+        cameraFeatures = cameraFeatures.filter(f => getIso(f) !== 'ATA');
+
+        // 2. Le syndrome des "Pays Géants" : La caméra ignore les géométries extrêmes
+        // (Russie, France, USA) pour ne pas casser le zoom local.
+        const giants = ['FRA', 'RUS', 'USA'];
+        const cameraWithoutGiants = cameraFeatures.filter(f => !giants.includes(getIso(f)));
+        
+        // On ne les exclut de la caméra QUE si le fait de les retirer laisse 
+        // au moins un autre pays pour faire le cadrage !
+        if (cameraWithoutGiants.length > 0) {
+            cameraFeatures = cameraWithoutGiants;
+        }
+
+        // Sécurité : si on a tout filtré accidentellement, on réinitialise
+        if (cameraFeatures.length === 0) cameraFeatures = features;
+
+    } else if (config.scale === 'national') {
+        // C. Pour la France seule, on filtre les DROM via leur code INSEE (97)
+        targetFeatures = features.filter(f => !String(f.properties.code_insee || "").startsWith('97'));
+        cameraFeatures = targetFeatures;
     }
 
-    const bounds = path.bounds({type: "FeatureCollection", features: targetFeatures});
+    // D. Calcul de la Bounding Box sur la "Camera" et non directement sur la cible
+    const bounds = path.bounds({type: "FeatureCollection", features: cameraFeatures});
     const dx = bounds[1][0] - bounds[0][0], dy = bounds[1][1] - bounds[0][1];
     const s = .85 / Math.max(dx / width, dy / height);
     const t = [(width - s * (bounds[1][0] + bounds[0][0])) / 2, ((height - 40) - s * (bounds[1][1] + bounds[0][1])) / 2];
     
     projection.scale(s).translate(t);
+    // --- FIN DU SYSTÈME DE CADRAGE ---
 
     // --- 3. GESTION DES COULEURS ---
     const rootStyle = getComputedStyle(document.documentElement);
@@ -225,7 +253,7 @@ async function drawD3Map(container, config, dataMap) {
     g.selectAll("path").data(features).enter().append("path")
         .attr("d", path)
         .attr("fill", d => {
-            // NOUVEAU : Si on a un cadrage spécifique, on ignore les pays hors-cadre
+            // NOUVEAU : On grise les pays qui ne font pas partie de la cible
             if (config.scale === 'world' && config.worldRegion && config.worldRegion !== 'all') {
                 if (!targetFeatures.includes(d)) return "#e5e5e5";
             }
@@ -247,14 +275,12 @@ async function drawD3Map(container, config, dataMap) {
             const centroid = path.centroid(d);
             if (!isNaN(centroid[0]) && !isNaN(centroid[1])) {
                 
-                // Identification unifiée
                 const code = String(
                     (config.scale === 'world' || config.scale === 'europe') 
                     ? (d.id || d.properties.iso_a3 || d.properties.ISO3 || d.properties.ADM0_A3 || "") 
                     : (d.properties.code_insee || "")
                 );
                 
-                // Noms unifiés
                 let name = "";
                 if (config.scale === 'world' || config.scale === 'europe') {
                     name = d.properties.name_fr || d.properties.name || d.properties.NAME || d.properties.admin || d.properties.ADMIN || "";
@@ -262,13 +288,11 @@ async function drawD3Map(container, config, dataMap) {
                     name = d.properties.nom_officiel || d.properties.nom || "";
                 }
                 
-                // Valeurs
                 let valStr = "";
                 if (dataMap && dataMap.has(code) && dataMap.get(code) !== undefined) {
                     valStr = frenchNumberFormat.format(dataMap.get(code));
                 }
 
-                // Calcul taille boîte
                 let textLen = 0;
                 if (config.labelType === 'name') textLen = name.length;
                 else if (config.labelType === 'value') textLen = valStr.length;
@@ -289,7 +313,6 @@ async function drawD3Map(container, config, dataMap) {
             }
         });
 
-        // Force de collision rectangulaire
         function rectCollide() {
             let nodes;
             function force(alpha) {
@@ -331,7 +354,6 @@ async function drawD3Map(container, config, dataMap) {
             return force;
         }
 
-        // Exécution physique
         const simulation = d3.forceSimulation(labelNodes)
             .force("x", d3.forceX(d => d.cx).strength(pStrength)) 
             .force("y", d3.forceY(d => d.cy).strength(pStrength))
@@ -345,7 +367,6 @@ async function drawD3Map(container, config, dataMap) {
             d.y = Math.max(20, Math.min(height - 20, d.y));
         });
 
-        // Traits de liaison
         g.selectAll("line.leader")
             .data(labelNodes)
             .enter()
@@ -363,7 +384,6 @@ async function drawD3Map(container, config, dataMap) {
             .attr("stroke-dasharray", "2,2")
             .attr("opacity", 0.7);
 
-        // Dessin du texte
         g.selectAll("text.label")
             .data(labelNodes)
             .enter()
@@ -380,14 +400,11 @@ async function drawD3Map(container, config, dataMap) {
             .style("font-weight", "700")
             .each(function(d) {
                 const el = d3.select(this);
-                
                 if (config.labelType === 'name' && d.name) {
                     el.text(d.name);
-                } 
-                else if (config.labelType === 'value' && d.valStr) {
+                } else if (config.labelType === 'value' && d.valStr) {
                     el.text(d.valStr);
-                } 
-                else if (config.labelType === 'both') {
+                } else if (config.labelType === 'both') {
                     if (d.name) {
                         el.append("tspan").attr("x", d.x).attr("dy", "-0.2em").text(d.name);
                     }
@@ -416,6 +433,7 @@ async function drawD3Map(container, config, dataMap) {
 
     return true;
 }
+
 // =====================================================================
 // 4. INTERFACE
 // =====================================================================
