@@ -625,7 +625,20 @@ document.addEventListener('paste', function(e) {
     } else if (textData) {
         // --- COLLAGE DEPUIS LE BLOC-NOTES (Texte pur) ---
         e.preventDefault();
-        const formattedText = textData.replace(/\n/g, '<br>');
+        
+        // On découpe le texte copié à chaque retour à la ligne (\n ou \r\n)
+        const formattedText = textData
+            .split(/\r?\n/)
+            .map(line => {
+                // Si la ligne est vide (double saut de ligne), on crée un paragraphe vide respectueux de la sémantique
+                if (line.trim() === '') {
+                    return '<p><br></p>';
+                }
+                // Sinon, on emballe la ligne dans un paragraphe
+                return `<p>${line}</p>`;
+            })
+            .join(''); // On recolle le tout
+
         document.execCommand('insertHTML', false, formattedText);
     }
 });

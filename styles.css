@@ -395,9 +395,29 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
     to { transform: translateX(0); opacity: 1; }
 }
 
+
+/* ===================================================================== */
+/* AIDE VISUELLE : MATÉRIALISATION DES BLOCS                             */
+/* ===================================================================== */
+
+/* Dessine un pointillé gris autour de chaque bloc principal de l'éditeur */
+.content-editable > * {
+    outline: 1px dashed var(--grey-900) !important;
+    outline-offset: 2px; /* Laisse un peu d'air entre le texte et le trait */
+    transition: outline-color 0.2s ease;
+}
+
+/* Au survol de la souris, le trait fonce légèrement pour aider à viser */
+.content-editable > *:hover {
+    outline: 1px dashed #b0b0b0 !important;
+}
+
 /* On s'assure que les toasts n'apparaissent pas à l'impression */
 @media print {
-	.content-editable a {
+.content-editable > * {
+        outline: none !important;
+
+    .content-editable a {
         pointer-events: auto !important;
         text-decoration: underline !important;
         color: var(--theme-sun) !important;
