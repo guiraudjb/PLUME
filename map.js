@@ -219,7 +219,15 @@ async function drawD3Map(container, config, dataMap) {
         g.selectAll("text.label").data(labelNodes).enter().append("text")
             .attr("class", "label")
             .attr("x", d => d.x).attr("y", d => d.y).attr("text-anchor", "middle")
-            .style("font-size", `${lSize}px`).style("font-family", "Marianne").style("font-weight", "700").style("fill", mainColor).style("text-shadow", "0 0 3px #fff")
+            .style("font-size", `${lSize}px`)
+            .style("font-family", "Marianne")
+            .style("font-weight", "700")
+            .style("fill", mainColor)
+            // NOUVEAU : Tracé vectoriel franc au lieu de l'ombre floue
+            .attr("stroke", "#ffffff")
+            .attr("stroke-width", lSize * 0.25) // Le contour s'adapte automatiquement à la taille de la police
+            .attr("stroke-linejoin", "round")
+            .style("paint-order", "stroke fill")
             .each(function(d) {
                 const el = d3.select(this);
                 if (config.labelType !== 'value') el.append("tspan").attr("x", d.x).attr("dy", config.labelType === 'both' ? "-0.2em" : "0.3em").text(d.name);
@@ -269,7 +277,7 @@ async function insertCarte() {
     overlay.className = 'chart-modal-overlay';
     
     overlay.innerHTML = `
-        <div class="chart-modal" style="width: 1150px; height: 85vh;">
+        <div class="chart-modal" style="width: 1250px; height: 90vh;">
             <div class="chart-modal-controls" style="flex: 0 0 350px;">
                 <h3 style="margin-top:0; color:var(--theme-sun); font-size:1.2rem;"><span class="fr-icon-france-line"></span> Studio Cartographique</h3>
                 <div class="fr-input-group"><label class="fr-label">Titre</label><input class="fr-input" type="text" id="map-title" value="Répartition statistique"></div>
@@ -331,19 +339,21 @@ async function insertCarte() {
                 </div>
             </div>
 
-            <div style="flex:1; background:#fff; position:relative; overflow:hidden;">
-                <div id="map-loader" style="display:none; position:absolute; inset:0; background:rgba(255,255,255,0.85); z-index:100; flex-direction:column; justify-content:center; align-items:center;">
-                    <div style="width:40px; height:40px; border:4px solid var(--grey-900); border-top-color:var(--theme-sun); border-radius:50%; animation:map-spin 1s linear infinite;"></div>
-                    <p style="margin-top:1rem; font-weight:700; color:var(--theme-sun);">Calcul de la carte en cours...</p>
+            <div style="flex:1; background:var(--grey-975); display:flex; justify-content:center; align-items:center; overflow:auto;">
+                <div style="width:850px; height:550px; background:#fff; position:relative; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border:1px solid var(--grey-900); flex-shrink:0;">
+                    
+                    <div id="map-loader" style="display:none; position:absolute; inset:0; background:rgba(255,255,255,0.85); z-index:100; flex-direction:column; justify-content:center; align-items:center;">
+                        <div style="width:40px; height:40px; border:4px solid var(--grey-900); border-top-color:var(--theme-sun); border-radius:50%; animation:map-spin 1s linear infinite;"></div>
+                        <p style="margin-top:1rem; font-weight:700; color:var(--theme-sun);">Calcul en cours...</p>
+                    </div>
+                    
+                    <div id="map-empty-state" style="position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#f8f9fa; z-index:50;">
+                        <span class="fr-icon-map-pin-2-line" style="font-size:3rem; color:var(--grey-900); margin-bottom:1rem;"></span>
+                        <p style="color:var(--grey-900); font-weight:700;">Aucune carte générée</p>
+                    </div>
+                    
+                    <div id="map-preview-area" style="width:100%; height:100%; position:relative; z-index:10;"></div>
                 </div>
-                
-                <div id="map-empty-state" style="position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#f8f9fa; z-index:50;">
-                    <span class="fr-icon-map-pin-2-line" style="font-size:3rem; color:var(--grey-900); margin-bottom:1rem;"></span>
-                    <p style="color:var(--grey-900); font-weight:700; font-size:1.1rem; margin:0;">Aucune carte générée</p>
-                    <p style="color:#666; font-size:0.9rem; text-align:center; max-width:300px; margin-top:0.5rem;">Paramétrez votre carte dans le panneau de gauche puis cliquez sur <b>Actualiser la vue</b>.</p>
-                </div>
-                
-                <div id="map-preview-area" style="width:100%; height:100%; position:relative; z-index:10;"></div>
             </div>
         </div>
         <style>@keyframes map-spin { to { transform: rotate(360deg); } }</style>
