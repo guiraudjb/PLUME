@@ -711,22 +711,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // --- B. Sortir d'une Citation (Blockquote) ---
             const blockquote = currentNode.closest('blockquote');
-            if (blockquote) {
+            
+            // NOUVEAU : On vérifie si on est à l'intérieur d'une liste
+            const inList = currentNode.closest('ul, ol');
+
+            // Si on est dans un Blockquote ET qu'on n'est PAS dans une liste
+            // (Si on est dans une liste, on laisse le navigateur gérer le double-Entrée pour en sortir proprement)
+            if (blockquote && !inList) {
                 // Si on tape Entrée sur une ligne vide à l'intérieur de la citation
                 if (currentNode.textContent.trim() === '') {
                     e.preventDefault();
                     
-                    // On crée un paragraphe normal juste après la citation
+                    // On crée un paragraphe normal
                     const p = document.createElement('p');
                     p.innerHTML = '<br>';
-                    blockquote.parentNode.insertBefore(p, blockquote.nextSibling);
+                    
+                    // CORRECTION MAJEURE : On cherche le wrapper parent in-éditable
+                    // S'il existe (ex: Citation avec photo), on insère APRES le wrapper.
+                    // Sinon, on insère après le blockquote simple.
+                    const lockedWrapper = blockquote.closest('[contenteditable="false"]');
+                    const targetToBypass = lockedWrapper || blockquote;
+                    
+                    targetToBypass.parentNode.insertBefore(p, targetToBypass.nextSibling);
                     
                     // On supprime la ligne vide qui restait dans la citation
-                    if (currentNode !== blockquote) currentNode.remove();
+                    if (currentNode !== blockquote && currentNode.parentNode) {
+                        currentNode.remove();
+                    }
+                    
                     // Si la citation entière est devenue vide, on la supprime carrément
-                    if (blockquote.textContent.trim() === '') blockquote.remove();
+                    // Attention à supprimer le wrapper complet si c'est un composant complexe
+                    if (blockquote.textContent.trim() === '') {
+                        targetToBypass.remove();
+                    }
 
-                    // On y déplace le curseur
+                    // On déplace le curseur dans le nouveau paragraphe libre
                     const newRange = document.createRange();
                     newRange.setStart(p, 0);
                     newRange.collapse(true);
