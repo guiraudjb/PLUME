@@ -677,6 +677,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 2. Interception intelligente de la touche Entrée
     editor.addEventListener('keydown', function(e) {
+        
+        if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    // On appelle l'Antidote pour générer la ligne vierge sous le bloc actuel
+                    createVirginParagraph(selection.getRangeAt(0).startContainer, false);
+                }
+                return; 
+            }
+        
         if (e.key === 'Enter') {
             // Si l'utilisateur fait Maj + Entrée, on le laisse faire un simple saut de ligne <br>
             if (e.shiftKey) return;
@@ -756,4 +767,77 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     });
+});
+
+// =====================================================================
+// L'ANTIDOTE : GÉNÉRATEUR DE PARAGRAPHE 100% VIERGE
+// =====================================================================
+function createVirginParagraph(contextNode, appendToEnd = false) {
+    let editor;
+    let referenceNode = contextNode;
+
+    if (appendToEnd) {
+        editor = contextNode; // Dans ce cas, contextNode est l'éditeur lui-même
+    } else {
+        // Remonter à la racine absolue (enfant direct de l'éditeur) pour casser l'effet "Oignon"
+        if (referenceNode.nodeType === 3) referenceNode = referenceNode.parentNode;
+        while (referenceNode && referenceNode.parentNode && !referenceNode.parentNode.classList.contains('content-editable')) {
+            referenceNode = referenceNode.parentNode;
+        }
+        editor = referenceNode ? referenceNode.parentNode : null;
+    }
+
+    if (!editor) return;
+
+    // 1. Création du paragraphe pur, sans aucune classe ni style
+    const p = document.createElement('p');
+    p.innerHTML = '<br>';
+    
+    // 2. Insertion
+    if (appendToEnd) {
+        editor.appendChild(p);
+    } else if (referenceNode) {
+        editor.insertBefore(p, referenceNode.nextSibling);
+    }
+
+    // 3. Téléportation forcée du curseur
+    const range = document.createRange();
+    range.setStart(p, 0);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    // 4. L'ÉRADICATION : On force le navigateur à vider sa "mémoire fantôme"
+    document.execCommand('removeFormat', false, null);
+    
+    // On mitraille la commande 'outdent' (Diminuer le retrait) 5 fois de suite
+    // pour détruire tous les niveaux de retraits que le navigateur aurait pu mémoriser.
+    for(let i = 0; i < 5; i++) {
+        document.execCommand('outdent', false, null);
+    }
+}
+
+// =====================================================================
+// GARDIEN DE ZONE D'ÉDITION (Anti-blocage en fin de document) - VERSION 3.0
+// =====================================================================
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('content-editable')) {
+        const editor = e.target;
+        
+        let lastNode = editor.lastChild;
+        while (lastNode && lastNode.lastChild) lastNode = lastNode.lastChild;
+        if (!lastNode) return;
+
+        const targetElement = lastNode.nodeType === 3 ? lastNode.parentElement : lastNode;
+        
+        // On détecte si on est bloqué par un composant fermé OU par un retrait tenace
+        const isLocked = targetElement.closest('[contenteditable="false"], .fr-table');
+        const isIndented = targetElement.closest('blockquote');
+        
+        if (isLocked || isIndented) {
+            // On appelle l'Antidote pour générer la ligne vierge à la toute fin
+            createVirginParagraph(editor, true);
+        }
+    }
 });

@@ -283,6 +283,11 @@ moveDownBtn.onclick = () => {
     
     if (next) {
         target.parentNode.insertBefore(target, next.nextElementSibling);
+        if (!target.nextElementSibling) {
+            const p = document.createElement('p');
+            p.innerHTML = '<br>';
+            target.parentNode.appendChild(p);
+        }
         const rect = target.getBoundingClientRect();
         let topPosition = window.scrollY + rect.top - 45;
         if (rect.top < 50) topPosition = window.scrollY + rect.bottom + 10;
