@@ -19,6 +19,12 @@ floatToolbar.style.cssText = `
     align-items: center;
 `;
 
+// Bouton d'édition de lien (caché par défaut)
+const editLinkBtn = document.createElement('button');
+editLinkBtn.innerHTML = '<span class="fr-icon-link"></span>'; 
+editLinkBtn.title = "Modifier le lien";
+editLinkBtn.style.cssText = `background-color: #e3e3fd; border: 1px solid var(--theme-sun); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: none; align-items: center; justify-content: center; font-size: 1rem; color: var(--theme-sun);`;
+
 const textStyleSelect = document.createElement('select');
 textStyleSelect.innerHTML = `<option value="P">Paragraphe</option><option value="H2">Titre 2</option><option value="H3">Titre 3</option><option value="H4">Titre 4</option><option value="BLOCKQUOTE">Citation</option>`;
 textStyleSelect.style.cssText = `padding: 0.2rem 0.5rem; border: 1px solid var(--grey-900); border-radius: 4px; font-family: inherit; font-size: 0.85rem; background: #f5f5fe; cursor: pointer; outline: none;`;
@@ -97,6 +103,7 @@ imgToolsContainer.append(imgAlignLeft, imgAlignCenter, imgAlignRight, imgCropBtn
 // Assemblage final
 floatToolbar.appendChild(textStyleSelect);
 floatToolbar.appendChild(cleanBtn);
+floatToolbar.appendChild(editLinkBtn);
 floatToolbar.appendChild(imgToolsContainer);
 floatToolbar.appendChild(moveUpBtn);
 floatToolbar.appendChild(moveDownBtn);
@@ -107,6 +114,7 @@ floatToolbar.appendChild(trashBtn);
 document.body.appendChild(floatToolbar);
 
 let hoveredBlock = null;
+let activeLinkNode = null;
 const blockSelectors = '.fr-table, .custom-grid, .fr-summary, .fr-callout, hr, img, [contenteditable="false"], p, h1, h2, h3, h4, h5, h6, blockquote, ul, ol';
 
 // 2. Traque par sélection (au clic)
@@ -115,6 +123,7 @@ document.addEventListener('click', function(e) {
     if (e.target === floatToolbar || floatToolbar.contains(e.target)) return;
 
     const editor = e.target.closest('.content-editable');
+    const linkNode = e.target.closest('a');
     
     // Si on clique en dehors de l'éditeur, on cache la barre
     if (!editor) { 
@@ -126,9 +135,10 @@ document.addEventListener('click', function(e) {
 
     if (block && editor.contains(block)) {
         // Seulement si c'est un nouveau bloc
-        if (hoveredBlock !== block) {
+        if (hoveredBlock !== block || activeLinkNode !== linkNode) {
             hideFloatToolbar(); // Cache et réinitialise l'ancienne sélection
             hoveredBlock = block;
+            activeLinkNode = linkNode;
             hoveredBlock.classList.add('block-hover-focus');
             
             const tagName = hoveredBlock.tagName.toUpperCase();
@@ -156,6 +166,12 @@ document.addEventListener('click', function(e) {
             } else {
                 resizeBtn.style.display = 'none';
             }
+            
+            if (activeLinkNode) {
+                editLinkBtn.style.display = 'flex';
+            } else {
+                editLinkBtn.style.display = 'none';
+            }
 
             // Calcul de la position (Positionnement intelligent)
             const rect = hoveredBlock.getBoundingClientRect();
@@ -180,6 +196,7 @@ function hideFloatToolbar() {
         hoveredBlock.classList.remove('block-hover-focus');
         hoveredBlock = null;
     }
+    activeLinkNode = null;
     floatToolbar.style.display = 'none';
     
     // Réinitialiser les états spéciaux
@@ -525,4 +542,95 @@ gridLayoutInput.addEventListener('keypress', (e) => {
             resetResizeMenu();
         }
     }
+});
+
+// =====================================================================
+// ACTION : ÉDITION DE LIEN
+// =====================================================================
+editLinkBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!activeLinkNode) return;
+
+    // 1. SÉCURITÉ : On "capture" le lien actuel dans une constante locale.
+    // Ainsi, même si le focus global est perdu, on garde notre cible en mémoire.
+    const targetLink = activeLinkNode;
+
+    // On récupère les valeurs actuelles du lien
+    const currentUrl = targetLink.getAttribute('href') || '';
+    const currentText = targetLink.innerText || '';
+
+    // On crée la modale
+    const overlay = document.createElement('div');
+    overlay.className = 'chart-modal-overlay';
+    
+    // 2. SÉCURITÉ : On empêche les clics à l'intérieur de la modale de remonter
+    // jusqu'au document, ce qui fermerait la barre d'outils de façon intempestive.
+    overlay.addEventListener('mousedown', (event) => event.stopPropagation());
+    overlay.addEventListener('click', (event) => event.stopPropagation());
+    
+    overlay.innerHTML = `
+        <div class="chart-modal" style="width: 450px; max-width: 95vw; display: flex; flex-direction: column; overflow: hidden;">
+            <div style="padding: 1.5rem; background: var(--grey-975); border-bottom: 1px solid var(--grey-900);">
+                <h3 style="margin:0; color:var(--theme-sun); font-size:1.1rem;"><span class="fr-icon-edit-line"></span> Modifier le lien</h3>
+            </div>
+            
+            <div style="padding: 1.5rem; background: #fff; display: flex; flex-direction: column; gap: 1rem;">
+                <div>
+                    <label class="fr-label" style="font-weight:700;">URL cible (Lien)</label>
+                    <input type="text" id="edit-link-url" class="fr-input" value="${currentUrl}" style="width: 100%;">
+                </div>
+                <div>
+                    <label class="fr-label" style="font-weight:700;">Texte à afficher</label>
+                    <input type="text" id="edit-link-text" class="fr-input" value="${currentText}" style="width: 100%;">
+                </div>
+            </div>
+            
+            <div style="padding: 1rem 1.5rem; background: var(--grey-975); border-top: 1px solid var(--grey-900); display: flex; justify-content: flex-end; gap: 0.5rem;">
+                <button class="fr-btn fr-btn--secondary" id="btn-edit-link-cancel">Annuler</button>
+                <button class="fr-btn" id="btn-edit-link-save">Sauvegarder</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const inputUrl = document.getElementById('edit-link-url');
+    const inputText = document.getElementById('edit-link-text');
+
+    setTimeout(() => inputUrl.focus(), 100);
+
+    // Annuler
+    document.getElementById('btn-edit-link-cancel').onclick = () => {
+        overlay.remove();
+        hideFloatToolbar();
+    };
+
+    // Sauvegarder
+    document.getElementById('btn-edit-link-save').onclick = () => {
+        let newUrl = inputUrl.value.trim();
+        const newText = inputText.value.trim() || newUrl;
+
+        // Si l'utilisateur vide l'URL, on supprime le lien de manière propre
+        if (!newUrl) {
+            const textNode = document.createTextNode(newText);
+            // On utilise bien notre constante `targetLink` ici
+            targetLink.parentNode.replaceChild(textNode, targetLink);
+            overlay.remove();
+            hideFloatToolbar();
+            return;
+        }
+
+        // Ajout du protocole de sécurité si manquant
+        if (!/^https?:\/\//i.test(newUrl) && !/^mailto:/i.test(newUrl)) {
+            newUrl = 'https://' + newUrl;
+        }
+
+        // Application des modifications via `targetLink`
+        targetLink.setAttribute('href', newUrl);
+        targetLink.innerText = newText;
+        
+        overlay.remove();
+        hideFloatToolbar(); 
+    };
 });
