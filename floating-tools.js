@@ -344,8 +344,18 @@ cleanBtn.addEventListener('click', function() {
     setTimeout(() => { cleanBtn.innerHTML = '🧹'; cleanBtn.style.backgroundColor = '#fff'; }, 1000);
 });
 
-// Bouton Poubelle à deux états
-trashBtn.addEventListener('click', function() {
+
+// 1. On empêche le bouton de voler le focus ET on stoppe la propagation du clic
+trashBtn.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    e.stopPropagation(); // <-- EMPÊCHE LA BARRE DE SE FERMER
+});
+
+// 2. Logique à double état (Confirmation -> Suppression)
+trashBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation(); // <-- EMPÊCHE LA BARRE DE SE FERMER
+
     if (!hoveredBlock) return;
     
     if (!trashConfirmState) {
@@ -359,15 +369,41 @@ trashBtn.addEventListener('click', function() {
         
         // Annule la confirmation après 3 secondes si pas d'action
         setTimeout(() => {
-            if (trashConfirmState) resetTrashBtn();
+            if (trashConfirmState) resetTrashBtn(); // Assurez-vous que cette fonction existe bien dans votre fichier !
         }, 3000);
     } else {
         // Deuxième clic : Suppression effective
         const target = hoveredBlock.tagName === 'IMG' ? getImgWrapper(hoveredBlock) : hoveredBlock;
-        target.remove();
+        const editor = target.closest('.content-editable') || document.querySelector('.content-editable');
+        
+        // On sélectionne proprement le bloc pour le moteur de l'éditeur
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNode(target);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        
+        // On rend le focus à l'éditeur et on exécute la suppression (permet le Ctrl+Z !)
+        if (editor) editor.focus();
+        document.execCommand('delete', false, null);
+        
+        // Repli de sécurité : si execCommand échoue, on le retire du DOM manuellement
+        if (target && target.parentNode) {
+            target.remove();
+        }
+
+        // Anti-Page Blanche : on garantit qu'il reste au moins une ligne vide
+        if (editor && editor.innerHTML.trim() === '') {
+            editor.innerHTML = '<p><br></p>';
+        }
+
+        // Nettoyage de l'interface
         hideFloatToolbar();
+        resetTrashBtn();
+        if (selection) selection.removeAllRanges();
     }
 });
+
 
 // Bouton Règle : Affichage des options
 resizeBtn.addEventListener('click', function() {
