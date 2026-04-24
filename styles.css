@@ -397,6 +397,18 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
 
 /* On s'assure que les toasts n'apparaissent pas à l'impression */
 @media print {
+	.content-editable a {
+        pointer-events: auto !important;
+        text-decoration: underline !important;
+        color: var(--theme-sun) !important;
+    }
+
+    /* Désactiver le comportement par défaut de certains frameworks 
+       qui ajoutent l'URL en toutes lettres à côté du lien à l'impression */
+    .content-editable a::after {
+        content: none !important;
+    }
+
     #toast-container { display: none !important; }
 }
 

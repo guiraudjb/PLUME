@@ -632,3 +632,22 @@ document.addEventListener('paste', function(e) {
 
 window.onresize = scaleUI;
 window.onload = () => { scaleUI(); applyPalette(); syncMetadata(); };
+// =====================================================================
+// OPTIMISATION DE L'EXPORT PDF (Garantir les liens cliquables)
+// =====================================================================
+window.addEventListener('beforeprint', () => {
+    // 1. On cherche la zone d'édition
+    const editor = document.querySelector('.content-editable');
+    if (editor) {
+        // 2. On la fige pour que le navigateur la considère comme une page web normale
+        editor.setAttribute('contenteditable', 'false');
+    }
+});
+
+window.addEventListener('afterprint', () => {
+    // 3. Dès que la fenêtre d'impression se ferme, on rend la main à l'utilisateur
+    const editor = document.querySelector('.content-editable');
+    if (editor) {
+        editor.setAttribute('contenteditable', 'true');
+    }
+});

@@ -368,14 +368,17 @@ function insertChiffreCle() {
 }
 
 function insertLink() {
-    // 1. Sauvegarde du texte sélectionné
+    // 1. Sauvegarde du texte sélectionné et extraction du texte brut
     const selection = window.getSelection();
     let savedRange = null;
+    let selectedText = "";
+    
     if (selection.rangeCount > 0) {
         savedRange = selection.getRangeAt(0).cloneRange();
+        selectedText = savedRange.toString().trim();
     }
 
-    // 2. Création de la petite modale
+    // 2. Création de la petite modale avec le double champ
     const overlay = document.createElement('div');
     overlay.className = 'chart-modal-overlay';
     
@@ -384,11 +387,19 @@ function insertLink() {
             <div style="padding: 1.5rem; background: var(--grey-975); border-bottom: 1px solid var(--grey-900);">
                 <h3 style="margin:0; color:var(--theme-sun); font-size:1.1rem;"><span class="fr-icon-link"></span> Insérer un lien hypertexte</h3>
             </div>
-            <div style="padding: 2rem 1.5rem; background: #fff;">
-                <label class="fr-label" style="font-weight:700;">URL cible</label>
-                <input type="text" id="link-url-input" class="fr-input" placeholder="ex: https://www.gouvernement.fr" style="width: 100%;">
-                <p style="font-size: 0.75rem; color: #666; margin-top: 0.5rem;">Saisissez l'adresse web vers laquelle ce texte doit pointer.</p>
+            
+            <div style="padding: 1.5rem; background: #fff; display: flex; flex-direction: column; gap: 1rem;">
+                <div>
+                    <label class="fr-label" style="font-weight:700;">URL cible (Lien)</label>
+                    <input type="text" id="link-url-input" class="fr-input" placeholder="ex: https://www.gouvernement.fr" style="width: 100%;">
+                </div>
+                <div>
+                    <label class="fr-label" style="font-weight:700;">Texte à afficher</label>
+                    <input type="text" id="link-text-input" class="fr-input" value="${selectedText}" placeholder="Texte visible par le lecteur" style="width: 100%;">
+                    <p style="font-size: 0.75rem; color: #666; margin-top: 0.5rem; margin-bottom: 0;">Laissez vide pour afficher l'URL brute.</p>
+                </div>
             </div>
+            
             <div style="padding: 1rem 1.5rem; background: var(--grey-975); border-top: 1px solid var(--grey-900); display: flex; justify-content: flex-end; gap: 0.5rem;">
                 <button class="fr-btn fr-btn--secondary" id="btn-link-cancel">Annuler</button>
                 <button class="fr-btn" id="btn-link-insert">Valider</button>
@@ -397,16 +408,34 @@ function insertLink() {
     `;
     document.body.appendChild(overlay);
 
-    // Autofocus sur le champ texte pour plus de rapidité
-    setTimeout(() => document.getElementById('link-url-input').focus(), 100);
+    const inputUrl = document.getElementById('link-url-input');
+    const inputText = document.getElementById('link-text-input');
+    const btnInsert = document.getElementById('btn-link-insert');
+    const btnCancel = document.getElementById('btn-link-cancel');
+
+    // Autofocus sur le premier champ
+    setTimeout(() => inputUrl.focus(), 100);
+
+    // Navigation au clavier fluide sur les deux champs
+    const handleKeydown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            btnInsert.click();
+        } else if (e.key === 'Escape') {
+            btnCancel.click();
+        }
+    };
+    inputUrl.addEventListener('keydown', handleKeydown);
+    inputText.addEventListener('keydown', handleKeydown);
 
     // 3. Actions
-    document.getElementById('btn-link-cancel').onclick = () => overlay.remove();
+    btnCancel.onclick = () => overlay.remove();
 
-    document.getElementById('btn-link-insert').onclick = () => {
-        const url = document.getElementById('link-url-input').value.trim();
+    btnInsert.onclick = () => {
+        const url = inputUrl.value.trim();
+        const textToDisplay = inputText.value.trim() || url; // Si pas de texte, on affiche l'URL
         
-        // Si vide, on annule sans rien faire
+        // Si l'URL est vide, on annule
         if (!url) {
             overlay.remove();
             return;
@@ -414,11 +443,13 @@ function insertLink() {
 
         // Sécurité contre les scripts malveillants
         if (/^\s*javascript:/i.test(url) || (/^\s*data:/i.test(url) && !url.startsWith('data:image'))) {
-            showToast("Lien bloqué", "Ce type de lien n'est pas autorisé par sécurité.", "warning");
+            if (typeof showToast !== 'undefined') {
+                showToast("Lien bloqué", "Ce type de lien n'est pas autorisé par sécurité.", "warning");
+            }
             return;
         }
 
-        // Ajout automatique du "https://" si oublié
+        // Ajout automatique du "https://" si l'utilisateur l'a oublié
         let finalUrl = url;
         if (!/^https?:\/\//i.test(finalUrl) && !/^mailto:/i.test(finalUrl)) {
             finalUrl = 'https://' + finalUrl;
@@ -426,27 +457,46 @@ function insertLink() {
 
         overlay.remove();
 
-        // 4. Restauration de la sélection et application du lien
+        // 4. Restauration de la sélection
         if (savedRange) {
             const sel = window.getSelection();
             sel.removeAllRanges();
             sel.addRange(savedRange);
         }
 
+        // 5. Logique d'insertion intelligente
         if (savedRange && savedRange.collapsed) {
-            // S'il n'y avait pas de texte sélectionné, on insère l'URL comme texte cliquable
-            const linkHTML = `<a href="${finalUrl}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-            insertHTML(sanitizeHTML(linkHTML));
+            // CAS 1 : Rien n'était sélectionné -> On insère le nouveau bloc HTML
+            const linkHTML = `<a href="${finalUrl}" target="_blank" rel="noopener noreferrer">${textToDisplay}</a>`;
+            if (typeof insertHTML === 'function') {
+                insertHTML(typeof sanitizeHTML === 'function' ? sanitizeHTML(linkHTML) : linkHTML);
+            } else {
+                document.execCommand('insertHTML', false, linkHTML);
+            }
         } else {
-            // Si du texte était sélectionné, on le transforme en lien
-            enforceFocus();
-            document.execCommand('createLink', false, finalUrl);
-            
-            // Forcer l'ouverture dans un nouvel onglet pour la sécurité (A11Y)
-            const currentSelection = window.getSelection();
-            if (currentSelection.anchorNode && currentSelection.anchorNode.parentNode.tagName === 'A') {
-                currentSelection.anchorNode.parentNode.setAttribute('target', '_blank');
-                currentSelection.anchorNode.parentNode.setAttribute('rel', 'noopener noreferrer');
+            // CAS 2 : Du texte était sélectionné
+            if (textToDisplay !== selectedText) {
+                // L'utilisateur a tapé un texte différent dans la modale -> On écrase sa sélection
+                const linkHTML = `<a href="${finalUrl}" target="_blank" rel="noopener noreferrer">${textToDisplay}</a>`;
+                if (typeof insertHTML === 'function') {
+                    insertHTML(typeof sanitizeHTML === 'function' ? sanitizeHTML(linkHTML) : linkHTML);
+                } else {
+                    document.execCommand('insertHTML', false, linkHTML);
+                }
+            } else {
+                // L'utilisateur a gardé le texte d'origine -> On utilise createLink pour préserver le formatage interne (ex: mots en gras dans le lien)
+                if (typeof enforceFocus === 'function') enforceFocus();
+                document.execCommand('createLink', false, finalUrl);
+                
+                // On sécurise tous les liens fraîchement créés
+                const editor = document.querySelector('.content-editable');
+                if (editor) {
+                    const newLinks = editor.querySelectorAll(`a[href="${finalUrl}"]`);
+                    newLinks.forEach(link => {
+                        link.setAttribute('target', '_blank');
+                        link.setAttribute('rel', 'noopener noreferrer');
+                    });
+                }
             }
         }
     };
