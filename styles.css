@@ -412,6 +412,29 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
     outline: 1px dashed #b0b0b0 !important;
 }
 
+
+/* Transformer la zone sécurisée de la page A4 en colonne flexible */
+.safe-area {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Indispensable pour que la page A4 remplisse son rôle */
+}
+
+/* L'éditeur s'étire au maximum pour repousser les éléments suivants vers le bas */
+.content-editable {
+    flex-grow: 1; 
+    padding-bottom: 2rem; /* Laisse un peu d'air si le texte arrive jusqu'aux notes */
+}
+
+/* Le bloc de notes de bas de page */
+.fr-footnotes {
+    margin-top: auto; /* Pousse le bloc de notes ABSOLUMENT tout en bas */
+    padding-top: 1rem;
+    border-top: 1px solid var(--grey-900);
+}
+
+
+
 /* On s'assure que les toasts n'apparaissent pas à l'impression */
 @media print {
 .content-editable > * {

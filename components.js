@@ -64,6 +64,10 @@ function insertPageBreak() {
     addNewPage(); // Appelle la fonction globale dans app.js
     const pages = document.querySelectorAll('.page-a4');
     const newPage = pages[pages.length - 1];
+    const copiedFootnotes = newPage.querySelector('.fr-footnotes');
+    if (copiedFootnotes) {
+        copiedFootnotes.remove();
+    }
     const contentEditable = newPage.querySelector('.content-editable');
     
     newPage.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -71,6 +75,106 @@ function insertPageBreak() {
     setTimeout(() => {
         contentEditable.focus();
     }, 500);
+}
+
+function insertFootnote() {
+    // 1. Sauvegarde de la position du curseur
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+    const savedRange = selection.getRangeAt(0).cloneRange();
+
+    // 2. Création de la modale interactive
+    const overlay = document.createElement('div');
+    overlay.className = 'chart-modal-overlay';
+    
+    overlay.innerHTML = `
+        <div class="chart-modal" style="width: 450px; max-width: 95vw; display: flex; flex-direction: column; overflow: hidden;">
+            <div style="padding: 1.5rem; background: var(--grey-975); border-bottom: 1px solid var(--grey-900);">
+                <h3 style="margin:0; color:var(--theme-sun); font-size:1.1rem;"><span class="fr-icon-edit-box-line"></span> Nouvelle note de bas de page</h3>
+            </div>
+            
+            <div style="padding: 1.5rem; background: #fff;">
+                <label class="fr-label" style="font-weight:700;">Contenu de la note</label>
+                <textarea id="footnote-text-input" class="fr-input" placeholder="Saisissez ici vos précisions ou sources..." style="width: 100%; height: 100px; resize: none;"></textarea>
+                <p style="font-size: 0.75rem; color: #666; margin-top: 0.5rem;">La note sera automatiquement numérotée et placée en bas de page.</p>
+            </div>
+            
+            <div style="padding: 1rem 1.5rem; background: var(--grey-975); border-top: 1px solid var(--grey-900); display: flex; justify-content: flex-end; gap: 0.5rem;">
+                <button class="fr-btn fr-btn--secondary" id="btn-footnote-cancel">Annuler</button>
+                <button class="fr-btn" id="btn-footnote-insert">Insérer la note</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const inputArea = document.getElementById('footnote-text-input');
+    const btnInsert = document.getElementById('btn-footnote-insert');
+    const btnCancel = document.getElementById('btn-footnote-cancel');
+
+    // Focus automatique
+    setTimeout(() => inputArea.focus(), 100);
+
+    // Actions
+    btnCancel.onclick = () => overlay.remove();
+
+    btnInsert.onclick = () => {
+        const noteText = inputArea.value.trim();
+        if (!noteText) {
+            overlay.remove();
+            return;
+        }
+
+        overlay.remove();
+
+        // 3. Restauration de la sélection
+        selection.removeAllRanges();
+        selection.addRange(savedRange);
+
+        // 4. Logique d'insertion
+        const editor = document.querySelector('.content-editable');
+        const safeArea = editor.closest('.safe-area');
+        const noteId = 'footnote-' + Date.now();
+        const anchorId = 'anchor-' + noteId;
+
+        // Gestion du bloc fr-footnotes hors de l'éditeur
+        let footnotesSection = safeArea.querySelector('.fr-footnotes');
+        if (!footnotesSection) {
+            footnotesSection = document.createElement('div');
+            footnotesSection.className = 'fr-footnotes';
+            footnotesSection.innerHTML = `
+                <ol class="fr-footnotes__list"></ol>
+            `;
+            const footer = safeArea.querySelector('.footer-wrapper');
+            if (footer) safeArea.insertBefore(footnotesSection, footer);
+            else safeArea.appendChild(footnotesSection);
+        }
+
+        const list = footnotesSection.querySelector('.fr-footnotes__list');
+        const index = list.children.length + 1;
+
+        // Insertion de l'appel [index]
+        const sup = document.createElement('sup');
+        const link = document.createElement('a');
+        link.href = `#${noteId}`;
+        link.id = anchorId;
+        link.className = 'fr-footnote';
+        link.textContent = `[${index}]`;
+        sup.appendChild(link);
+        
+        savedRange.deleteContents();
+        savedRange.insertNode(sup);
+
+        // Ajout de la note en bas
+        const listItem = document.createElement('li');
+        listItem.id = noteId;
+        listItem.innerHTML = `
+            <p class="fr-footnotes__content">
+                ${noteText}
+                <a href="#${anchorId}" class="fr-footnotes__backlink" title="Retour au texte">↵</a>
+            </p>
+        `;
+        list.appendChild(listItem);
+    };
 }
 
 function insertGrid(n) {
