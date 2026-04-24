@@ -651,3 +651,77 @@ window.addEventListener('afterprint', () => {
         editor.setAttribute('contenteditable', 'true');
     }
 });
+
+// =====================================================================
+// NORMALISATION DE L'ÉDITEUR (Correction de la touche Entrée)
+// =====================================================================
+document.addEventListener("DOMContentLoaded", () => {
+    const editor = document.querySelector('.content-editable');
+    if (!editor) return;
+
+    // 1. On force le navigateur à TOUJOURS créer des paragraphes <p> (fini les <div> indésirables)
+    document.execCommand('defaultParagraphSeparator', false, 'p');
+
+    // 2. Interception intelligente de la touche Entrée
+    editor.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            // Si l'utilisateur fait Maj + Entrée, on le laisse faire un simple saut de ligne <br>
+            if (e.shiftKey) return;
+
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+
+            const range = selection.getRangeAt(0);
+            const currentNode = range.startContainer.nodeType === 3 ? range.startContainer.parentNode : range.startContainer;
+
+            // --- A. Sortir d'un Titre (H1-H6) ---
+            const heading = currentNode.closest('h1, h2, h3, h4, h5, h6');
+            if (heading) {
+                // Si on est à la toute fin du titre
+                if (range.endOffset === range.startContainer.textContent.length || range.startContainer.textContent === '') {
+                    e.preventDefault(); // On bloque le comportement par défaut
+                    
+                    // On crée un paragraphe vide en dessous
+                    const p = document.createElement('p');
+                    p.innerHTML = '<br>';
+                    heading.parentNode.insertBefore(p, heading.nextSibling);
+                    
+                    // On y déplace le curseur
+                    const newRange = document.createRange();
+                    newRange.setStart(p, 0);
+                    newRange.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                    return;
+                }
+            }
+
+            // --- B. Sortir d'une Citation (Blockquote) ---
+            const blockquote = currentNode.closest('blockquote');
+            if (blockquote) {
+                // Si on tape Entrée sur une ligne vide à l'intérieur de la citation
+                if (currentNode.textContent.trim() === '') {
+                    e.preventDefault();
+                    
+                    // On crée un paragraphe normal juste après la citation
+                    const p = document.createElement('p');
+                    p.innerHTML = '<br>';
+                    blockquote.parentNode.insertBefore(p, blockquote.nextSibling);
+                    
+                    // On supprime la ligne vide qui restait dans la citation
+                    if (currentNode !== blockquote) currentNode.remove();
+                    // Si la citation entière est devenue vide, on la supprime carrément
+                    if (blockquote.textContent.trim() === '') blockquote.remove();
+
+                    // On y déplace le curseur
+                    const newRange = document.createRange();
+                    newRange.setStart(p, 0);
+                    newRange.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                    return;
+                }
+            }
+        }
+    });
+});
