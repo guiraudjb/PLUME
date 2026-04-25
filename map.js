@@ -20,6 +20,14 @@ const DEPARTEMENTS_DICT = {
     "01": "Ain", "02": "Aisne", "03": "Allier", "04": "Alpes-de-Haute-Provence", "05": "Hautes-Alpes", "06": "Alpes-Maritimes", "07": "Ardèche", "08": "Ardennes", "09": "Ariège", "10": "Aube", "11": "Aude", "12": "Aveyron", "13": "Bouches-du-Rhône", "14": "Calvados", "15": "Cantal", "16": "Charente", "17": "Charente-Maritime", "18": "Cher", "19": "Corrèze", "2A": "Corse-du-Sud", "2B": "Haute-Corse", "21": "Côte-d'Or", "22": "Côtes-d'Armor", "23": "Creuse", "24": "Dordogne", "25": "Doubs", "26": "Drôme", "27": "Eure", "28": "Eure-et-Loir", "29": "Finistère", "30": "Gard", "31": "Haute-Garonne", "32": "Gers", "33": "Gironde", "34": "Hérault", "35": "Ille-et-Vilaine", "36": "Indre", "37": "Indre-et-Loire", "38": "Isère", "39": "Jura", "40": "Landes", "41": "Loir-et-Cher", "42": "Loire", "43": "Haute-Loire", "44": "Loire-Atlantique", "45": "Loiret", "46": "Lot", "47": "Lot-et-Garonne", "48": "Lozère", "49": "Maine-et-Loire", "50": "Manche", "51": "Marne", "52": "Haute-Marne", "53": "Mayenne", "54": "Meurthe-et-Moselle", "55": "Meuse", "56": "Morbihan", "57": "Moselle", "58": "Nièvre", "59": "Nord", "60": "Oise", "61": "Orne", "62": "Pas-de-Calais", "63": "Puy-de-Dôme", "64": "Pyrénées-Atlantiques", "65": "Hautes-Pyrénées", "66": "Pyrénées-Orientales", "67": "Bas-Rhin", "68": "Haut-Rhin", "69": "Rhône", "70": "Haute-Saône", "71": "Saône-et-Loire", "72": "Sarthe", "73": "Savoie", "74": "Haute-Savoie", "75": "Paris", "76": "Seine-Maritime", "77": "Seine-et-Marne", "78": "Yvelines", "79": "Deux-Sèvres", "80": "Somme", "81": "Tarn", "82": "Tarn-et-Garonne", "83": "Var", "84": "Vaucluse", "85": "Vendée", "86": "Vienne", "87": "Haute-Vienne", "88": "Vosges", "89": "Yonne", "90": "Territoire de Belfort", "91": "Essonne", "92": "Hauts-de-Seine", "93": "Seine-Saint-Denis", "94": "Val-de-Marne", "95": "Val-d'Oise", "971": "Guadeloupe", "972": "Martinique", "973": "Guyane", "974": "La Réunion", "976": "Mayotte"
 };
 
+// =====================================================================
+// 1.B PALETTES DE COULEURS INDÉPENDANTES
+// =====================================================================
+const PALETTE_SCALES = {
+    divergentDescending: d3.interpolateRgbBasis(["#298641", "#EFB900", "#E91719"]),
+    divergentAscending: d3.interpolateRgbBasis(["#E91719", "#EFB900", "#298641"])
+};
+
 const frenchNumberFormat = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
 
 function getSafeCol(row, expectedKey) {
@@ -107,7 +115,8 @@ async function drawD3Map(container, config, dataMap) {
     
     let geoJSON;
     try { geoJSON = await d3.json(jsonFile); } catch (e) { return false; }
-
+    
+    
     container.innerHTML = '';
     let features = [];
     if (geoJSON.type === "Topology") {
@@ -171,7 +180,16 @@ async function drawD3Map(container, config, dataMap) {
     let minVal = d3.min(vals) || 0, maxVal = d3.max(vals) || 0;
     if (minVal === maxVal) { minVal = 0; maxVal = maxVal || 100; }
     
-    const colorScale = d3.scaleLinear().domain([minVal, maxVal]).range([bgColor, mainColor]);
+    // 2. L'UNIQUE déclaration de colorScale (remplace toutes les anciennes)
+    // --- GESTION DYNAMIQUE DES COULEURS (Thème vs Palette Custom) ---
+    let colorScale;
+    if (config.palette && config.palette !== 'default' && PALETTE_SCALES[config.palette]) {
+        // Utilise l'interpolateur D3 sélectionné
+        colorScale = d3.scaleSequential(PALETTE_SCALES[config.palette]).domain([minVal, maxVal]);
+    } else {
+        // Comportement par défaut (Thème du document)
+        colorScale = d3.scaleLinear().domain([minVal, maxVal]).range([bgColor, mainColor]);
+    }
 
     let renderFeatures = features;
     if (['departement', 'epci', 'commune'].includes(config.scale)) {
@@ -272,9 +290,20 @@ async function drawD3Map(container, config, dataMap) {
             const legendWidth = 200, legendHeight = 12;
             const legendX = width - legendWidth - 30, legendY = height - 30;
             const defs = svg.append("defs");
+            
             const grad = defs.append("linearGradient").attr("id", "map-grad").attr("x1","0%").attr("x2","100%");
-            grad.append("stop").attr("offset", "0%").attr("stop-color", bgColor);
-            grad.append("stop").attr("offset", "100%").attr("stop-color", mainColor);
+            
+            if (config.palette !== 'default' && PALETTE_SCALES[config.palette]) {
+                const interpolator = PALETTE_SCALES[config.palette];
+                // On crée 10 étapes pour un dégradé fluide montrant le pivot jaune
+                for(let i=0; i<=10; i++) {
+                    grad.append("stop").attr("offset", `${i*10}%`).attr("stop-color", interpolator(i/10));
+                }
+            } else {
+                grad.append("stop").attr("offset", "0%").attr("stop-color", bgColor);
+                grad.append("stop").attr("offset", "100%").attr("stop-color", mainColor);
+            }
+            
             
             const leg = svg.append("g").attr("transform", `translate(${legendX}, ${legendY})`);
             leg.append("rect").attr("width", legendWidth).attr("height", legendHeight).style("fill", "url(#map-grad)").style("stroke", "#ccc");
@@ -391,6 +420,18 @@ async function insertCarte() {
                 <div class="fr-checkbox-group">
                     <input type="checkbox" id="map-show-legend" checked>
                     <label class="fr-label" for="map-show-legend">Afficher la légende de colorimétrie</label>
+                </div>
+                <div style="margin-top:1rem; padding:1rem; background:var(--theme-bg); border-radius:4px;">
+                    <label class="fr-label" style="font-weight:700">Palette de couleurs</label>
+                    <select class="fr-select fr-mb-1v" id="map-palette">
+                        <option value="default">Couleurs du thème (Dynamique)</option>
+                        <option value="divergentDescending">Divergent (Vert > Jaune > Rouge)</option>
+                        <option value="divergentAscending">Divergent (Rouge > Jaune > Vert)</option>
+                    </select>
+                    
+                    <div id="palette-warning" style="display:none; font-size:0.75rem; color:#CE614A; background:#fef4f3; padding:0.5rem; border-left:3px solid #CE614A; margin-top:0.5rem;">
+                        ⚠️ <strong>Note :</strong> Cette palette est fixe. La carte ne suivra plus les changements de thème du document.
+                    </div>
                 </div>
 
                 <div style="margin-top:1rem;">
@@ -542,6 +583,7 @@ async function insertCarte() {
                 title: document.getElementById('map-title')?.value,
                 labelType: document.getElementById('label-type')?.value,
                 showLegend: showLegend,
+                palette: document.getElementById('map-palette')?.value || 'default',
                 
                 // --- SÉCURITÉ ANTI-NULL (L'opérateur ?) ---
                 labelFilterNames: document.getElementById('label-filter-names')?.value,
@@ -606,6 +648,11 @@ async function insertCarte() {
     };
 
     document.getElementById('btn-map-cancel').onclick = () => overlay.remove();
+    
+    document.getElementById('map-palette').onchange = (e) => {
+    document.getElementById('palette-warning').style.display = e.target.value === 'default' ? 'none' : 'block';
+    };
+    
 
     // =====================================================================
     // ROUTINE D'INSERTION AVEC MÉTADONNÉES EMBARQUÉES (Taille Standardisée)
@@ -660,9 +707,14 @@ async function insertCarte() {
                     data: currentMapData ? Array.from(currentMapData.entries()) : null
                 };
 
-                // 6. Injection dans l'attribut data-map-config (avec DOUBLES GUILLEMETS pour éviter les bugs d'apostrophe)
+                // --- NOUVEAU : LE VERROU DE SÉCURITÉ ---
+                // On n'ajoute l'attribut de config QUE si la palette est sur "default"
+                const isDynamic = (!currentMapConfig.palette || currentMapConfig.palette === 'default');
+                const dataAttribute = isDynamic ? ` data-map-config="${encodeURIComponent(JSON.stringify(mapConfigPayload))}"` : ``;
+
+                // 6. Injection dans l'éditeur (L'attribut data-map-config est conditionnel)
                 const mapHTML = `
-                    <div class="plume-map-container" style="margin: 2rem 0; text-align: center;" contenteditable="false" data-map-config="${encodeURIComponent(JSON.stringify(mapConfigPayload))}">
+                    <div class="plume-map-container" style="margin: 2rem 0; text-align: center;" contenteditable="false"${dataAttribute}>
                         <img src="${imgData}" alt="Carte thématique" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);" />
                     </div>
                     <p><br></p>
