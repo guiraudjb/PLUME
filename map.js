@@ -192,25 +192,52 @@ async function drawD3Map(container, config, dataMap) {
 
     if (config.labelType !== 'none') {
         const labelNodes = [];
+        const filterNames = config.labelFilterNames ? config.labelFilterNames.split(',').map(s => s.trim().toLowerCase()) : [];
+        const filterMin = config.labelFilterMin !== "" ? parseFloat(config.labelFilterMin) : -Infinity;
         targetFeatures.forEach(d => {
             const centroid = path.centroid(d);
             if (isNaN(centroid[0])) return;
             
             const code = String((config.scale === 'world') ? getIso(d) : (d.properties.code_insee || d.properties.code || ""));
+            
+            // --- LA LIGNE QUE VOUS CHERCHIEZ (Fallback) ---
             const name = (config.scale === 'world') 
                 ? (d.properties.name_fr || d.properties.name || d.properties.NAME || "") 
                 : (d.properties.nom_officiel || d.properties.nom || d.properties.NOM || d.properties.libgeo || d.properties.LIBGEO || d.properties.nom_com || d.properties.nom_commune || d.properties.nom_dept || d.properties.nom_reg || d.properties.libelle || "");
-            const val = dataMap?.has(code) ? frenchNumberFormat.format(dataMap.get(code)) : "";
-            const textLen = (config.labelType === 'both') ? Math.max(name.length, val.length) : (config.labelType === 'name' ? name.length : val.length);
             
+            const rawValue = dataMap?.has(code) ? dataMap.get(code) : 0;
+            const valText = dataMap?.has(code) ? frenchNumberFormat.format(rawValue) : "";
+
+            let shouldDisplay = true;
+
+            // 1. FILTRE AVANCÉ (Sur une autre colonne)
+            if (config.filterDataMap && !isNaN(config.filterThreshold)) {
+                const fVal = config.filterDataMap.get(code) || 0;
+                const op = config.filterOperator;
+                const thresh = config.filterThreshold;
+
+                if (op === '>') shouldDisplay = fVal > thresh;
+                else if (op === '>=') shouldDisplay = fVal >= thresh;
+                else if (op === '=') shouldDisplay = fVal === thresh;
+                else if (op === '<=') shouldDisplay = fVal <= thresh;
+                else if (op === '<') shouldDisplay = fVal < thresh;
+            }
+
+            // 2. FILTRE PAR NOM (Recherche manuelle)
+            if (shouldDisplay && filterNames.length > 0) {
+                shouldDisplay = filterNames.some(f => name.toLowerCase().includes(f) || code.toLowerCase() === f);
+            }
+
+            if (!shouldDisplay) return;
+            
+            const textLen = (config.labelType === 'both') ? Math.max(name.length, valText.length) : (config.labelType === 'name' ? name.length : valText.length);
             if (textLen === 0) return;
 
             labelNodes.push({
                 cx: centroid[0], cy: centroid[1], x: centroid[0], y: centroid[1],
-                name, val, width: textLen * (lSize * pRatio), height: lSize * (config.labelType === 'both' ? 2.4 : 1.2)
+                name, val: valText, width: textLen * (lSize * pRatio), height: lSize * (config.labelType === 'both' ? 2.4 : 1.2)
             });
-        });
-
+    });
         const simulation = d3.forceSimulation(labelNodes)
             .force("x", d3.forceX(d => d.cx).strength(pStrength)).force("y", d3.forceY(d => d.cy).strength(pStrength))
             .force("collide", forceRectCollide(pPadding)).stop();
@@ -238,17 +265,22 @@ async function drawD3Map(container, config, dataMap) {
     svg.append("text").attr("x", 20).attr("y", 35).style("font-weight", "bold").style("font-size", "1.1rem").style("fill", mainColor).text(config.title);
 
     if (dataMap && dataMap.size > 0 && minVal !== maxVal) {
-        const legendWidth = 200, legendHeight = 12;
-        const legendX = width - legendWidth - 30, legendY = height - 30;
-        const defs = svg.append("defs");
-        const grad = defs.append("linearGradient").attr("id", "map-grad").attr("x1","0%").attr("x2","100%");
-        grad.append("stop").attr("offset", "0%").attr("stop-color", bgColor);
-        grad.append("stop").attr("offset", "100%").attr("stop-color", mainColor);
-        
-        const leg = svg.append("g").attr("transform", `translate(${legendX}, ${legendY})`);
-        leg.append("rect").attr("width", legendWidth).attr("height", legendHeight).style("fill", "url(#map-grad)").style("stroke", "#ccc");
-        leg.append("text").attr("x", 0).attr("y", -6).style("font-size", "0.75rem").text(frenchNumberFormat.format(minVal));
-        leg.append("text").attr("x", legendWidth).attr("y", -6).attr("text-anchor", "end").style("font-size", "0.75rem").text(frenchNumberFormat.format(maxVal));
+        if (config.showLegend !== false) {
+            const legendGroup = svg.append("g")
+            .attr("class", "map-legend")
+            .attr("transform", `translate(${width - 150}, ${height - 120})`);
+            const legendWidth = 200, legendHeight = 12;
+            const legendX = width - legendWidth - 30, legendY = height - 30;
+            const defs = svg.append("defs");
+            const grad = defs.append("linearGradient").attr("id", "map-grad").attr("x1","0%").attr("x2","100%");
+            grad.append("stop").attr("offset", "0%").attr("stop-color", bgColor);
+            grad.append("stop").attr("offset", "100%").attr("stop-color", mainColor);
+            
+            const leg = svg.append("g").attr("transform", `translate(${legendX}, ${legendY})`);
+            leg.append("rect").attr("width", legendWidth).attr("height", legendHeight).style("fill", "url(#map-grad)").style("stroke", "#ccc");
+            leg.append("text").attr("x", 0).attr("y", -6).style("font-size", "0.75rem").text(frenchNumberFormat.format(minVal));
+            leg.append("text").attr("x", legendWidth).attr("y", -6).attr("text-anchor", "end").style("font-size", "0.75rem").text(frenchNumberFormat.format(maxVal));
+        }
     }
     return true;
 }
@@ -313,11 +345,37 @@ async function insertCarte() {
                 <div style="margin-top:auto; background:#fff; padding:1rem; border:1px solid var(--grey-900); border-radius:4px;">
                     <label class="fr-label" style="font-weight:700">Étiquettes</label>
                     <select class="fr-select fr-mb-1v" id="label-type"><option value="name">Nom</option><option value="value">Valeur</option><option value="both">Nom + Val</option><option value="none" selected>Aucune</option></select>
+                    
                     <div id="label-toolkit" style="display:none; margin-top:0.5rem; padding-top:0.5rem; border-top:1px dashed var(--grey-900);">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
                             <label style="font-size:0.8rem;">Taille (px)</label>
                             <input type="number" id="label-size" class="fr-input" style="width:70px; padding:0.2rem;" value="10" min="6" max="24">
                         </div>
+                        
+                        <hr style="border:none; border-top:1px solid var(--grey-900); margin:0.5rem 0;">
+                        
+                        <div style="margin-bottom:0.8rem;">
+                            <label class="fr-label" style="font-size:0.8rem; font-weight:700;">Filtrer par nom ou code (ex: Paris, 75...)</label>
+                            <input type="text" id="label-filter-names" class="fr-input" placeholder="Séparer par des virgules" style="font-size:0.85rem;">
+                        </div>
+
+                        <div id="advanced-filter-ui" style="display:none; margin-top:1rem; padding:1rem; background:var(--theme-bg); border:1px solid var(--grey-900); border-radius:4px;">
+                            <p style="font-size:0.8rem; font-weight:bold; color:var(--theme-sun); margin-bottom:0.5rem;">🔍 Filtre de données (Étiquettes)</p>
+                            <select id="filter-col" class="fr-select fr-mb-1v">
+                                <option value="">-- Champ à filtrer --</option>
+                            </select>
+                            <div style="display:flex; gap:0.5rem;">
+                                <select id="filter-operator" class="fr-select" style="flex:1">
+                                    <option value=">"> > </option>
+                                    <option value=">="> >= </option>
+                                    <option value="="> = </option>
+                                    <option value="<="> <= </option>
+                                    <option value="<"> < </option>
+                                </select>
+                                <input type="text" id="filter-value" class="fr-input" placeholder="Valeur" style="flex:2">
+                            </div>
+                        </div>
+                        
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">
                             <label style="font-size:0.8rem;">Aération</label>
                             <input type="range" id="phys-padding" min="0" max="15" value="4" style="width:100px;">
@@ -327,6 +385,12 @@ async function insertCarte() {
                             <input type="range" id="phys-strength" min="0.05" max="0.5" step="0.05" value="0.15" style="width:100px;">
                         </div>
                     </div>
+                </div>
+                
+                
+                <div class="fr-checkbox-group">
+                    <input type="checkbox" id="map-show-legend" checked>
+                    <label class="fr-label" for="map-show-legend">Afficher la légende de colorimétrie</label>
                 </div>
 
                 <div style="margin-top:1rem;">
@@ -451,14 +515,21 @@ async function insertCarte() {
         const loader = document.getElementById('map-loader');
         const emptyState = document.getElementById('map-empty-state');
         
+        
         if (loader) loader.style.display = 'flex';
         if (emptyState) emptyState.style.display = 'none';
-
+        const showLegend = document.getElementById('map-show-legend').checked;
         setTimeout(async () => {
             let mapData = null;
+            let filterMap = null;
+            
             if (rawCsvData.length > 0) {
                 const codeCol = Object.keys(rawCsvData[0])[0];
                 mapData = computeValorAggregation(rawCsvData, scaleSelect.value, document.getElementById('calc-mode').value, codeCol, document.getElementById('calc-col1').value, document.getElementById('calc-col2').value);
+                const fCol = document.getElementById('filter-col').value;
+                if (fCol) {
+                    filterMap = computeValorAggregation(rawCsvData, scaleSelect.value, 'simple', codeCol, fCol);
+                }
             }
             
             const config = {
@@ -468,11 +539,23 @@ async function insertCarte() {
                 dept: document.getElementById('sel-dept')?.value,
                 epci: document.getElementById('sel-epci')?.value,
                 commune: document.getElementById('sel-commune')?.value,
-                title: document.getElementById('map-title').value,
-                labelType: document.getElementById('label-type').value,
-                labelSize: parseFloat(document.getElementById('label-size').value) || 10,
-                physPadding: parseFloat(document.getElementById('phys-padding').value) || 4,
-                physStrength: parseFloat(document.getElementById('phys-strength').value) || 0.15
+                title: document.getElementById('map-title')?.value,
+                labelType: document.getElementById('label-type')?.value,
+                showLegend: showLegend,
+                
+                // --- SÉCURITÉ ANTI-NULL (L'opérateur ?) ---
+                labelFilterNames: document.getElementById('label-filter-names')?.value,
+                labelSize: parseFloat(document.getElementById('label-size')?.value) || 10,
+                physPadding: parseFloat(document.getElementById('phys-padding')?.value) || 4,
+                physStrength: parseFloat(document.getElementById('phys-strength')?.value) || 0.15,
+                
+                labelFilterMin: document.getElementById('label-filter-min')?.value,
+                filterOperator: document.getElementById('filter-operator')?.value,
+                filterCol: document.getElementById('filter-col')?.value,
+                
+                // --- CORRESPONDANCE EXACTE POUR drawD3Map ---
+                filterThreshold: parseFloat(document.getElementById('filter-value')?.value),
+                filterDataMap: filterMap 
             };
 
             // MISE A JOUR DES VARIABLES D'ETAT
@@ -511,14 +594,19 @@ async function insertCarte() {
             const s1 = document.getElementById('calc-col1'), s2 = document.getElementById('calc-col2');
             s1.innerHTML = ''; s2.innerHTML = '';
             headers.slice(1).forEach(h => { const o = document.createElement('option'); o.value = h; o.textContent = h; s1.appendChild(o.cloneNode(true)); s2.appendChild(o); });
+            document.getElementById('advanced-filter-ui').style.display = 'block';
+            const filterCol = document.getElementById('filter-col');
+            filterCol.innerHTML = '<option value="">-- Champ à filtrer (Optionnel) --</option>';
+            headers.forEach(h => {
+                const o = document.createElement('option');
+                o.value = h; o.textContent = h;
+                filterCol.appendChild(o);
+            });
         }});
     };
 
     document.getElementById('btn-map-cancel').onclick = () => overlay.remove();
 
-    // =====================================================================
-    // ROUTINE D'INSERTION AVEC MÉTADONNÉES EMBARQUÉES
-    // =====================================================================
     // =====================================================================
     // ROUTINE D'INSERTION AVEC MÉTADONNÉES EMBARQUÉES (Taille Standardisée)
     // =====================================================================

@@ -6,6 +6,7 @@
 
 // 1. Création de l'interface de la barre flottante
 const floatToolbar = document.createElement('div');
+floatToolbar.id = 'plume-floating-toolbar';
 floatToolbar.style.cssText = `
     position: absolute;
     display: none;

@@ -437,6 +437,13 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
 
 /* On s'assure que les toasts n'apparaissent pas à l'impression */
 @media print {
+#plume-floating-toolbar,
+    .chart-modal-overlay,
+    #plume-global-loader,
+    #toast-container {
+        display: none !important;
+    }
+
 .content-editable > * {
         outline: none !important;
 
