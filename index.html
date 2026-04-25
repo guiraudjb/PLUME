@@ -158,8 +158,8 @@
 
         <div class="toolbar-group" role="group" aria-label="Listes et retraits" style="border-right: none;">
             <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-list-unordered" onclick="format('insertUnorderedList')" title="Liste à puces"><span class="fr-sr-only">Liste à puces</span></button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-list-ordered" onclick="format('insertOrderedList')" title="Liste numérotée"><span class="fr-sr-only">Liste numérotée</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-list-unordered" onclick="format('insertUnorderedList'); fixInvalidListNesting();" title="Liste à puces"><span class="fr-sr-only">Liste à puces</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-list-ordered" onclick="format('insertOrderedList'); fixInvalidListNesting();" title="Liste numérotée"><span class="fr-sr-only">Liste numérotée</span></button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-indent-increase" onclick="format('indent')" title="Augmenter le retrait"><span class="fr-sr-only">Augmenter le retrait</span></button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-indent-decrease" onclick="format('outdent')" title="Diminuer le retrait"><span class="fr-sr-only">Diminuer le retrait</span></button></li>
             </ul>

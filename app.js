@@ -85,6 +85,33 @@ function format(cmd, val = null) {
     document.execCommand(cmd, false, val);
 }
 
+/**
+ * Extrait les listes (ul, ol) qui sont anormalement coincées à l'intérieur d'un paragraphe.
+ */
+function fixInvalidListNesting() {
+    // Petit délai (10ms) pour laisser le temps à execCommand de finir de générer le DOM corrompu
+    setTimeout(() => {
+        const editor = document.querySelector('.content-editable');
+        if (!editor) return;
+
+        // On cible toutes les listes (ul, ol) qui ont un paragraphe (<p>) comme parent direct
+        const trappedLists = editor.querySelectorAll('p > ul, p > ol');
+        
+        trappedLists.forEach(list => {
+            const invalidParentP = list.parentNode;
+            
+            // 1. On déplace la liste pour la mettre au même niveau que le paragraphe (juste avant lui)
+            invalidParentP.parentNode.insertBefore(list, invalidParentP);
+            
+            // 2. Nettoyage : si le paragraphe d'origine est maintenant vide 
+            // (ex: il ne contenait que la liste ou des sauts de ligne), on le détruit.
+            if (invalidParentP.textContent.trim() === '' && invalidParentP.querySelectorAll('img').length === 0) {
+                invalidParentP.remove();
+            }
+        });
+    }, 10); // Le petit délai garantit que le navigateur a terminé son insertion native
+}
+
 function insertHTML(html) { 
     enforceFocus();
     document.execCommand('insertHTML', false, html + '<p><br></p>'); 
