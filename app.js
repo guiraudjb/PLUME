@@ -143,7 +143,8 @@ function addNewPage() {
     syncMetadata();
 }
 
-function saveJSON() {
+// N'oubliez pas le mot-clé "async" ici :
+async function saveJSON() {
     // 1. On capture l'état global (Palette, Titres, etc.)
     const state = {
         palette: document.getElementById('cfg-palette').value,
@@ -178,11 +179,14 @@ function saveJSON() {
         });
     });
     
-    // 3. Téléchargement (qui sera instantané maintenant)
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(state)], { type: 'application/json' }));
-    a.download = 'lettre-plume.json'; 
-    a.click();
+    // 3. NOUVEAU TÉLÉCHARGEMENT (Fenêtre "Enregistrer sous")
+    const jsonString = JSON.stringify(state, null, 2);
+    
+    // Génération d'un nom par défaut pertinent avec la date du jour
+    const nomParDefaut = `lettre-plume-${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.json`;
+    
+    // On appelle notre fonction utilitaire avec "await" pour attendre l'action de l'utilisateur
+    await saveAsSafe(jsonString, nomParDefaut, 'application/json', '.json');
 }
 
 function restoreJSON(input) {
@@ -868,3 +872,32 @@ document.addEventListener('click', function(e) {
         }
     }
 });
+
+async function saveAsSafe(content, suggestedName, mimeType, extension) {
+    try {
+        if (window.showSaveFilePicker) {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: suggestedName,
+                types: [{ description: 'Fichier ' + extension.toUpperCase(), accept: { [mimeType]: [extension] } }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(content);
+            await writable.close();
+            return true;
+        } else {
+            // Fallback
+            let fileName = prompt("Nom du fichier :", suggestedName);
+            if (!fileName) return false;
+            if (!fileName.endsWith(extension)) fileName += extension;
+            const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = fileName;
+            a.click(); URL.revokeObjectURL(url);
+            return true;
+        }
+    } catch (err) {
+        if (err.name !== 'AbortError') console.error("Erreur:", err);
+        return false;
+    }
+}
