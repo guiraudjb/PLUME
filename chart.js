@@ -23,7 +23,7 @@ function insertChart(type) {
                 generateChartFromCSV(results.data, type, savedRange);
             },
             error: function(err) {
-                alert("Erreur de lecture du fichier CSV.");
+                showToast("Erreur de lecture", "Impossible de lire le fichier CSV.", "error");
             }
         });
     };
@@ -36,7 +36,7 @@ function insertChart(type) {
  */
 function generateChartFromCSV(data, type, savedRange) {
     if (!data || data.length < 2) {
-        alert("Erreur : Le fichier CSV semble vide ou incomplet.");
+        showToast("Données invalides", "Le fichier CSV semble vide ou incomplet.", "warning");
         return;
     }
 

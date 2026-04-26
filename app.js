@@ -163,8 +163,8 @@ async function saveJSON() {
         const editor = clone.querySelector('.content-editable');
         
         // --- LA PURGE (Le secret de la performance) ---
-        // On repère toutes les images générées par nos outils
-        const generatedImages = editor.querySelectorAll('.chart-container img, .map-container img');
+        // On repère toutes les images générées par nos outils (CORRECTION APPLIQUÉE ICI)
+        const generatedImages = editor.querySelectorAll('.chart-container img, .plume-map-container img');
         
         generatedImages.forEach(img => {
             // On vide le SRC (qui contient le Base64 massif)
@@ -300,7 +300,8 @@ function scaleUI() {
     document.getElementById('pages-container').style.transform = `scale(${ratio})`;
 }
 
-function deletePage(btn) {
+// Mise à jour de la fonction deletePage (app.js)
+async function deletePage(btn) {
     const page = btn.closest('.page-a4');
     const totalPages = document.querySelectorAll('.page-a4').length;
 
@@ -309,9 +310,17 @@ function deletePage(btn) {
         return;
     }
 
-    if (confirm("⚠️ Êtes-vous sûr de vouloir supprimer cette page et tout son contenu ? Cette action est irréversible.")) {
+    const confirmed = await plumeModal({
+        title: "Supprimer la page ?",
+        message: "Êtes-vous sûr de vouloir supprimer cette page et tout son contenu ?\nCette action est irréversible.",
+        confirmText: "Supprimer définitivement",
+        cancelText: "Annuler"
+    });
+
+    if (confirmed) {
         page.remove();
-        renumberPages(); // Met à jour les numéros en bas de page
+        renumberPages();
+        showToast("Succès", "La page a été supprimée.", "info");
     }
 }
 
@@ -675,7 +684,47 @@ document.addEventListener('paste', function(e) {
 });
 
 window.onresize = scaleUI;
-window.onload = () => { scaleUI(); applyPalette(); syncMetadata(); };
+// =====================================================================
+// INITIALISATION ET CYCLE DE VIE DU NAVIGATEUR
+// =====================================================================
+
+window.onload = async () => { 
+    scaleUI(); 
+    applyPalette(); 
+    syncMetadata(); 
+
+    const draft = localStorage.getItem('plume_draft_state');
+    const timestamp = localStorage.getItem('plume_draft_timestamp');
+    
+    if (draft) {
+        const draftDate = new Date(parseInt(timestamp)).toLocaleString('fr-FR', { 
+            weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' 
+        });
+        
+        const restore = await plumeModal({
+            title: "Brouillon détecté",
+            message: `Une session non sauvegardée du <strong>${draftDate}</strong> a été trouvée.\n\nVoulez-vous reprendre votre travail en cours ?`,
+            confirmText: "Restaurer la session",
+            cancelText: "Ignorer"
+        });
+
+        if (restore) {
+            restoreDraftFromLocal(draft);
+        } else {
+            localStorage.removeItem('plume_draft_state');
+            localStorage.removeItem('plume_draft_timestamp');
+        }
+    }
+
+    setInterval(saveDraftToLocal, 30000);
+};
+
+// 3. Sauvegarde de sécurité au moment exact où l'utilisateur ferme l'onglet ou rafraîchit
+window.addEventListener('beforeunload', () => {
+    saveDraftToLocal();
+});
+
+
 // =====================================================================
 // OPTIMISATION DE L'EXPORT PDF (Garantir les liens cliquables)
 // =====================================================================
@@ -876,18 +925,30 @@ document.addEventListener('click', function(e) {
 async function saveAsSafe(content, suggestedName, mimeType, extension) {
     try {
         if (window.showSaveFilePicker) {
+            // Logique native pour Chrome/Edge (Gestionnaire de fichiers système)
             const handle = await window.showSaveFilePicker({
                 suggestedName: suggestedName,
-                types: [{ description: 'Fichier ' + extension.toUpperCase(), accept: { [mimeType]: [extension] } }]
+                types: [{
+                    description: 'Document PLUME',
+                    accept: { [mimeType]: [extension] },
+                }],
             });
             const writable = await handle.createWritable();
             await writable.write(content);
             await writable.close();
             return true;
         } else {
-            // Fallback
-            let fileName = prompt("Nom du fichier :", suggestedName);
+            // Logique de secours pour Firefox/Safari avec notre Modale plumeModal
+            let fileName = await plumeModal({
+                title: "Enregistrer le fichier",
+                message: "Sous quel nom souhaitez-vous sauvegarder votre travail ?",
+                type: "prompt",
+                defaultValue: suggestedName,
+                confirmText: "Télécharger"
+            });
+
             if (!fileName) return false;
+            
             if (!fileName.endsWith(extension)) fileName += extension;
             const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
@@ -897,7 +958,207 @@ async function saveAsSafe(content, suggestedName, mimeType, extension) {
             return true;
         }
     } catch (err) {
-        if (err.name !== 'AbortError') console.error("Erreur:", err);
+        if (err.name !== 'AbortError') console.error("Erreur de sauvegarde :", err);
         return false;
     }
+}
+
+// =====================================================================
+// MODULE SAUVEGARDE LOCALE (AUTO-SAVE / BROUILLON)
+// =====================================================================
+
+function saveDraftToLocal() {
+    const state = {
+        palette: document.getElementById('cfg-palette').value,
+        bureau: document.getElementById('cfg-bureau').value,
+        titre: document.getElementById('cfg-titre').value,
+        date: document.getElementById('cfg-date').value,
+        footer: document.getElementById('cfg-footer').value,
+        logo: logoDataUrl,
+        pages: []
+    };
+    
+    document.querySelectorAll('.page-a4').forEach(page => {
+        const clone = page.cloneNode(true);
+        const editor = clone.querySelector('.content-editable');
+        
+        // Purge des images lourdes générées par l'éditeur (elles seront recréées à la volée)
+        const generatedImages = editor.querySelectorAll('.chart-container img, .plume-map-container img');
+        generatedImages.forEach(img => {
+            img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; 
+        });
+        
+        state.pages.push({
+            content: editor.innerHTML,
+            isLandscape: page.classList.contains('landscape')
+        });
+    });
+
+    try {
+        localStorage.setItem('plume_draft_state', JSON.stringify(state));
+        localStorage.setItem('plume_draft_timestamp', Date.now());
+    } catch (e) {
+        console.warn("⚠️ Impossible de sauvegarder le brouillon automatiquement (Quota dépassé ?)", e);
+    }
+}
+
+async function restoreDraftFromLocal(jsonString) {
+    try {
+        const state = JSON.parse(jsonString);
+        
+        // Restauration des réglages
+        if (state.palette) document.getElementById('cfg-palette').value = state.palette;
+        if (state.bureau) document.getElementById('cfg-bureau').value = state.bureau;
+        if (state.titre) document.getElementById('cfg-titre').value = state.titre;
+        if (state.date) document.getElementById('cfg-date').value = state.date;
+        if (state.footer) document.getElementById('cfg-footer').value = state.footer;
+        
+        logoDataUrl = state.logo || "";
+        applyPalette(); 
+        
+        // Restauration du contenu
+        if (state.pages && Array.isArray(state.pages)) {
+            const container = document.getElementById('pages-container');
+            container.innerHTML = ''; 
+            
+            state.pages.forEach((pageData, index) => {
+                const pageNum = index + 1;
+                const pageDiv = document.createElement('div');
+                pageDiv.className = 'page-a4';
+                pageDiv.id = `page-${pageNum}`;
+                
+                const rawContent = typeof pageData === 'string' ? pageData : pageData.content;
+                const pageContent = sanitizeHTML(rawContent); 
+                
+                const isLandscape = typeof pageData === 'object' ? pageData.isLandscape : false;
+                if (isLandscape) pageDiv.classList.add('landscape');
+                
+                const btnText = isLandscape ? "Portrait" : "Paysage";
+                const btnIcon = isLandscape ? "fr-icon-file-text-line" : "fr-icon-refresh-line";
+                const btnTitle = isLandscape ? "Repasser en mode Portrait" : "Passer en mode Paysage";
+
+                pageDiv.innerHTML = `
+                    <div class="page-actions" contenteditable="false">
+                        <button class="page-action-btn" onclick="toggleOrientation(this)" title="${btnTitle}">
+                            <span class="${btnIcon}"></span> ${btnText}
+                        </button>
+                        <button class="page-action-btn delete" onclick="deletePage(this)" title="Supprimer la page">
+                            <span class="fr-icon-delete-bin-line"></span> Supprimer
+                        </button>
+                    </div>
+                    <div class="safe-area">
+                        <div class="header-brand">
+                            <div class="fr-header__brand">
+                                <div class="fr-header__logo">
+                                    <p class="fr-logo">République<br>Française</p>
+                                </div>
+                            </div>
+                            <div class="custom-logo-container"><img class="logo-bureau" src="${logoDataUrl}" style="${logoDataUrl ? 'display:block;' : 'display:none;'}"></div>
+                        </div>
+                        
+                        <div class="header-info">
+                            <div class="stamp-bureau" style="font-weight:700; font-size:1rem;"></div>
+                            <div class="doc-meta" style="display:flex; justify-content:space-between; font-weight:700; font-size:0.9rem">
+                                <span class="stamp-titre"></span>
+                                <span class="stamp-date"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="content-editable" contenteditable="true">
+                            ${pageContent}
+                        </div>
+                        
+                        <div class="footer-wrapper">
+                            <span class="stamp-footer"></span>
+                            <span class="page-num-display">Page ${pageNum}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(pageDiv);
+            });
+        }
+        
+        syncMetadata();
+        
+        // Reconstruction asynchrone des médias (Cartes et Graphiques)
+        setTimeout(async () => {
+            refreshAllCharts();
+            if (typeof refreshAllMaps === 'function') {
+                await refreshAllMaps();
+            }
+        }, 100);
+        
+        if (typeof showToast !== 'undefined') {
+            showToast("Brouillon restauré", "Vous avez récupéré votre dernière session.", "success");
+        }
+        
+    } catch (err) {
+        console.error(err);
+        if (typeof showToast !== 'undefined') showToast("Erreur", "Le brouillon est corrompu et n'a pas pu être chargé.", "error");
+    }
+}
+
+
+/**
+ * Système de modale asynchrone (Remplace alert, confirm et prompt)
+ * @param {Object} options - { title, message, type: 'confirm'|'prompt', defaultValue, confirmText, cancelText }
+ * @returns {Promise} - Retourne le texte saisi (prompt) ou un booléen (confirm)
+ */
+function plumeModal({ 
+    title = "Confirmation", 
+    message = "", 
+    type = "confirm", 
+    defaultValue = "", 
+    confirmText = "Valider", 
+    cancelText = "Annuler" 
+}) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'chart-modal-overlay';
+        
+        const isPrompt = type === 'prompt';
+        const inputHTML = isPrompt 
+            ? `<div class="fr-input-group fr-mt-2w">
+                 <input type="text" id="modal-input" class="fr-input" value="${defaultValue}" autocomplete="off">
+               </div>` 
+            : "";
+
+        overlay.innerHTML = `
+            <div class="chart-modal" style="width: 450px; max-width: 95vw; display: flex; flex-direction: column;">
+                <div style="padding: 1.5rem; background: var(--grey-975); border-bottom: 1px solid var(--grey-900);">
+                    <h3 style="margin:0; color:var(--theme-sun); font-size:1.1rem;">
+                        <span class="${isPrompt ? 'fr-icon-edit-line' : 'fr-icon-question-line'}"></span> ${title}
+                    </h3>
+                </div>
+                <div style="padding: 1.5rem; background: #fff;">
+                    <p style="margin:0; line-height:1.5;">${message.replace(/\n/g, '<br>')}</p>
+                    ${inputHTML}
+                </div>
+                <div style="padding: 1rem 1.5rem; background: var(--grey-975); border-top: 1px solid var(--grey-900); display: flex; justify-content: flex-end; gap: 0.5rem;">
+                    <button class="fr-btn fr-btn--secondary" id="modal-cancel">${cancelText}</button>
+                    <button class="fr-btn" id="modal-confirm">${confirmText}</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const input = overlay.querySelector('#modal-input');
+        if (input) setTimeout(() => input.focus(), 100);
+
+        const close = (value) => {
+            overlay.remove();
+            resolve(value);
+        };
+
+        overlay.querySelector('#modal-cancel').onclick = () => close(isPrompt ? null : false);
+        overlay.querySelector('#modal-confirm').onclick = () => {
+            close(isPrompt ? (input.value || defaultValue) : true);
+        };
+        
+        // Validation avec la touche Entrée
+        overlay.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') overlay.querySelector('#modal-confirm').click();
+            if (e.key === 'Escape') overlay.querySelector('#modal-cancel').click();
+        });
+    });
 }
