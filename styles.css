@@ -119,8 +119,8 @@ body {
 .content-editable [style*="text-align: center"] { text-align: center !important; }
 
 /* Grilles et colonnes */
-.custom-grid { display: flex; gap: 1rem; width: 100%; margin-bottom: 1rem; }
-.custom-grid > div { flex: 1; border: 1px dashed transparent; padding: 5px; }
+.plume-grid { width: 100%; margin-bottom: 1rem; }
+.plume-grid > div > div { border: 1px dashed transparent; padding: 5px; }
 
 /* Centrage strict des tableaux */
 .fr-table { width: 100% !important; display: block !important; text-align: center !important; margin: 2rem 0 !important; clear: both; }
@@ -160,7 +160,7 @@ body {
     transition: outline-color 0.2s ease, background-color 0.2s ease;
 }
 img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important; outline-offset: 2px; background-color: transparent !important; }
-.fr-table.block-hover-focus, .custom-grid.block-hover-focus { background-color: transparent !important; }
+.fr-table.block-hover-focus, .plume-grid.block-hover-focus { background-color: transparent !important; }
 
 /* ===================================================================== */
 /* ACTIONS ET ORIENTATION DE LA PAGE A4                                  */
@@ -248,7 +248,7 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
     .block-hover-focus,
     img.block-hover-focus,
     .fr-table.block-hover-focus,
-    .custom-grid.block-hover-focus {
+    .plume-grid.block-hover-focus {
         outline: none !important;
         background-color: transparent !important;
     }

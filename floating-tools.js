@@ -101,11 +101,30 @@ const imgToolsContainer = document.createElement('div');
 imgToolsContainer.style.cssText = "display: none; align-items: center; gap: 0.3rem; border-right: 1px solid var(--grey-900); padding-right: 0.5rem; margin-right: 0.2rem;";
 imgToolsContainer.append(imgAlignLeft, imgAlignCenter, imgAlignRight, imgCropBtn, imgResizeSlider);
 
+// Outils de Grille (Colonnes)
+function createGridBtn(iconHtml, title) {
+    const btn = document.createElement('button');
+    btn.innerHTML = iconHtml; btn.title = title;
+    btn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--theme-sun);`;
+    return btn;
+}
+const gridToolsContainer = document.createElement('div');
+gridToolsContainer.style.cssText = "display: none; align-items: center; gap: 0.3rem; border-right: 1px solid var(--grey-900); padding-right: 0.5rem; margin-right: 0.2rem;";
+
+// Icônes natives DSFR pour le haut, le centre et le bas + un pot de peinture pour la couleur
+const gridAlignTop = createGridBtn('<span class="fr-icon-arrow-up-line" style="font-size: 0.85rem;"></span>', 'Aligner le contenu en haut');
+const gridAlignCenter = createGridBtn('<span class="fr-icon-menu-line" style="font-size: 0.85rem;"></span>', 'Centrer le contenu verticalement');
+const gridAlignBottom = createGridBtn('<span class="fr-icon-arrow-down-line" style="font-size: 0.85rem;"></span>', 'Aligner le contenu en bas');
+const gridColorCol = createGridBtn('<span class="fr-icon-paint-fill" style="font-size: 0.85rem;"></span>', 'Colorer la colonne avec le thème');
+
+gridToolsContainer.append(gridAlignTop, gridAlignCenter, gridAlignBottom, gridColorCol);
+
 // Assemblage final
 floatToolbar.appendChild(textStyleSelect);
 floatToolbar.appendChild(cleanBtn);
 floatToolbar.appendChild(editLinkBtn);
 floatToolbar.appendChild(imgToolsContainer);
+floatToolbar.appendChild(gridToolsContainer);
 floatToolbar.appendChild(moveUpBtn);
 floatToolbar.appendChild(moveDownBtn);
 floatToolbar.appendChild(resizeBtn);
@@ -116,7 +135,7 @@ document.body.appendChild(floatToolbar);
 
 let hoveredBlock = null;
 let activeLinkNode = null;
-const blockSelectors = '.fr-table, .custom-grid, .fr-summary, .fr-callout, hr, img, [contenteditable="false"], p, h1, h2, h3, h4, h5, h6, blockquote, ul, ol';
+const blockSelectors = '.fr-table, .plume-grid, .fr-summary, .fr-callout, hr, img, [contenteditable="false"], p, h1, h2, h3, h4, h5, h6, blockquote, ul, ol';
 
 // 2. Traque par sélection (au clic)
 document.addEventListener('click', function(e) {
@@ -132,7 +151,10 @@ document.addEventListener('click', function(e) {
         return; 
     }
 
-    const block = e.target.closest(blockSelectors);
+    let block = e.target.closest(blockSelectors);
+    if (block && block.parentNode && block.parentNode.classList && block.parentNode.classList.contains('plume-grid')) {
+        block = block.parentNode;
+    }
 
     if (block && editor.contains(block)) {
         // Seulement si c'est un nouveau bloc
@@ -161,8 +183,14 @@ document.addEventListener('click', function(e) {
             } else {
                 imgToolsContainer.style.display = 'none';
             }
+            // NOUVEAU : Affichage conditionnel des outils de grille
+            if (hoveredBlock.closest('.plume-grid')) {
+                gridToolsContainer.style.display = 'flex';
+            } else {
+                gridToolsContainer.style.display = 'none';
+            }
 
-            if (hoveredBlock.classList.contains('custom-grid') || hoveredBlock.classList.contains('fr-table')) {
+            if (hoveredBlock.classList.contains('plume-grid') || hoveredBlock.classList.contains('fr-table')) {
                 resizeBtn.style.display = 'flex';
             } else {
                 resizeBtn.style.display = 'none';
@@ -433,8 +461,8 @@ resizeBtn.addEventListener('click', function() {
     if (!hoveredBlock) return;
     
     let n = 0;
-    if (hoveredBlock.classList.contains('custom-grid')) {
-        const gridInner = hoveredBlock.querySelector('div[style*="display: flex"]');
+    if (hoveredBlock.classList.contains('plume-grid')) {
+        const gridInner = hoveredBlock.querySelector(':scope > div');
         if (!gridInner) return;
         n = Array.from(gridInner.children).filter(c => c.tagName === 'DIV').length;
     } else if (hoveredBlock.classList.contains('fr-table')) {
@@ -472,8 +500,14 @@ function applyGridWidths(partsStr) {
     const parts = partsStr.split(/[\/\-\+,;\s]+/).map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
     
     let n = 0;
-    if (hoveredBlock.classList.contains('custom-grid')) n = hoveredBlock.querySelector('div[style*="display: flex"]').children.length;
-    else if (hoveredBlock.classList.contains('fr-table')) n = hoveredBlock.querySelector('table').querySelector('tr').children.length;
+    let gridInner = null;
+
+    if (hoveredBlock.classList.contains('plume-grid')) {
+        gridInner = hoveredBlock.querySelector(':scope > div');
+        if (gridInner) n = Array.from(gridInner.children).filter(c => c.tagName === 'DIV').length;
+    } else if (hoveredBlock.classList.contains('fr-table')) {
+        n = hoveredBlock.querySelector('table').querySelector('tr').children.length;
+    }
 
     if (parts.length !== n) {
         // Feedback erreur visuelle sur le champ texte
@@ -482,10 +516,13 @@ function applyGridWidths(partsStr) {
         return false;
     }
 
-    if (hoveredBlock.classList.contains('custom-grid')) {
-        const cols = Array.from(hoveredBlock.querySelector('div[style*="display: flex"]').children).filter(c => c.tagName === 'DIV');
+    if (hoveredBlock.classList.contains('plume-grid') && gridInner) {
+        const cols = Array.from(gridInner.children).filter(c => c.tagName === 'DIV');
         cols.forEach((col, i) => { 
-            col.style.flex = `${parts[i]} 1 0%`; 
+            // Séparation propre du flex pour forcer le navigateur
+            col.style.flexGrow = parts[i];
+            col.style.flexShrink = '1';
+            col.style.flexBasis = '0%';
             col.style.minWidth = "0"; 
             col.style.wordBreak = "break-word"; 
         });
@@ -521,10 +558,14 @@ gridLayoutSelect.addEventListener('change', function(e) {
 
     if (val === 'uniform') {
         let n = 0;
-        if (hoveredBlock.classList.contains('custom-grid')) n = hoveredBlock.querySelector('div[style*="display: flex"]').children.length;
-        else if (hoveredBlock.classList.contains('fr-table')) n = hoveredBlock.querySelector('table').querySelector('tr').children.length;
+        if (hoveredBlock.classList.contains('plume-grid')) {
+            const gridInner = hoveredBlock.querySelector(':scope > div');
+            if (gridInner) n = Array.from(gridInner.children).filter(c => c.tagName === 'DIV').length;
+        } else if (hoveredBlock.classList.contains('fr-table')) {
+            n = hoveredBlock.querySelector('table').querySelector('tr').children.length;
+        }
         
-        if(n>0) {
+        if(n > 0) {
             const part = 100/n;
             const partsArr = Array(n).fill(part);
             applyGridWidths(partsArr.join('/'));
@@ -549,6 +590,49 @@ gridLayoutInput.addEventListener('keypress', (e) => {
         }
     }
 });
+
+// =====================================================================
+// ACTIONS DES BOUTONS DE GRILLE (Colonnes et Alignements)
+// =====================================================================
+gridAlignTop.onclick = () => {
+    const grid = hoveredBlock.closest('.plume-grid');
+    if (grid) grid.firstElementChild.style.alignItems = 'flex-start';
+};
+
+gridAlignCenter.onclick = () => {
+    const grid = hoveredBlock.closest('.plume-grid');
+    if (grid) grid.firstElementChild.style.alignItems = 'center';
+};
+
+gridAlignBottom.onclick = () => {
+    const grid = hoveredBlock.closest('.plume-grid');
+    if (grid) grid.firstElementChild.style.alignItems = 'flex-end';
+};
+
+gridColorCol.onclick = () => {
+    // 1. On cherche d'abord si l'utilisateur est dans une colonne spécifique
+    let target = hoveredBlock.closest('.plume-grid > div > div');
+    
+    // 2. Sinon, s'il a cliqué sur la bordure de la grille, on cible la grille entière
+    if (!target && hoveredBlock.classList.contains('plume-grid')) {
+        target = hoveredBlock; 
+    }
+    
+    if (target) {
+        // Effet "Bascule" (Toggle)
+        if (target.style.backgroundColor) {
+            target.style.backgroundColor = '';
+            target.style.padding = target.classList.contains('plume-grid') ? '' : '5px';
+            target.style.borderRadius = '';
+        } else {
+            // Utilisation magique de la variable CSS du thème !
+            target.style.backgroundColor = 'var(--theme-bg)';
+            target.style.padding = '1.5rem';
+            target.style.borderRadius = '4px';
+        }
+    }
+};
+
 
 // =====================================================================
 // ACTION : ÉDITION DE LIEN
