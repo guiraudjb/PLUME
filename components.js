@@ -39,7 +39,7 @@ function insertImage() {
                 const compressedBase64 = canvas.toDataURL('image/webp', 0.75);
 
                 const imgHTML = `
-                    <div style="display: flex; justify-content: center; margin: 1.5rem 0;" contenteditable="false">
+                    <div class="plume-image" style="display: flex; justify-content: center; margin: 1.5rem 0;" contenteditable="false">
                         <img src="${compressedBase64}" alt="Image d'illustration" style="max-width: 100%; height: auto; object-fit: contain;">
                     </div>
                 `;
@@ -55,7 +55,7 @@ function insertImage() {
 
 function insertDivider() {
     const dividerHTML = `
-        <hr style="border: none; border-top: 2px solid var(--theme-sun); margin: 2rem 0;">
+        <hr class="plume-divider" style="border: none; border-top: 2px solid var(--theme-sun); margin: 2rem 0;">
     `;
     insertHTML(dividerHTML);
 }
@@ -189,7 +189,7 @@ function insertGrid(n) {
     }
     
     const gridHTML = `
-        <div class="custom-grid" contenteditable="false" style="margin: 1.5rem 0;">
+        <div class="plume-grid" contenteditable="false" style="margin: 1.5rem 0;">
             <div style="display: flex; gap: 1.5rem; width: 100%;" contenteditable="false">
                 ${colsHTML}
             </div>
@@ -399,10 +399,11 @@ function insertCitation() {
                 </blockquote>
             `;
             const contentHTML = photoOnRight ? textBlock + imgBlock : imgBlock + textBlock;
-            html = `<div style="display: flex; gap: 1.5rem; align-items: flex-start; margin: 2rem 0 2rem 1rem;" contenteditable="false">${contentHTML}</div>`;
+            html = `<div class="plume-citation" style="display: flex; gap: 1.5rem; align-items: flex-start; margin: 2rem 0 2rem 1rem;" contenteditable="false">${contentHTML}</div>`;
+            
         } else {
             html = `
-                <div style="margin: 2rem 0 2rem 1rem;" contenteditable="false">
+                <div class="plume-citation" style="margin: 2rem 0 2rem 1rem;" contenteditable="false">
                     <blockquote style="margin: 0; padding-left: 1.5rem; border-left: 4px solid var(--theme-sun);" contenteditable="true">
                         <p style="font-size: 1.3rem; font-style: italic; font-weight: 700; color: #1e1e1e; margin-bottom: 0.75rem; line-height: 1.4;">
                             « Saisissez la déclaration ou l'extrait de discours ici. »
@@ -459,8 +460,9 @@ function insertCitation() {
 }
 
 function insertChiffreCle() {
+    // AJOUT DE LA CLASSE 'plume-chiffre' SUR LA DIV PRINCIPALE
     insertHTML(`
-        <div style="display: flex; align-items: center; gap: 1.5rem; margin: 2rem 0; padding: 1.5rem; background-color: var(--theme-bg); border-radius: 4px; border-left: 4px solid var(--theme-sun);" contenteditable="false">
+        <div class="plume-chiffre" style="display: flex; align-items: center; gap: 1.5rem; margin: 2rem 0; padding: 1.5rem; background-color: var(--theme-bg); border-radius: 4px; border-left: 4px solid var(--theme-sun);" contenteditable="false">
             <div style="font-size: 3.5rem; font-weight: 800; color: var(--theme-sun); line-height: 1; min-width: max-content; outline: none;" contenteditable="true">
                 +42%
             </div>

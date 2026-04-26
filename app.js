@@ -174,7 +174,9 @@ async function saveJSON() {
         
         // On sauvegarde le HTML purgé de ce clone
         state.pages.push({
-            content: editor.innerHTML,
+            
+            //content: editor.innerHTML,
+            content: sanitizePlumeHTML(editor.innerHTML),
             isLandscape: page.classList.contains('landscape')
         });
     });
@@ -989,7 +991,8 @@ function saveDraftToLocal() {
         });
         
         state.pages.push({
-            content: editor.innerHTML,
+            //content: editor.innerHTML,
+            content: sanitizePlumeHTML(editor.innerHTML),
             isLandscape: page.classList.contains('landscape')
         });
     });
@@ -1161,4 +1164,62 @@ function plumeModal({
             if (e.key === 'Escape') overlay.querySelector('#modal-cancel').click();
         });
     });
+}
+
+
+// =====================================================================
+// MODULE DE NETTOYAGE HTML (Sanitizer)
+// =====================================================================
+
+/**
+ * SANITIZER ROBUSTE - VERSION DSFR INTEGRALE
+ * Nettoie les scories de Word tout en préservant 100% des composants PLUME/DSFR.
+ */
+function sanitizePlumeHTML(rawHtml) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = rawHtml;
+
+    // 1. DÉFINITION DU "COMPOSANT SACRÉ"
+    // On protège tout ce qui a une classe DSFR ou des métadonnées PLUME
+// 1. DÉFINITION DU "COMPOSANT SACRÉ" (Version Corrigée)
+    const isProtected = (el) => {
+        // On ajoute la détection des classes commençant par 'plume-'
+        const hasProtectedClass = Array.from(el.classList).some(cls => 
+            cls.startsWith('fr-') || cls.startsWith('plume-')
+        );
+        
+        const hasDataAttr = el.getAttributeNames().some(attr => attr.startsWith('data-'));
+        
+        // On met à jour le sélecteur .closest pour inclure plume-
+        const isInsideComponent = el.closest('[class*="fr-"], [class*="plume-"], [data-map-config], [data-chart-config]');
+        
+        return hasProtectedClass || hasDataAttr || isInsideComponent;
+    };
+    
+    // 2. NETTOYAGE SÉLECTIF DES STYLES
+    tempDiv.querySelectorAll('*[style]').forEach(el => {
+        if (isProtected(el)) return; // On ne touche pas aux composants DSFR
+
+        // On ne nettoie que les styles "parasites" sur le texte standard
+        const textAlign = el.style.textAlign; // On préserve l'alignement (choix utilisateur)
+        el.removeAttribute('style');
+        if (textAlign) el.style.textAlign = textAlign;
+    });
+
+    // 3. PURGE DES BALISES VIDES (AVEC PRÉCAUTION)
+    tempDiv.querySelectorAll('p, div, span, h1, h2, h3, h4, h5, h6').forEach(el => {
+        if (isProtected(el)) return; // Protection des structures DSFR vides (ex: conteneurs d'icônes)
+        
+        const content = el.innerHTML.trim();
+        if (content === '' || content === '<br>' || content === '&nbsp;') {
+            el.remove();
+        }
+    });
+
+    // 4. NORMALISATION SÉMANTIQUE
+    // On remplace les scories de mise en forme par du HTML propre
+    tempDiv.querySelectorAll('b').forEach(el => { el.outerHTML = `<strong>${el.innerHTML}</strong>`; });
+    tempDiv.querySelectorAll('i').forEach(el => { el.outerHTML = `<em>${el.innerHTML}</em>`; });
+
+    return tempDiv.innerHTML;
 }
