@@ -86,7 +86,32 @@
                 </optgroup>
             </select>
         </div>
-        
+        <div class="toolbar-group" role="group" aria-label="Marges colorées" style="display: flex; flex-direction: column; gap: 0.2rem;">
+            <span style="font-size: 0.65rem; font-weight: 700; color: #999; text-transform: uppercase;">Marges colorées</span>
+            
+            <div style="display: grid; grid-template-columns: auto auto; column-gap: 1rem; row-gap: 0.2rem;">
+                <div class="fr-checkbox-group fr-checkbox-group--sm" style="margin: 0;">
+                    <input type="checkbox" id="cfg-margin-top" onchange="updateColoredMargins()">
+                    <label class="fr-label" for="cfg-margin-top" title="Marge Supérieure">Haut</label>
+                </div>
+                <div class="fr-checkbox-group fr-checkbox-group--sm" style="margin: 0;">
+                    <input type="checkbox" id="cfg-margin-bottom" onchange="updateColoredMargins()">
+                    <label class="fr-label" for="cfg-margin-bottom" title="Marge Inférieure">Bas</label>
+                </div>
+                <div class="fr-checkbox-group fr-checkbox-group--sm" style="margin: 0;">
+                    <input type="checkbox" id="cfg-margin-left" onchange="updateColoredMargins()">
+                    <label class="fr-label" for="cfg-margin-left" title="Marge Gauche">Gauche</label>
+                </div>
+                <div class="fr-checkbox-group fr-checkbox-group--sm" style="margin: 0;">
+                    <input type="checkbox" id="cfg-margin-right" onchange="updateColoredMargins()">
+                    <label class="fr-label" for="cfg-margin-right" title="Marge Droite">Droite</label>
+                </div>
+            </div>
+            <div style="margin-top: 0.5rem;">
+                <label class="fr-sr-only" for="cfg-margin-text">Texte de la marge gauche</label>
+                <input type="text" id="cfg-margin-text" class="fr-input" placeholder="Ex: NEWSLETTER" value="NEWSLETTER" oninput="updateMarginText()" style="padding: 0.25rem 0.5rem; min-height: 28px; font-size: 0.75rem; width: 100%;">
+            </div>
+        </div>        
         <div class="toolbar-group" role="group" aria-label="Métadonnées du document">
             <label for="cfg-bureau" class="fr-sr-only">Nom du bureau</label>
             <input type="text" id="cfg-bureau" value="NOM DU BUREAU" oninput="syncMetadata()" class="fr-input" placeholder="Bureau" title="Nom du bureau" style="width:200px; margin-bottom: 0; padding: 0.25rem 0.5rem; min-height: 32px;">

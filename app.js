@@ -80,6 +80,22 @@ function applyPalette() {
     }
 }
 
+function updateColoredMargins() {
+    const positions = ['top', 'bottom', 'left', 'right'];
+    const pages = document.querySelectorAll('.page-a4');
+    
+    pages.forEach(page => {
+        positions.forEach(pos => {
+            const isChecked = document.getElementById(`cfg-margin-${pos}`).checked;
+            if (isChecked) {
+                page.classList.add(`has-margin-${pos}`);
+            } else {
+                page.classList.remove(`has-margin-${pos}`);
+            }
+        });
+    });
+}
+
 function format(cmd, val = null) {
     enforceFocus();
     document.execCommand(cmd, false, val);
@@ -139,6 +155,16 @@ function addNewPage() {
     newPage.id = `page-${pageNum}`;
     newPage.querySelector('.content-editable').innerHTML = "<p><br></p>";
     newPage.querySelector('.page-num-display').innerText = `Page ${pageNum}`;
+    // Application de l'état des 4 marges
+    const positions = ['top', 'bottom', 'left', 'right'];
+    positions.forEach(pos => {
+        if (document.getElementById(`cfg-margin-${pos}`).checked) {
+            newPage.classList.add(`has-margin-${pos}`);
+        } else {
+            newPage.classList.remove(`has-margin-${pos}`);
+        }
+    });
+    newPage.setAttribute('data-margin-text', document.getElementById('cfg-margin-text').value.toUpperCase());
     document.getElementById('pages-container').appendChild(newPage);
     syncMetadata();
 }
@@ -152,6 +178,13 @@ async function saveJSON() {
         titre: document.getElementById('cfg-titre').value,
         date: document.getElementById('cfg-date').value,
         footer: document.getElementById('cfg-footer').value,
+        marginText: document.getElementById('cfg-margin-text').value,
+        margins: {
+            top: document.getElementById('cfg-margin-top').checked,
+            bottom: document.getElementById('cfg-margin-bottom').checked,
+            left: document.getElementById('cfg-margin-left').checked,
+            right: document.getElementById('cfg-margin-right').checked
+        },
         logo: logoDataUrl,
         pages: []
     };
@@ -207,7 +240,17 @@ function restoreJSON(input) {
             if (state.titre) document.getElementById('cfg-titre').value = state.titre;
             if (state.date) document.getElementById('cfg-date').value = state.date;
             if (state.footer) document.getElementById('cfg-footer').value = state.footer;
-            
+            if (state.marginText !== undefined) {
+                    document.getElementById('cfg-margin-text').value = state.marginText;
+                    updateMarginText(); // On applique visuellement le changement
+            }
+            if (state.margins) {
+                if (state.margins.top !== undefined) document.getElementById('cfg-margin-top').checked = state.margins.top;
+                if (state.margins.bottom !== undefined) document.getElementById('cfg-margin-bottom').checked = state.margins.bottom;
+                if (state.margins.left !== undefined) document.getElementById('cfg-margin-left').checked = state.margins.left;
+                if (state.margins.right !== undefined) document.getElementById('cfg-margin-right').checked = state.margins.right;
+            }
+                        
             logoDataUrl = state.logo || "";
             applyPalette(); 
             
@@ -274,6 +317,8 @@ function restoreJSON(input) {
             }
             
             syncMetadata();
+            updateColoredMargins(); // Applique les bordures colorées aux nouvelles pages
+            updateMarginText();
             input.value = "";
             
             // --- LA MAGIE (Redessin dynamique) ---
@@ -693,7 +738,8 @@ window.onresize = scaleUI;
 window.onload = async () => { 
     scaleUI(); 
     applyPalette(); 
-    syncMetadata(); 
+    syncMetadata();
+    updateMarginText();
 
     const draft = localStorage.getItem('plume_draft_state');
     const timestamp = localStorage.getItem('plume_draft_timestamp');
@@ -924,6 +970,17 @@ document.addEventListener('click', function(e) {
     }
 });
 
+function updateMarginText() {
+    // On récupère le texte et on le met en majuscules pour garantir l'homogénéité
+    const text = document.getElementById('cfg-margin-text').value.toUpperCase();
+    const pages = document.querySelectorAll('.page-a4');
+    
+    pages.forEach(page => {
+        // On injecte le texte dans l'attribut HTML de chaque page
+        page.setAttribute('data-margin-text', text);
+    });
+}
+
 async function saveAsSafe(content, suggestedName, mimeType, extension) {
     try {
         if (window.showSaveFilePicker) {
@@ -976,6 +1033,13 @@ function saveDraftToLocal() {
         titre: document.getElementById('cfg-titre').value,
         date: document.getElementById('cfg-date').value,
         footer: document.getElementById('cfg-footer').value,
+        marginText: document.getElementById('cfg-margin-text').value,
+        margins: {
+            top: document.getElementById('cfg-margin-top').checked,
+            bottom: document.getElementById('cfg-margin-bottom').checked,
+            left: document.getElementById('cfg-margin-left').checked,
+            right: document.getElementById('cfg-margin-right').checked
+        },
         logo: logoDataUrl,
         pages: []
     };
@@ -1015,7 +1079,16 @@ async function restoreDraftFromLocal(jsonString) {
         if (state.titre) document.getElementById('cfg-titre').value = state.titre;
         if (state.date) document.getElementById('cfg-date').value = state.date;
         if (state.footer) document.getElementById('cfg-footer').value = state.footer;
-        
+        if (state.marginText !== undefined) {
+            document.getElementById('cfg-margin-text').value = state.marginText;
+            updateMarginText(); // On applique visuellement le changement
+        }
+        if (state.margins) {
+            if (state.margins.top !== undefined) document.getElementById('cfg-margin-top').checked = state.margins.top;
+            if (state.margins.bottom !== undefined) document.getElementById('cfg-margin-bottom').checked = state.margins.bottom;
+            if (state.margins.left !== undefined) document.getElementById('cfg-margin-left').checked = state.margins.left;
+            if (state.margins.right !== undefined) document.getElementById('cfg-margin-right').checked = state.margins.right;
+        }
         logoDataUrl = state.logo || "";
         applyPalette(); 
         
@@ -1082,6 +1155,8 @@ async function restoreDraftFromLocal(jsonString) {
         }
         
         syncMetadata();
+        updateColoredMargins(); // Applique les bordures colorées aux nouvelles pages
+            updateMarginText();
         
         // Reconstruction asynchrone des médias (Cartes et Graphiques)
         setTimeout(async () => {

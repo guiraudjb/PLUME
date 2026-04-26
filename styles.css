@@ -450,10 +450,60 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
     border-top: 1px solid var(--grey-900);
 }
 
+.page-a4.has-margin-top { border-top: 24px solid var(--theme-sun); }
+.page-a4.has-margin-bottom { border-bottom: 24px solid var(--theme-sun); }
+.page-a4.has-margin-left { border-left: 36px solid var(--theme-sun); }
+.page-a4.has-margin-right { border-right: 24px solid var(--theme-sun); }
+/* Compensation des marges colorées pour ne pas décaler le texte */
+.page-a4.has-margin-top .safe-area { padding-top: calc(12mm - 24px); }
+.page-a4.has-margin-bottom .safe-area { padding-bottom: calc(12mm - 24px); }
+.page-a4.has-margin-left .safe-area { padding-left: calc(12mm - 36px); }
+.page-a4.has-margin-right .safe-area { padding-right: calc(12mm - 24px); }
 
-
+/* Ajout du texte vertical dans la marge de gauche */
+.page-a4.has-margin-left::after {
+    content: attr(data-margin-text); 
+    
+    position: absolute;
+    
+    /* 1. On se place au milieu exact de la NOUVELLE bordure (la moitié de 36px) */
+    left: -18px; 
+    top: 50%;
+    
+    /* 2. On centre le texte sur ce point, puis on le pivote à 90 degrés */
+    transform: translate(-50%, -50%) rotate(-90deg);
+    
+    /* 3. Empêche le mot de s'écraser et de revenir à la ligne */
+    white-space: nowrap; 
+    
+    /* Styles typographiques mis à jour pour être plus imposants */
+    color: #ffffff;
+    font-size: 1.2rem;       /* <-- Texte plus gros (ex: 1.2rem ou 1.5rem) */
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8rem;  /* <-- Espacement plus grand (ex: 0.8rem ou 1rem) */
+    
+    /* Sécurité */
+    pointer-events: none;
+    z-index: 10;
+}
+   
 /* On s'assure que les toasts n'apparaissent pas à l'impression */
 @media print {
+    .page-a4.has-margin-top { border-top: 24px solid var(--theme-sun) !important; }
+    .page-a4.has-margin-bottom { border-bottom: 24px solid var(--theme-sun) !important; }
+    .page-a4.has-margin-left { border-left: 36px solid var(--theme-sun) !important; }
+    .page-a4.has-margin-right { border-right: 24px solid var(--theme-sun) !important; }
+    
+    .page-a4.has-margin-left::after {
+        left: -18px !important;
+        transform: translate(-50%, -50%) rotate(-90deg) !important;
+        /* On s'assure que l'imprimante n'efface pas le texte blanc */
+        color: #ffffff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    
 #plume-floating-toolbar,
     .chart-modal-overlay,
     #plume-global-loader,
