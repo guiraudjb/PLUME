@@ -25,7 +25,7 @@
                             </div>
                         </div>
                         <div class="fr-header__service">
-                            <a href="/" title="Accueil - PLUME - DGFiP">
+                            <a href="/PLUME" title="Accueil - PLUME - DGFiP">
                                 <p class="fr-header__service-title">
                                     PLUME <span class="fr-badge fr-badge--sm fr-badge--green-emeraude">BÊTA</span>
                                 </p>
@@ -172,38 +172,38 @@
             <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-link" onclick="insertLink()" title="Insérer un lien">Lien</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-file-text-line" onmousedown="event.preventDefault()" onclick="insertFootnote()" title="Insérer une note de bas de page">Note</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-image-add-line" onclick="insertImage()">Image</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-separator" onclick="insertDivider()">Ligne</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-file-add-line" onclick="insertPageBreak()">Saut de page</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-image-add-line" onclick="insertImage()" title="Insérer une image">Image</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-separator" onclick="insertDivider()" title="Insérer une ligne de séparation">Ligne</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-file-add-line" onclick="insertPageBreak()" title="Insérer un saut de page">Saut de page</button></li>
             </ul>
         </div>
         
         <div class="toolbar-group" role="group" aria-label="Colonnes">
             <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-layout-column-line" onclick="insertGrid(2)">2 Cols</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-layout-grid-line" onclick="insertGrid(3)">3 Cols</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-layout-column-line" onclick="insertGrid(2)" title="Insérer 2 colonnes">2 Cols<span class="fr-sr-only">onnes</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-layout-grid-line" onclick="insertGrid(3)" title="Insérer 3 colonnes">3 Cols<span class="fr-sr-only">onnes</span></button></li>
             </ul>
         </div>
         
         <div class="toolbar-group" role="group" aria-label="Modèles DSFR">
             <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-list-check" onclick="insertSommaire()">Sommaire</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-france-line" onclick="insertCarte()">Carte</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-quote-line" onclick="insertCallout()">Exergue</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-chat-quote-line" onclick="insertCitation()">Citation</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-hashtag" onclick="insertChiffreCle()">Chiffre Clé</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-table-line" onclick="insertTable()">Tableau</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-list-check" onclick="insertSommaire()" title="Insérer un sommaire">Sommaire</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-france-line" onclick="insertCarte()" title="Insérer une carte interactive">Carte</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-quote-line" onclick="insertCallout()" title="Insérer un encart de mise en exergue">Exergue</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-chat-quote-line" onclick="insertCitation()" title="Insérer une citation">Citation</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-hashtag" onclick="insertChiffreCle()" title="Insérer un chiffre clé">Chiffre Clé</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-table-line" onclick="insertTable()" title="Insérer un tableau">Tableau</button></li>
             </ul>
         </div>
         
         <div class="toolbar-group" role="group" aria-label="Graphiques interactifs" style="border-right: none;">
             <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-bar-chart-line" onclick="insertChart('bar')">Barres</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-bar-chart-horizontal-line" onclick="insertChart('horizontalBar')">Horizontales</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-donut-chart-line" onclick="insertChart('doughnut')">Anneau</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-pie-chart-2-line" onclick="insertChart('polarArea')">Polaire</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-radar-line" onclick="insertChart('radar')">Radar</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-line-chart-line" onclick="insertChart('line')">Courbe</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-bar-chart-line" onclick="insertChart('bar')" title="Insérer un graphique en barres">Barres</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-bar-chart-horizontal-line" onclick="insertChart('horizontalBar')" title="Insérer un graphique en barres horizontales">Horizontales</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-donut-chart-line" onclick="insertChart('doughnut')" title="Insérer un graphique en anneau">Anneau</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-pie-chart-2-line" onclick="insertChart('polarArea')" title="Insérer un graphique en zone polaire">Polaire</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-radar-line" onclick="insertChart('radar')" title="Insérer un graphique en radar">Radar</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-line-chart-line" onclick="insertChart('line')" title="Insérer un graphique en courbe">Courbe</button></li>
             </ul>
         </div>
         
