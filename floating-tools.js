@@ -97,9 +97,32 @@ imgResizeSlider.type = 'range'; imgResizeSlider.min = '15'; imgResizeSlider.max 
 imgResizeSlider.title = "Ajuster la taille";
 imgResizeSlider.style.cssText = "width: 70px; margin: 0 0.5rem; cursor: pointer;";
 
+// --- NOUVEAU : Outil de Border Radius ---
+const imgRadiusBtn = document.createElement('button');
+// Icône représentant un carré aux bords arrondis asymétriques
+imgRadiusBtn.innerHTML = '<span style="border-radius: 8px 2px 8px 2px; border: 2px solid currentColor; width: 14px; height: 14px; display: inline-block; box-sizing: border-box;"></span>';
+imgRadiusBtn.title = "Modifier l'arrondi des 4 coins";
+imgRadiusBtn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--theme-sun);`;
+
+const imgRadiusInputWrapper = document.createElement('div');
+imgRadiusInputWrapper.style.cssText = "display: none; align-items: center; gap: 0.3rem;";
+
+const imgRadiusInput = document.createElement('input');
+imgRadiusInput.type = 'text';
+imgRadiusInput.placeholder = "ex: 10 20 10 20";
+imgRadiusInput.title = "Haut-Gauche | Haut-Droit | Bas-Droit | Bas-Gauche (en px)";
+imgRadiusInput.style.cssText = `width: 100px; padding: 0.2rem 0.5rem; border: 1px solid var(--theme-sun); border-radius: 4px; font-family: inherit; font-size: 0.85rem; outline: none;`;
+
+const imgRadiusSubmit = document.createElement('button');
+imgRadiusSubmit.innerHTML = '✓';
+imgRadiusSubmit.title = "Appliquer les arrondis";
+imgRadiusSubmit.style.cssText = `background-color: var(--theme-sun); color: white; border: none; border-radius: 4px; width: 26px; height: 26px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: bold;`;
+
+imgRadiusInputWrapper.append(imgRadiusInput, imgRadiusSubmit);
+
 const imgToolsContainer = document.createElement('div');
 imgToolsContainer.style.cssText = "display: none; align-items: center; gap: 0.3rem; border-right: 1px solid var(--grey-900); padding-right: 0.5rem; margin-right: 0.2rem;";
-imgToolsContainer.append(imgAlignLeft, imgAlignCenter, imgAlignRight, imgCropBtn, imgResizeSlider);
+imgToolsContainer.append(imgAlignLeft, imgAlignCenter, imgAlignRight, imgCropBtn, imgRadiusBtn, imgRadiusInputWrapper, imgResizeSlider);
 
 // Outils de Grille (Colonnes)
 function createGridBtn(iconHtml, title) {
@@ -227,7 +250,8 @@ function hideFloatToolbar() {
     }
     activeLinkNode = null;
     floatToolbar.style.display = 'none';
-    
+    imgRadiusInputWrapper.style.display = 'none';
+    imgRadiusBtn.style.backgroundColor = '#fff';
     // Réinitialiser les états spéciaux
     resetTrashBtn();
     resetResizeMenu();
@@ -347,6 +371,50 @@ imgCropBtn.onclick = () => {
         imgCropBtn.style.backgroundColor = '#e3e3fd'; 
     }
 };
+
+// =====================================================================
+// ACTION : COINS ARRONDIS (Border Radius Individuel)
+// =====================================================================
+
+// Afficher/Masquer le champ de saisie
+imgRadiusBtn.onclick = () => {
+    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
+    const isHidden = imgRadiusInputWrapper.style.display === 'none';
+    
+    imgRadiusInputWrapper.style.display = isHidden ? 'flex' : 'none';
+    imgRadiusBtn.style.backgroundColor = isHidden ? '#e3e3fd' : '#fff';
+    
+    if (isHidden) {
+        // Pré-remplit avec les valeurs actuelles pour faciliter la modification
+        const currentRadius = hoveredBlock.style.borderRadius;
+        imgRadiusInput.value = currentRadius ? currentRadius.replace(/px/g, '').trim() : '';
+        imgRadiusInput.focus();
+    }
+};
+
+// Fonction d'application du style
+const applyImgRadius = () => {
+    if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
+    const val = imgRadiusInput.value.trim();
+    
+    if (!val) {
+        hoveredBlock.style.borderRadius = ''; // Réinitialise si vide
+    } else {
+        // Transforme "10 20 0 20" en "10px 20px 0px 20px" automatiquement
+        const parts = val.split(/[\s,;-]+/).filter(p => p !== '');
+        const formattedRadius = parts.map(p => isNaN(p) ? p : `${p}px`).join(' ');
+        hoveredBlock.style.borderRadius = formattedRadius;
+    }
+    
+    // Ferme le mini-menu après application
+    imgRadiusInputWrapper.style.display = 'none';
+    imgRadiusBtn.style.backgroundColor = '#fff';
+};
+
+imgRadiusSubmit.onclick = applyImgRadius;
+imgRadiusInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') applyImgRadius();
+});
 
 // 4. ACTIONS DES BOUTONS (Texte & Structure)
 textStyleSelect.addEventListener('change', function(e) {
