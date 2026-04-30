@@ -317,7 +317,7 @@ function insertSommaire() {
     const sommaireHTML = `
         <nav class="fr-summary" role="navigation" contenteditable="false">
             <p class="fr-summary__title" contenteditable="true">Au sommaire de ce numéro</p>
-            <ol>
+            <ol contenteditable="true">
                 <li>Titre du premier article</li>
                 <li>Titre du deuxième article</li>
                 <li>Titre du troisième article</li>
