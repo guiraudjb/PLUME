@@ -97,28 +97,54 @@ imgResizeSlider.type = 'range'; imgResizeSlider.min = '15'; imgResizeSlider.max 
 imgResizeSlider.title = "Ajuster la taille";
 imgResizeSlider.style.cssText = "width: 70px; margin: 0 0.5rem; cursor: pointer;";
 
-// --- NOUVEAU : Outil de Border Radius ---
+// =====================================================================
+// ACTION : COINS ARRONDIS (Border Radius Visuel et Intuitif)
+// =====================================================================
+
 const imgRadiusBtn = document.createElement('button');
-// Icône représentant un carré aux bords arrondis asymétriques
 imgRadiusBtn.innerHTML = '<span style="border-radius: 8px 2px 8px 2px; border: 2px solid currentColor; width: 14px; height: 14px; display: inline-block; box-sizing: border-box;"></span>';
-imgRadiusBtn.title = "Modifier l'arrondi des 4 coins";
+imgRadiusBtn.title = "Modifier l'arrondi des coins";
 imgRadiusBtn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--theme-sun);`;
 
+// Nouveau conteneur avec un fond distinct pour bien regrouper l'outil
 const imgRadiusInputWrapper = document.createElement('div');
-imgRadiusInputWrapper.style.cssText = "display: none; align-items: center; gap: 0.3rem;";
+imgRadiusInputWrapper.style.cssText = "display: none; align-items: center; gap: 0.5rem; background: var(--theme-bg); padding: 0.3rem; border-radius: 4px; border: 1px solid var(--theme-sun);";
 
-const imgRadiusInput = document.createElement('input');
-imgRadiusInput.type = 'text';
-imgRadiusInput.placeholder = "ex: 10 20 10 20";
-imgRadiusInput.title = "Haut-Gauche | Haut-Droit | Bas-Droit | Bas-Gauche (en px)";
-imgRadiusInput.style.cssText = `width: 100px; padding: 0.2rem 0.5rem; border: 1px solid var(--theme-sun); border-radius: 4px; font-family: inherit; font-size: 0.85rem; outline: none;`;
+// Grille 2x2 pour représenter visuellement les 4 coins
+const radiusGrid = document.createElement('div');
+radiusGrid.style.cssText = "display: grid; grid-template-columns: 1fr 1fr; gap: 0.2rem;";
+
+function createCornerInput(title, placeholder) {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.placeholder = placeholder;
+    input.title = title;
+    input.style.cssText = `width: 45px; padding: 0.1rem; border: 1px solid var(--grey-900); background: #fff; font-family: inherit; font-size: 0.8rem; outline: none; text-align: center;`;
+    return input;
+}
+
+const inputTL = createCornerInput("Haut Gauche (px)", "0");
+inputTL.style.borderTopLeftRadius = "6px"; 
+
+const inputTR = createCornerInput("Haut Droit (px)", "0");
+inputTR.style.borderTopRightRadius = "6px";
+
+const inputBL = createCornerInput("Bas Gauche (px)", "0");
+inputBL.style.borderBottomLeftRadius = "6px";
+
+const inputBR = createCornerInput("Bas Droit (px)", "0");
+inputBR.style.borderBottomRightRadius = "6px";
+
+// Attention à l'ordre d'insertion pour respecter la grille 2x2 (HautG, HautD, BasG, BasD)
+radiusGrid.append(inputTL, inputTR, inputBL, inputBR);
 
 const imgRadiusSubmit = document.createElement('button');
 imgRadiusSubmit.innerHTML = '✓';
 imgRadiusSubmit.title = "Appliquer les arrondis";
-imgRadiusSubmit.style.cssText = `background-color: var(--theme-sun); color: white; border: none; border-radius: 4px; width: 26px; height: 26px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: bold;`;
+imgRadiusSubmit.style.cssText = `background-color: var(--theme-sun); color: white; border: none; border-radius: 4px; width: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: bold; align-self: stretch;`;
 
-imgRadiusInputWrapper.append(imgRadiusInput, imgRadiusSubmit);
+imgRadiusInputWrapper.append(radiusGrid, imgRadiusSubmit);
 
 const imgToolsContainer = document.createElement('div');
 imgToolsContainer.style.cssText = "display: none; align-items: center; gap: 0.3rem; border-right: 1px solid var(--grey-900); padding-right: 0.5rem; margin-right: 0.2rem;";
@@ -376,7 +402,9 @@ imgCropBtn.onclick = () => {
 // ACTION : COINS ARRONDIS (Border Radius Individuel)
 // =====================================================================
 
-// Afficher/Masquer le champ de saisie
+// --- LOGIQUE D'INTERACTION ---
+
+// Afficher/Masquer l'outil et pré-remplir les champs
 imgRadiusBtn.onclick = () => {
     if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
     const isHidden = imgRadiusInputWrapper.style.display === 'none';
@@ -385,35 +413,62 @@ imgRadiusBtn.onclick = () => {
     imgRadiusBtn.style.backgroundColor = isHidden ? '#e3e3fd' : '#fff';
     
     if (isHidden) {
-        // Pré-remplit avec les valeurs actuelles pour faciliter la modification
         const currentRadius = hoveredBlock.style.borderRadius;
-        imgRadiusInput.value = currentRadius ? currentRadius.replace(/px/g, '').trim() : '';
-        imgRadiusInput.focus();
+        let tl = '', tr = '', br = '', bl = '';
+        
+        // Décryptage intelligent de la propriété CSS existante
+        if (currentRadius) {
+            const parts = currentRadius.replace(/px/g, '').split(' ').filter(p => p !== '');
+            if (parts.length === 1) {
+                tl = tr = br = bl = parts[0];
+            } else if (parts.length === 2) {
+                tl = br = parts[0];
+                tr = bl = parts[1];
+            } else if (parts.length === 3) {
+                tl = parts[0];
+                tr = bl = parts[1];
+                br = parts[2];
+            } else if (parts.length === 4) {
+                tl = parts[0]; tr = parts[1]; br = parts[2]; bl = parts[3];
+            }
+        }
+        
+        inputTL.value = tl;
+        inputTR.value = tr;
+        inputBR.value = br;
+        inputBL.value = bl;
+        
+        inputTL.focus();
     }
 };
 
-// Fonction d'application du style
+// Application du style
 const applyImgRadius = () => {
     if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
-    const val = imgRadiusInput.value.trim();
     
-    if (!val) {
-        hoveredBlock.style.borderRadius = ''; // Réinitialise si vide
+    const vTL = inputTL.value.trim() || '0';
+    const vTR = inputTR.value.trim() || '0';
+    const vBL = inputBL.value.trim() || '0';
+    const vBR = inputBR.value.trim() || '0';
+    
+    if (vTL === '0' && vTR === '0' && vBL === '0' && vBR === '0') {
+        hoveredBlock.style.borderRadius = ''; // Réinitialisation propre
     } else {
-        // Transforme "10 20 0 20" en "10px 20px 0px 20px" automatiquement
-        const parts = val.split(/[\s,;-]+/).filter(p => p !== '');
-        const formattedRadius = parts.map(p => isNaN(p) ? p : `${p}px`).join(' ');
-        hoveredBlock.style.borderRadius = formattedRadius;
+        // Application stricte de l'ordre CSS : Top-Left, Top-Right, Bottom-Right, Bottom-Left
+        hoveredBlock.style.borderRadius = `${vTL}px ${vTR}px ${vBR}px ${vBL}px`;
     }
     
-    // Ferme le mini-menu après application
     imgRadiusInputWrapper.style.display = 'none';
     imgRadiusBtn.style.backgroundColor = '#fff';
 };
 
 imgRadiusSubmit.onclick = applyImgRadius;
-imgRadiusInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') applyImgRadius();
+
+// Validation rapide via la touche Entrée sur n'importe quel champ
+[inputTL, inputTR, inputBL, inputBR].forEach(input => {
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') applyImgRadius();
+    });
 });
 
 // 4. ACTIONS DES BOUTONS (Texte & Structure)
