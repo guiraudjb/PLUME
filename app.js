@@ -79,6 +79,7 @@ function applyPalette() {
         refreshAllMaps();
     }
     if (typeof refreshAllTimelines === 'function') refreshAllTimelines();
+    if (typeof refreshAllQRCodes === 'function') refreshAllQRCodes();
 }
 
 function updateColoredMargins() {
