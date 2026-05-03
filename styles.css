@@ -252,6 +252,116 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
 .chart-modal-actions { margin-top: auto; padding-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end; }
 
 
+
+/* ===================================================================== */
+/* COMPOSANTS : FRISE CHRONOLOGIQUE (TIMELINE DATA-DRIVEN)               */
+/* ===================================================================== */
+
+.plume-timeline-container {
+    margin: 2rem 0;
+    text-align: center;
+    page-break-inside: avoid;
+}
+
+/* --- MODE HORIZONTAL --- */
+.plume-timeline-horizontal {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    position: relative;
+    font-family: 'Marianne', Arial, sans-serif;
+}
+
+.plume-timeline-horizontal::before {
+    content: '';
+    position: absolute;
+    top: 14px; /* Alignement avec le centre des puces */
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--grey-900);
+    z-index: 0;
+}
+
+.plume-timeline-horizontal li {
+    position: relative;
+    flex: 1; /* Répartition égale de l'espace */
+    text-align: center;
+    padding: 2.5rem 0.5rem 0; /* Espace pour la puce au-dessus */
+    z-index: 1;
+}
+
+.plume-timeline-horizontal li::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 14px;
+    height: 14px;
+    background-color: var(--theme-sun); /* La couleur dynamique sera injectée en JS, ceci est un fallback */
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-sizing: border-box;
+}
+
+/* --- MODE VERTICAL --- */
+.plume-timeline-vertical {
+    list-style: none;
+    margin: 0 0 0 1rem; 
+    padding: 0;
+    border-left: 2px solid var(--grey-900);
+    font-family: 'Marianne', Arial, sans-serif;
+    text-align: left;
+}
+
+.plume-timeline-vertical li {
+    position: relative;
+    margin: 0 0 1.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.plume-timeline-vertical li:last-child {
+    margin-bottom: 0;
+}
+
+.plume-timeline-vertical li::before {
+    content: '';
+    position: absolute;
+    left: calc(-7px - 1px); /* Centrage sur la bordure de 2px */
+    top: 0.25rem;
+    width: 14px;
+    height: 14px;
+    background-color: var(--theme-sun); /* Fallback */
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-sizing: border-box;
+}
+
+/* Typographie commune aux deux modes */
+.plume-timeline-title {
+    display: block;
+    color: var(--theme-sun);
+    font-size: 1rem;
+    font-weight: 800;
+    margin-bottom: 0.25rem;
+}
+.plume-timeline-event {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #1e1e1e;
+    margin-bottom: 0.25rem;
+}
+.plume-timeline-desc {
+    font-size: 0.85rem;
+    color: #666;
+    line-height: 1.4;
+}
+
+
 /* ===================================================================== */
 /* CONFIGURATION D'IMPRESSION ET D'EXPORT PDF                            */
 /* ===================================================================== */

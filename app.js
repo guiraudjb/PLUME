@@ -78,6 +78,7 @@ function applyPalette() {
     if (typeof refreshAllMaps === 'function') {
         refreshAllMaps();
     }
+    if (typeof refreshAllTimelines === 'function') refreshAllTimelines();
 }
 
 function updateColoredMargins() {
@@ -331,6 +332,7 @@ function restoreJSON(input) {
                     console.log("Reconstruction des médias vectoriels en cours...");
                     await refreshAllMaps();
                 }
+                if (typeof refreshAllTimelines === 'function') await refreshAllTimelines();
             }, 100);
             
         } catch (err) {
@@ -1164,6 +1166,7 @@ async function restoreDraftFromLocal(jsonString) {
             if (typeof refreshAllMaps === 'function') {
                 await refreshAllMaps();
             }
+            if (typeof refreshAllTimelines === 'function') await refreshAllTimelines();
         }, 100);
         
         if (typeof showToast !== 'undefined') {
