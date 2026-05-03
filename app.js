@@ -1301,3 +1301,99 @@ function sanitizePlumeHTML(rawHtml) {
 
     return tempDiv.innerHTML;
 }
+
+// =====================================================================
+// MODALE À PROPOS ET MANIFESTE
+// =====================================================================
+
+function openAboutModal() {
+    const overlay = document.createElement('div');
+    overlay.className = 'chart-modal-overlay';
+    // On force un z-index très élevé pour passer au-dessus de tout le reste
+    overlay.style.zIndex = '1000000'; 
+
+    overlay.innerHTML = `
+        <div class="chart-modal" style="width: 800px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+            
+            <div style="padding: 1.5rem; background: var(--grey-975); border-bottom: 1px solid var(--grey-900); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin:0; color:var(--theme-sun); font-size:1.2rem;">
+                    <span class="fr-icon-information-fill"></span> À propos de PLUME
+                </h3>
+                <button class="fr-btn fr-btn--close fr-btn--tertiary-no-outline" id="btn-about-close" title="Fermer la fenêtre">
+                    Fermer
+                </button>
+            </div>
+            
+            <div style="padding: 2rem; background: #fff; overflow-y: auto; line-height: 1.6; color: #3a3a3a; font-family: 'Marianne', Arial, sans-serif;">
+                
+                <h4 style="color: var(--theme-sun); margin-top: 0;">Objet de l'application</h4>
+                <p>
+                    <strong>PLUME (Plateforme de Lettres Unifiées pour les Ministères et l'État)</strong> est un éditeur de documents WYSIWYG innovant. Il permet de rédiger des rapports, notes et lettres d'information respectant nativement le Système de Design de l'État (DSFR). Les documents générés sont structurés autour du format A4, interactifs, sécurisés et exportables en haute définition.
+                </p>
+                
+                <hr style="border: none; border-top: 1px solid var(--grey-900); margin: 2rem 0;">
+                
+                <h4 style="color: var(--theme-sun);">Formats de données attendus (Fichiers .csv)</h4>
+                <p>Pour générer des médias dynamiques, PLUME utilise des fichiers CSV standardisés (séparateur virgule ou point-virgule). Voici les structures requises pour que le moteur interprète correctement vos données :</p>
+                
+                <div class="fr-table fr-table--bordered" style="margin-top: 1.5rem; width: 100%;">
+                    <table style="width: 100%; text-align: left; border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                <th scope="col" style="padding: 0.75rem; background-color: var(--grey-975); border: 1px solid var(--grey-900); font-weight: 700;">Outil</th>
+                                <th scope="col" style="padding: 0.75rem; background-color: var(--grey-975); border: 1px solid var(--grey-900); font-weight: 700;">Colonne 1</th>
+                                <th scope="col" style="padding: 0.75rem; background-color: var(--grey-975); border: 1px solid var(--grey-900); font-weight: 700;">Colonne 2</th>
+                                <th scope="col" style="padding: 0.75rem; background-color: var(--grey-975); border: 1px solid var(--grey-900); font-weight: 700;">Colonne 3+ (Optionnel)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>📊 Graphiques</strong></td>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Libellés</strong> (Axe X)</td>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Valeurs</strong> (Série 1)</td>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Valeurs additionnelles</strong> (Séries 2, 3...)</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>🗺️ Cartes</strong></td>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Code Géographique</strong><br><span style="font-size: 0.8rem; color: #666;">(ex: Code INSEE, Code EPCI ou Code ISO Monde)</span></td>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Valeur</strong><br><span style="font-size: 0.8rem; color: #666;">(Donnée principale à cartographier)</span></td>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Donnée secondaire</strong><br><span style="font-size: 0.8rem; color: #666;">(Utilisée pour le calcul de ratios ou d'évolution)</span></td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>⏱️ Frise Chronologique</strong></td>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Date ou Étape</strong><br><span style="font-size: 0.8rem; color: #666;">(ex: 2026, T1, Phase 1)</span></td>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Titre</strong><br><span style="font-size: 0.8rem; color: #666;">(Nom de l'événement)</span></td>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Description</strong><br><span style="font-size: 0.8rem; color: #666;">(Explications longues)</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top: 1rem; padding: 1rem; background-color: var(--theme-bg); border-left: 4px solid var(--theme-sun); font-size: 0.9rem;">
+                    <span class="fr-icon-information-fill" style="color: var(--theme-sun); margin-right: 0.5rem;" aria-hidden="true"></span>
+                    <strong>Astuce :</strong> PLUME respecte l'ordre naturel des lignes de votre fichier CSV. Lors de la création d'une frise chronologique, aucun tri algorithmique n'est forcé. Organisez vos étapes dans votre tableur exactement comme vous souhaitez les voir apparaître.
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Fonction de fermeture
+    const closeModal = () => {
+        overlay.remove();
+        document.removeEventListener('keydown', escHandler);
+    };
+
+    // Écouteurs de fermeture (Bouton, clic à l'extérieur, touche Échap)
+    document.getElementById('btn-about-close').onclick = closeModal;
+    
+    overlay.addEventListener('mousedown', (e) => {
+        if (e.target === overlay) closeModal();
+    });
+
+    const escHandler = (e) => {
+        if (e.key === 'Escape') closeModal();
+    };
+    document.addEventListener('keydown', escHandler);
+}
