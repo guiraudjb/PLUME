@@ -146,6 +146,17 @@ body {
     margin-bottom: 0;
 }
 
+.plume-lettrine::first-letter {
+    float: left;
+    font-size: 3.5rem;          /* Taille de la lettre */
+    line-height: 0.8;           /* Ajustement pour l'alignement vertical */
+    font-weight: 800;           /* Typographie forte */
+    color: var(--theme-sun);    /* Utilisation de la couleur dynamique du thème */
+    margin-right: 0.5rem;       /* Aération avec le reste du texte */
+    margin-top: 0.1rem;
+    text-transform: uppercase;
+}
+
 .content-editable.fr-text--sm {
     font-size: 0.875rem !important; /* 14px au lieu de 16px */
     line-height: 1.5rem !important;

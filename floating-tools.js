@@ -34,6 +34,12 @@ const cleanBtn = document.createElement('button');
 cleanBtn.innerHTML = '🧹'; cleanBtn.title = "Nettoyer les styles parasites";
 cleanBtn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;`;
 
+const lettrineBtn = document.createElement('button');
+lettrineBtn.innerHTML = '<span class="fr-icon-font-size" style="font-size: 0.85rem;"></span>';
+lettrineBtn.title = "Activer/Désactiver la lettrine";
+lettrineBtn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: none; align-items: center; justify-content: center; font-size: 1rem; color: var(--theme-sun);`;
+
+
 const resizeBtn = document.createElement('button');
 resizeBtn.innerHTML = '📏'; resizeBtn.title = "Modifier la largeur des colonnes";
 resizeBtn.style.cssText = `background-color: #f5f5fe; border: 1px solid var(--theme-sun); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;`;
@@ -170,6 +176,7 @@ gridToolsContainer.append(gridAlignTop, gridAlignCenter, gridAlignBottom, gridCo
 
 // Assemblage final
 floatToolbar.appendChild(textStyleSelect);
+floatToolbar.appendChild(lettrineBtn);
 floatToolbar.appendChild(cleanBtn);
 floatToolbar.appendChild(editLinkBtn);
 floatToolbar.appendChild(imgToolsContainer);
@@ -220,9 +227,17 @@ document.addEventListener('click', function(e) {
                 textStyleSelect.style.display = 'block';
                 textStyleSelect.value = ['H1', 'H5', 'H6'].includes(tagName) ? 'P' : tagName; 
                 cleanBtn.style.display = 'flex';
+                if (tagName === 'P') {
+                    lettrineBtn.style.display = 'flex';
+                    // Met le bouton en surbrillance si la lettrine est déjà active
+                    lettrineBtn.style.backgroundColor = hoveredBlock.classList.contains('plume-lettrine') ? '#e3e3fd' : '#fff';
+                } else {
+                    lettrineBtn.style.display = 'none';
+                }
             } else {
                 textStyleSelect.style.display = 'none';
                 cleanBtn.style.display = 'none';
+                lettrineBtn.style.display = 'none';
             }
 
             if (tagName === 'IMG') {
@@ -472,6 +487,25 @@ imgRadiusSubmit.onclick = applyImgRadius;
 });
 
 // 4. ACTIONS DES BOUTONS (Texte & Structure)
+
+lettrineBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!hoveredBlock || hoveredBlock.tagName !== 'P') return;
+    
+    // Ajoute ou retire la classe CSS
+    hoveredBlock.classList.toggle('plume-lettrine');
+    
+    // Change l'apparence du bouton instantanément
+    if (hoveredBlock.classList.contains('plume-lettrine')) {
+        lettrineBtn.style.backgroundColor = '#e3e3fd';
+    } else {
+        lettrineBtn.style.backgroundColor = '#fff';
+    }
+});
+
+
 textStyleSelect.addEventListener('change', function(e) {
     if (!hoveredBlock) return;
     const newTag = e.target.value;
@@ -483,6 +517,10 @@ textStyleSelect.addEventListener('change', function(e) {
         hideFloatToolbar(); 
     }
 });
+
+
+
+
 
 cleanBtn.addEventListener('click', function() {
     if (!hoveredBlock) return;
