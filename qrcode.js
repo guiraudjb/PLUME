@@ -170,38 +170,29 @@ function insertQRCode() {
     
     document.body.appendChild(overlay);
 
-    // Initialisation
     // Initialisation avec le logo DSFR par défaut
     currentQRLogo = './libs/dsfr-v1.14.3/dist/favicon/apple-touch-icon.png';
-    
-    // On affiche directement les options de réglage du logo
     document.getElementById('qr-logo-options').style.display = 'flex';
     document.getElementById('btn-qr-clear-logo').style.display = 'flex';
-    
-    // On force la correction d'erreur à "H" (Maximale) indispensable avec un logo
     document.getElementById('qr-ecc').value = 'H';
     
     renderQRPreview();
-    // --- CÂBLAGE DES ÉVÉNEMENTS DE L'INTERFACE ---
 
-    // Récupération de tous les inputs pour le rafraîchissement temps réel
+    // --- CÂBLAGE DES ÉVÉNEMENTS DE L'INTERFACE ---
     const inputsToWatch = ['qr-data', 'qr-color-mode', 'qr-color-custom', 'qr-bg-trans', 'qr-dot-type', 'qr-ecc', 'qr-logo-size', 'qr-logo-margin', 'qr-hide-dots', 'qr-eye-sq', 'qr-eye-dot'];
     
     inputsToWatch.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
-            // 'input' pour le temps réel sur les textes/sliders, 'change' pour les selects/checkbox
             el.addEventListener('input', renderQRPreview);
             el.addEventListener('change', renderQRPreview);
         }
     });
 
-    // Affichage conditionnel du color picker personnalisé
     document.getElementById('qr-color-mode').addEventListener('change', (e) => {
         document.getElementById('qr-custom-color-wrapper').style.display = e.target.value === 'custom' ? 'block' : 'none';
     });
 
-    // Gestion de l'upload du logo
     document.getElementById('btn-qr-upload').onclick = () => document.getElementById('qr-logo-input').click();
     
     document.getElementById('qr-logo-input').addEventListener('change', function(e) {
@@ -211,14 +202,11 @@ function insertQRCode() {
             currentQRLogo = ev.target.result; 
             document.getElementById('qr-logo-options').style.display = 'flex';
             document.getElementById('btn-qr-clear-logo').style.display = 'flex';
-            
-            // Forcer l'ECC en mode 'H' pour garantir la lisibilité avec un logo
             document.getElementById('qr-ecc').value = 'H';
-            
             renderQRPreview();
         };
         reader.readAsDataURL(e.target.files[0]);
-        e.target.value = ""; // Réinitialise l'input
+        e.target.value = ""; 
     });
 
     document.getElementById('btn-qr-clear-logo').onclick = () => {
@@ -228,7 +216,6 @@ function insertQRCode() {
         renderQRPreview();
     };
 
-    // --- BOUTONS FINAUX ---
     document.getElementById('btn-qr-cancel').onclick = () => {
         overlay.remove();
     };
@@ -236,13 +223,10 @@ function insertQRCode() {
     document.getElementById('btn-qr-insert').onclick = () => {
         if (!currentQRInstance) return;
 
-        // On récupère le canvas généré par la librairie
         const canvas = document.querySelector('#qr-preview-container canvas');
         if (!canvas) return;
 
-        const imgData = canvas.toDataURL('image/png'); // Format haute qualité
-
-        // Constitution du Payload des métadonnées
+        const imgData = canvas.toDataURL('image/png'); 
         const config = getQRConfig();
         const safeConfig = encodeURIComponent(JSON.stringify(config));
 
@@ -255,14 +239,12 @@ function insertQRCode() {
 
         overlay.remove();
 
-        // Restauration du curseur
         if (savedRange) {
             const sel = window.getSelection();
             sel.removeAllRanges();
             sel.addRange(savedRange);
         }
 
-        // Insertion dans l'éditeur
         if (typeof insertHTML === 'function') {
             insertHTML(finalHTML);
         } else {
@@ -284,7 +266,7 @@ function getQRConfig() {
         ecc: document.getElementById('qr-ecc').value,
         eyeSq: document.getElementById('qr-eye-sq').value,
         eyeDot: document.getElementById('qr-eye-dot').value,
-        logoData: currentQRLogo, // Base64 de l'image (peut être lourd)
+        logoData: currentQRLogo, 
         logoSize: parseFloat(document.getElementById('qr-logo-size').value),
         logoMargin: parseInt(document.getElementById('qr-logo-margin').value),
         hideDots: document.getElementById('qr-hide-dots').checked
@@ -298,47 +280,29 @@ function renderQRPreview() {
     const container = document.getElementById('qr-preview-container');
     if (!container) return;
 
-    container.innerHTML = ''; // Nettoyage de l'ancien
+    container.innerHTML = ''; 
     const config = getQRConfig();
 
-    // Résolution de la couleur finale
-    let finalColor = "#000000"; // Noir par défaut
+    let finalColor = "#000000"; 
     if (config.colorMode === "custom") {
         finalColor = config.customColor;
     } else if (config.colorMode === "theme") {
-        // Récupère la couleur dynamique du thème du document (--theme-sun)
         const rootStyle = getComputedStyle(document.documentElement);
         const themeColor = rootStyle.getPropertyValue('--theme-sun').trim();
-        finalColor = themeColor || "#000091"; // Fallback sur Bleu France
+        finalColor = themeColor || "#000091"; 
     }
 
-    // Options pour la librairie
     const qrOptions = {
-        width: 350, // Haute résolution pour la génération (export)
-        height: 350,
-        type: "canvas", // Force l'utilisation d'un canvas pour l'export toDataURL()
+        width: 350, height: 350,
+        type: "canvas", 
         data: config.data,
-        qrOptions: { 
-            errorCorrectionLevel: config.ecc 
-        },
-        backgroundOptions: { 
-            color: config.bgTrans ? "transparent" : "#ffffff"
-        },
-        dotsOptions: {
-            type: config.dotType,
-            color: finalColor
-        },
-        cornersSquareOptions: { 
-            type: config.eyeSq,
-            color: finalColor
-        },
-        cornersDotOptions: { 
-            type: config.eyeDot,
-            color: finalColor
-        }
+        qrOptions: { errorCorrectionLevel: config.ecc },
+        backgroundOptions: { color: config.bgTrans ? "transparent" : "#ffffff" },
+        dotsOptions: { type: config.dotType, color: finalColor },
+        cornersSquareOptions: { type: config.eyeSq, color: finalColor },
+        cornersDotOptions: { type: config.eyeDot, color: finalColor }
     };
 
-    // Injection du logo si présent
     if (config.logoData) {
         qrOptions.image = config.logoData;
         qrOptions.imageOptions = { 
@@ -352,7 +316,6 @@ function renderQRPreview() {
     currentQRInstance = new QRCodeStyling(qrOptions);
     currentQRInstance.append(container);
 
-    // Ajustement CSS pour que le canevas loge bien dans l'aperçu sans déborder
     const canvas = container.querySelector('canvas');
     if (canvas) {
         canvas.style.maxWidth = '100%';
@@ -361,34 +324,36 @@ function renderQRPreview() {
 }
 
 /**
- * Fonction globale à appeler lors du changement de thème (applyPalette)
- * Permet de redessiner tous les QR codes du document configurés en mode "Thème"
+ * Fonction globale à appeler lors du changement de thème (applyPalette) ou de la restauration.
+ * Permet de redessiner tous les QR codes du document.
  */
-function refreshAllQRCodes() {
+async function refreshAllQRCodes() {
     const qrContainers = document.querySelectorAll('.plume-qrcode-container[data-qrcode-config]');
     if (qrContainers.length === 0) return;
 
-    // Récupère le nouveau code couleur de l'État
     const rootStyle = getComputedStyle(document.documentElement);
     const themeSun = rootStyle.getPropertyValue('--theme-sun').trim() || '#000091';
 
-    qrContainers.forEach(container => {
+    for (const container of qrContainers) {
         try {
             const rawConfig = container.getAttribute('data-qrcode-config');
             const config = JSON.parse(decodeURIComponent(rawConfig));
 
-            // Si le QR code n'est pas lié au thème, on ignore
-            if (config.colorMode !== "theme") return;
+            let finalColor = "#000000"; 
+            if (config.colorMode === "custom") {
+                finalColor = config.customColor;
+            } else if (config.colorMode === "theme") {
+                finalColor = themeSun;
+            }
 
-            // Création d'un canevas fantôme pour générer la nouvelle image
             const qrOptions = {
                 width: 350, height: 350, type: "canvas",
                 data: config.data,
                 qrOptions: { errorCorrectionLevel: config.ecc },
                 backgroundOptions: { color: config.bgTrans ? "transparent" : "#ffffff" },
-                dotsOptions: { type: config.dotType, color: themeSun },
-                cornersSquareOptions: { type: config.eyeSq, color: themeSun },
-                cornersDotOptions: { type: config.eyeDot, color: themeSun }
+                dotsOptions: { type: config.dotType, color: finalColor },
+                cornersSquareOptions: { type: config.eyeSq, color: finalColor },
+                cornersDotOptions: { type: config.eyeDot, color: finalColor }
             };
 
             if (config.logoData) {
@@ -399,23 +364,30 @@ function refreshAllQRCodes() {
                 };
             }
 
-            const tempInstance = new QRCodeStyling(qrOptions);
-            const tempDiv = document.createElement('div');
-            tempInstance.append(tempDiv);
+            const hiddenDiv = document.createElement('div');
+            hiddenDiv.style.position = 'absolute';
+            hiddenDiv.style.left = '-9999px';
+            document.body.appendChild(hiddenDiv);
 
-            // La génération Canvas de QRCodeStyling est légèrement asynchrone (surtout avec des images)
-            setTimeout(() => {
-                const canvas = tempDiv.querySelector('canvas');
-                if (canvas) {
-                    const imgElement = container.querySelector('img');
-                    if (imgElement) {
-                        imgElement.src = canvas.toDataURL('image/png');
+            const tempInstance = new QRCodeStyling(qrOptions);
+            tempInstance.append(hiddenDiv);
+
+            await new Promise(resolve => {
+                setTimeout(() => {
+                    const canvas = hiddenDiv.querySelector('canvas');
+                    if (canvas) {
+                        const imgElement = container.querySelector('img');
+                        if (imgElement) {
+                            imgElement.src = canvas.toDataURL('image/png');
+                        }
                     }
-                }
-            }, 100); // Laisse le temps au logo de se peindre
+                    hiddenDiv.remove(); 
+                    resolve();
+                }, 300); 
+            });
 
         } catch (e) {
             console.error("Impossible de rafraîchir le QR Code", e);
         }
-    });
+    }
 }

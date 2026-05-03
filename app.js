@@ -335,6 +335,8 @@ function restoreJSON(input) {
                     await refreshAllMaps();
                 }
                 if (typeof refreshAllTimelines === 'function') await refreshAllTimelines();
+                if (typeof refreshAllQRCodes === 'function') refreshAllQRCodes();
+                if (typeof refreshAllTrees === 'function') await refreshAllTrees();
             }, 100);
             
         } catch (err) {
@@ -1169,6 +1171,8 @@ async function restoreDraftFromLocal(jsonString) {
                 await refreshAllMaps();
             }
             if (typeof refreshAllTimelines === 'function') await refreshAllTimelines();
+            if (typeof refreshAllQRCodes === 'function') refreshAllQRCodes();
+                if (typeof refreshAllTrees === 'function') await refreshAllTrees();
         }, 100);
         
         if (typeof showToast !== 'undefined') {

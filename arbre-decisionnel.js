@@ -913,6 +913,8 @@ function getCleanTreeSVGSource() {
     
     const oldViewBox = svg.getAttribute('viewBox');
     svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+    svg.setAttribute('width', w);
+    svg.setAttribute('height', h);
     
     let source = new XMLSerializer().serializeToString(svg);
     if(!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
@@ -972,6 +974,8 @@ async function refreshAllTrees() {
             const y = bounds.minY - padding;
             
             svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+            svg.setAttribute('width', w);
+            svg.setAttribute('height', h);
             
             let source = new XMLSerializer().serializeToString(svg);
             if(!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
