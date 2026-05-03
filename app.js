@@ -1340,7 +1340,7 @@ function openAboutModal() {
                     <table style="width: 100%; text-align: left; border-collapse: collapse;">
                         <thead>
                             <tr>
-                                <th scope="col" style="padding: 0.75rem; background-color: var(--grey-975); border: 1px solid var(--grey-900); font-weight: 700;">Outil</th>
+                                <th scope="col" style="padding: 0.75rem; background-color: var(--grey-975); border: 1px solid var(--grey-900); font-weight: 700; width: 25%;">Outil</th>
                                 <th scope="col" style="padding: 0.75rem; background-color: var(--grey-975); border: 1px solid var(--grey-900); font-weight: 700;">Colonne 1</th>
                                 <th scope="col" style="padding: 0.75rem; background-color: var(--grey-975); border: 1px solid var(--grey-900); font-weight: 700;">Colonne 2</th>
                                 <th scope="col" style="padding: 0.75rem; background-color: var(--grey-975); border: 1px solid var(--grey-900); font-weight: 700;">Colonne 3+ (Optionnel)</th>
@@ -1348,19 +1348,36 @@ function openAboutModal() {
                         </thead>
                         <tbody>
                             <tr>
-                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>📊 Graphiques</strong></td>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);">
+                                    <strong>📊 Graphiques</strong>
+                                    <div style="margin-top: 0.5rem;">
+                                        <a href="./exemple/graphique.csv" download class="fr-link fr-link--sm" style="font-size: 0.75rem;"><span class="fr-icon-download-line" aria-hidden="true" style="font-size: 0.75rem; margin-right: 0.25rem;"></span>Fichier d'exemple</a>
+                                    </div>
+                                </td>
                                 <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Libellés</strong> (Axe X)</td>
                                 <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Valeurs</strong> (Série 1)</td>
                                 <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Valeurs additionnelles</strong> (Séries 2, 3...)</td>
                             </tr>
                             <tr>
-                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>🗺️ Cartes</strong></td>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);">
+                                    <strong>🗺️ Cartes</strong>
+                                    <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem;">
+                                        <a href="./exemple/monde.csv" download class="fr-link fr-link--sm" style="font-size: 0.75rem;"><span class="fr-icon-download-line" aria-hidden="true" style="font-size: 0.75rem; margin-right: 0.25rem;"></span>Exemple Monde</a>
+                                        <a href="./exemple/france_departements.csv" download class="fr-link fr-link--sm" style="font-size: 0.75rem;"><span class="fr-icon-download-line" aria-hidden="true" style="font-size: 0.75rem; margin-right: 0.25rem;"></span>Exemple Départements</a>
+                                        <a href="./exemple/france_communes.csv" download class="fr-link fr-link--sm" style="font-size: 0.75rem;"><span class="fr-icon-download-line" aria-hidden="true" style="font-size: 0.75rem; margin-right: 0.25rem;"></span>Exemple Communes</a>
+                                    </div>
+                                </td>
                                 <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Code Géographique</strong><br><span style="font-size: 0.8rem; color: #666;">(ex: Code INSEE, Code EPCI ou Code ISO Monde)</span></td>
                                 <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Valeur</strong><br><span style="font-size: 0.8rem; color: #666;">(Donnée principale à cartographier)</span></td>
                                 <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Donnée secondaire</strong><br><span style="font-size: 0.8rem; color: #666;">(Utilisée pour le calcul de ratios ou d'évolution)</span></td>
                             </tr>
                             <tr>
-                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>⏱️ Frise Chronologique</strong></td>
+                                <td style="padding: 0.75rem; border: 1px solid var(--grey-900);">
+                                    <strong>⏱️ Frise Chronologique</strong>
+                                    <div style="margin-top: 0.5rem;">
+                                        <a href="./exemple/frise.csv" download class="fr-link fr-link--sm" style="font-size: 0.75rem;"><span class="fr-icon-download-line" aria-hidden="true" style="font-size: 0.75rem; margin-right: 0.25rem;"></span>Fichier d'exemple</a>
+                                    </div>
+                                </td>
                                 <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Date ou Étape</strong><br><span style="font-size: 0.8rem; color: #666;">(ex: 2026, T1, Phase 1)</span></td>
                                 <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Titre</strong><br><span style="font-size: 0.8rem; color: #666;">(Nom de l'événement)</span></td>
                                 <td style="padding: 0.75rem; border: 1px solid var(--grey-900);"><strong>Description</strong><br><span style="font-size: 0.8rem; color: #666;">(Explications longues)</span></td>
