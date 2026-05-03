@@ -947,3 +947,81 @@ function initOrgGradientsAndSelect() {
     }
     s.appendChild(optGroupGrad);
 }
+
+// --- MISE À JOUR DYNAMIQUE ET RESTAURATION ---
+
+async function refreshAllOrgCharts() {
+    const orgContainers = document.querySelectorAll('.plume-orgchart-container[data-orgchart-config]');
+    if (orgContainers.length === 0) return;
+
+    for (const container of orgContainers) {
+        try {
+            const rawConfig = container.getAttribute('data-orgchart-config');
+            const payload = JSON.parse(decodeURIComponent(rawConfig));
+
+            // 1. Création d'un environnement fantôme sécurisé
+            const hiddenDiv = document.createElement('div');
+            hiddenDiv.style.position = 'absolute';
+            hiddenDiv.style.left = '-9999px';
+            
+            // On intègre le canvas ET les inputs virtuels pour que le moteur ne plante pas
+            hiddenDiv.innerHTML = `
+                <svg id="org-canvas" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
+                    <defs id="org-gradient-defs"></defs>
+                    <g id="org-connectors"></g>
+                    <g id="org-nodes"></g>
+                </svg>
+                <input type="text" id="org-node-select" value="none">
+                <select id="org-node-color"></select>
+            `;
+            document.body.appendChild(hiddenDiv);
+
+            // 2. Initialisation et Rendu
+            initOrgGradientsAndSelect();
+            diagramData = payload.diagramData;
+            renderSVG();
+
+            // 3. Capture et Cadrage (avec garantie Haute Définition)
+            const svg = document.getElementById('org-canvas');
+            const extent = calculateMaxExtent(); 
+            const padding = 60;
+            const exportSize = (extent.maxExtent * 2) + (padding * 2);
+
+            svg.setAttribute('viewBox', `${-extent.maxExtent - padding} ${-extent.maxExtent - padding} ${exportSize} ${exportSize}`);
+            svg.setAttribute('width', exportSize);
+            svg.setAttribute('height', exportSize);
+
+            let source = new XMLSerializer().serializeToString(svg);
+            if(!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+                source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+            }
+
+            // 4. Conversion et injection asynchrone
+            const exportScale = 2;
+            const img = new Image();
+            
+            await new Promise((resolve) => {
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = exportSize * exportScale;
+                    canvas.height = exportSize * exportScale;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    const imgElement = container.querySelector('img');
+                    if (imgElement) {
+                        imgElement.src = canvas.toDataURL('image/png'); // Mise à jour de l'image
+                    }
+                    resolve();
+                };
+                img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(source)));
+            });
+
+            // 5. Nettoyage
+            hiddenDiv.remove();
+
+        } catch (e) {
+            console.error("Impossible de rafraîchir l'organigramme", e);
+        }
+    }
+}

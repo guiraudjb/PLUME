@@ -327,9 +327,17 @@ function renderQRPreview() {
  * Fonction globale à appeler lors du changement de thème (applyPalette) ou de la restauration.
  * Permet de redessiner tous les QR codes du document.
  */
+/**
+ * Fonction globale à appeler lors du changement de thème (applyPalette) ou de la restauration.
+ * Permet de redessiner tous les QR codes du document.
+ */
 async function refreshAllQRCodes() {
     const qrContainers = document.querySelectorAll('.plume-qrcode-container[data-qrcode-config]');
     if (qrContainers.length === 0) return;
+
+    // Pause de 50ms pour laisser le navigateur appliquer les variables CSS 
+    // et laisser respirer le processeur avant de lancer la génération.
+    await new Promise(r => setTimeout(r, 50));
 
     const rootStyle = getComputedStyle(document.documentElement);
     const themeSun = rootStyle.getPropertyValue('--theme-sun').trim() || '#000091';
@@ -364,14 +372,36 @@ async function refreshAllQRCodes() {
                 };
             }
 
+            const tempInstance = new QRCodeStyling(qrOptions);
+            
+            // MÉTHODE 1 : L'API moderne (attend la fin absolue du dessin sans bloquer le DOM)
+            try {
+                const blob = await tempInstance.getRawData("png");
+                if (blob) {
+                    const dataUrl = await new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.readAsDataURL(blob);
+                    });
+                    const imgElement = container.querySelector('img');
+                    if (imgElement) imgElement.src = dataUrl;
+                    continue; // Succès absolu, on passe au QR code suivant
+                }
+            } catch (apiError) {
+                // Si l'API getRawData échoue (ancienne version), on continue vers le Fallback
+            }
+
+            // MÉTHODE 2 : Fallback de sécurité dans le DOM
             const hiddenDiv = document.createElement('div');
             hiddenDiv.style.position = 'absolute';
             hiddenDiv.style.left = '-9999px';
+            hiddenDiv.style.width = '350px';  // CRITIQUE : forcer les dimensions
+            hiddenDiv.style.height = '350px'; // CRITIQUE : forcer les dimensions
             document.body.appendChild(hiddenDiv);
 
-            const tempInstance = new QRCodeStyling(qrOptions);
             tempInstance.append(hiddenDiv);
 
+            // On attend beaucoup plus longtemps (600ms) pour survivre au goulot d'étranglement du CPU
             await new Promise(resolve => {
                 setTimeout(() => {
                     const canvas = hiddenDiv.querySelector('canvas');
@@ -383,7 +413,7 @@ async function refreshAllQRCodes() {
                     }
                     hiddenDiv.remove(); 
                     resolve();
-                }, 300); 
+                }, 600); 
             });
 
         } catch (e) {
