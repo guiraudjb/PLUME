@@ -80,6 +80,7 @@ function applyPalette() {
     }
     if (typeof refreshAllTimelines === 'function') refreshAllTimelines();
     if (typeof refreshAllQRCodes === 'function') refreshAllQRCodes();
+    if (typeof refreshAllTrees === 'function') refreshAllTrees();
 }
 
 function updateColoredMargins() {

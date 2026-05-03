@@ -160,7 +160,7 @@
                 <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'H3')" title="Titre de niveau 3">H3<span class="fr-sr-only"> (Sous-titre)</span></button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'H4')" title="Titre de niveau 4">H4<span class="fr-sr-only"> (Petit titre)</span></button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline" onclick="format('formatBlock', 'P')" title="Paragraphe normal">¶<span class="fr-sr-only"> (Paragraphe)</span></button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-quote-text" onclick="format('formatBlock', 'BLOCKQUOTE')" title="Citation simple"><span class="fr-sr-only">Citation simple</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-quote-line" onclick="format('formatBlock', 'BLOCKQUOTE')" title="Citation simple"><span class="fr-sr-only">Citation simple</span></button></li>
             </ul>
         </div>
 
@@ -169,7 +169,7 @@
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-bold" onclick="format('bold')" title="Mettre en gras"><span class="fr-sr-only">Mettre en gras</span></button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-italic" onclick="format('italic')" title="Mettre en italique"><span class="fr-sr-only">Mettre en italique</span></button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-underline" onclick="format('underline')" title="Souligner"><span class="fr-sr-only">Souligner</span></button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-strikethrough-2" onclick="format('strikeThrough')" title="Barrer"><span class="fr-sr-only">Barrer</span></button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-strikethrough" onclick="format('strikeThrough')" title="Barrer"><span class="fr-sr-only">Barrer</span></button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline" style="font-weight:bold" onclick="format('superscript')" title="Mettre en exposant">X²<span class="fr-sr-only"> (Exposant)</span></button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-icon-eraser-fill" onclick="format('removeFormat')" title="Effacer le formatage"><span class="fr-sr-only">Effacer le formatage</span></button></li>
             </ul>
@@ -218,7 +218,8 @@
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-list-check" onclick="insertSommaire()" title="Insérer un sommaire">Sommaire</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-time-line" onclick="insertTimelineFromCSV()" title="Insérer une frise chronologique depuis un CSV">Frise</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-france-line" onclick="insertCarte()" title="Insérer une carte interactive">Carte</button></li>
-                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-mind-map" onclick="insertOrgChart()" title="Insérer un organigramme circulaire">Organigramme</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-bubble-chart-line" onclick="insertOrgChart()" title="Insérer un organigramme circulaire">Organigramme</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-git-branch-line" onclick="insertArbreDecision()" title="Insérer un arbre décisionnel">Arbre</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-qr-code-line" onclick="insertQRCode()" title="Insérer un QR Code">QR Code</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-quote-line" onclick="insertCallout()" title="Insérer un encart de mise en exergue">Exergue</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-chat-quote-line" onclick="insertCitation()" title="Insérer une citation">Citation</button></li>
@@ -299,6 +300,7 @@
     <script src="components.js"></script>
     <script src="floating-tools.js"></script>
     <script src="organigramme.js"></script>
+    <script src="arbre-decisionnel.js"></script
     <script src="qrcode.js"></script>
     
 </body>
