@@ -78,11 +78,15 @@ function generateChartFromCSV(data, type, savedRange) {
         datasets.push({
             label: headers[c] ? String(headers[c]).trim() : `Série ${c}`,
             data: [],
-            backgroundColor: (type === 'pie' || type === 'doughnut') 
+            // On ajoute 'polarArea' dans le tableau des conditions
+            backgroundColor: (['pie', 'doughnut', 'polarArea'].includes(type)) 
                 ? dynamicPalette 
                 : (['line', 'radar'].includes(type) ? `color-mix(in srgb, ${color}, transparent 80%)` : color),
-            borderColor: (type === 'pie' || type === 'doughnut') ? '#ffffff' : color,
-            borderWidth: 2, borderRadius: type === 'bar' ? 4 : 0, fill: type === 'line' ? 'origin' : true, tension: 0.4
+            borderColor: (['pie', 'doughnut', 'polarArea'].includes(type)) ? '#ffffff' : color,
+            borderWidth: 2, 
+            borderRadius: type === 'bar' ? 4 : 0, 
+            fill: type === 'line' ? 'origin' : true, 
+            tension: 0.4
         });
     }
 
@@ -249,10 +253,17 @@ function refreshAllCharts() {
             const newDatasets = config.datasets.map((ds, index) => {
                 const color = dynamicPalette[index % dynamicPalette.length];
                 return {
-                    label: ds.label, data: ds.data,
-                    backgroundColor: (config.type === 'pie' || config.type === 'doughnut') ? dynamicPalette : (['line', 'radar'].includes(config.type) ? `color-mix(in srgb, ${color}, transparent 80%)` : color),
-                    borderColor: (config.type === 'pie' || config.type === 'doughnut') ? '#ffffff' : color,
-                    borderWidth: 2, borderRadius: config.type === 'bar' ? 4 : 0, fill: config.type === 'line' ? 'origin' : true, tension: 0.4
+                    label: ds.label, 
+                    data: ds.data,
+                    // On ajoute 'polarArea' ici aussi (attention à bien utiliser config.type)
+                    backgroundColor: (['pie', 'doughnut', 'polarArea'].includes(config.type)) 
+                        ? dynamicPalette 
+                        : (['line', 'radar'].includes(config.type) ? `color-mix(in srgb, ${color}, transparent 80%)` : color),
+                    borderColor: (['pie', 'doughnut', 'polarArea'].includes(config.type)) ? '#ffffff' : color,
+                    borderWidth: 2, 
+                    borderRadius: config.type === 'bar' ? 4 : 0, 
+                    fill: config.type === 'line' ? 'origin' : true, 
+                    tension: 0.4
                 };
             });
 

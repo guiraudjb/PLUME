@@ -209,10 +209,18 @@ async function saveJSON() {
         });
         
         // On sauvegarde le HTML purgé de ce clone
+        let pageContent = sanitizePlumeHTML(editor.innerHTML);
+        
+        // 2. On cherche si la page possède des notes de bas de page à l'extérieur
+        const safeArea = page.querySelector('.safe-area');
+        const footnotes = safeArea.querySelector('.fr-footnotes');
+        if (footnotes) {
+            // On les rattache virtuellement à la suite du contenu pour la sauvegarde JSON
+            pageContent += sanitizePlumeHTML(footnotes.outerHTML); 
+        }
+
         state.pages.push({
-            
-            //content: editor.innerHTML,
-            content: sanitizePlumeHTML(editor.innerHTML),
+            content: pageContent,
             isLandscape: page.classList.contains('landscape')
         });
     });
@@ -317,6 +325,25 @@ function restoreJSON(input) {
                     `;
                     container.appendChild(pageDiv);
                 });
+            
+            // --- REPOSITIONNEMENT DES NOTES DE BAS DE PAGE ---
+            document.querySelectorAll('.page-a4').forEach(page => {
+                const editor = page.querySelector('.content-editable');
+                const safeArea = page.querySelector('.safe-area');
+                const footer = page.querySelector('.footer-wrapper');
+                
+                // On cherche si un bloc de notes est coincé à l'intérieur de l'éditeur
+                const trappedFootnotes = editor.querySelector('.fr-footnotes');
+                if (trappedFootnotes) {
+                    // Si oui, on l'extrait de l'éditeur et on le replace juste avant le footer
+                    if (footer) {
+                        safeArea.insertBefore(trappedFootnotes, footer);
+                    } else {
+                        safeArea.appendChild(trappedFootnotes);
+                    }
+                }
+            });
+            
             }
             
             syncMetadata();
@@ -1061,9 +1088,18 @@ function saveDraftToLocal() {
             img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; 
         });
         
+        let pageContent = sanitizePlumeHTML(editor.innerHTML);
+        
+        // 2. On cherche si la page possède des notes de bas de page à l'extérieur
+        const safeArea = page.querySelector('.safe-area');
+        const footnotes = safeArea.querySelector('.fr-footnotes');
+        if (footnotes) {
+            // On les rattache virtuellement à la suite du contenu pour la sauvegarde JSON
+            pageContent += sanitizePlumeHTML(footnotes.outerHTML); 
+        }
+
         state.pages.push({
-            //content: editor.innerHTML,
-            content: sanitizePlumeHTML(editor.innerHTML),
+            content: pageContent,
             isLandscape: page.classList.contains('landscape')
         });
     });
@@ -1158,6 +1194,23 @@ async function restoreDraftFromLocal(jsonString) {
                     </div>
                 `;
                 container.appendChild(pageDiv);
+            });
+        // --- REPOSITIONNEMENT DES NOTES DE BAS DE PAGE ---
+            document.querySelectorAll('.page-a4').forEach(page => {
+                const editor = page.querySelector('.content-editable');
+                const safeArea = page.querySelector('.safe-area');
+                const footer = page.querySelector('.footer-wrapper');
+                
+                // On cherche si un bloc de notes est coincé à l'intérieur de l'éditeur
+                const trappedFootnotes = editor.querySelector('.fr-footnotes');
+                if (trappedFootnotes) {
+                    // Si oui, on l'extrait de l'éditeur et on le replace juste avant le footer
+                    if (footer) {
+                        safeArea.insertBefore(trappedFootnotes, footer);
+                    } else {
+                        safeArea.appendChild(trappedFootnotes);
+                    }
+                }
             });
         }
         

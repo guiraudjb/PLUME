@@ -131,8 +131,14 @@ function insertFootnote() {
         selection.addRange(savedRange);
 
         // 4. Logique d'insertion
-        const editor = document.querySelector('.content-editable');
-        const safeArea = editor.closest('.safe-area');
+        // On récupère l'endroit précis où se trouve le curseur
+let container = savedRange.commonAncestorContainer;
+// Si c'est un nœud de texte (nodeType 3), on cible son élément parent
+if (container.nodeType === 3) {
+    container = container.parentNode;
+}
+// On remonte jusqu'à la page A4 courante
+const safeArea = container.closest('.safe-area');
         const noteId = 'footnote-' + Date.now();
         const anchorId = 'anchor-' + noteId;
 
