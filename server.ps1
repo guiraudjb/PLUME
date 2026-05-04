@@ -44,6 +44,19 @@ while ($listener.IsListening) {
 
         $buffer = [System.IO.File]::ReadAllBytes($filePath)
         $response.ContentType = $mimeType
+       
+        try {
+            # On ouvre un canal de lecture propre
+            $fileStream = [System.IO.File]::OpenRead($filePath)
+            $response.ContentLength64 = $fileStream.Length
+            
+            # CopyTo s'occupe de découper le fichier en petits morceaux automatiquement
+            $fileStream.CopyTo($response.OutputStream)
+            $fileStream.Close()
+        } catch {
+            Write-Host "Impossible de lire le fichier : $filePath" -ForegroundColor Yellow
+            $response.StatusCode = 500
+        }
         $response.ContentLength64 = $buffer.Length
         $response.OutputStream.Write($buffer, 0, $buffer.Length)
     } else {
