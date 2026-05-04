@@ -245,6 +245,15 @@
     <div class="workspace" id="pages-container">
         <div class="page-a4" id="page-1">
             <div class="page-actions" contenteditable="false">
+                <button class="page-action-btn" onclick="movePageUp(this)" title="Remonter d'une page">
+                    <span class="fr-icon-arrow-up-s-line"></span>
+                </button>
+                <button class="page-action-btn" onclick="movePageDown(this)" title="Descendre d'une page">
+                    <span class="fr-icon-arrow-down-s-line"></span>
+                </button>
+                <button class="page-action-btn" onclick="movePageTo(this)" title="Déplacer vers une position spécifique">
+                    <span class="fr-icon-list-ordered"></span>
+                </button>
                 <button class="page-action-btn" onclick="toggleOrientation(this)" title="Passer en mode Paysage">
                     <span class="fr-icon-refresh-line"></span> Paysage
                 </button>
@@ -252,6 +261,7 @@
                     <span class="fr-icon-delete-bin-line"></span> Supprimer
                 </button>
             </div>
+            
             <div class="safe-area">
                 <div class="header-brand">
                     <div class="fr-header__brand">

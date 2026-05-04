@@ -288,6 +288,15 @@ function restoreJSON(input) {
 
                     pageDiv.innerHTML = `
                         <div class="page-actions" contenteditable="false">
+                            <button class="page-action-btn" onclick="movePageUp(this)" title="Remonter d'une page">
+                                <span class="fr-icon-arrow-up-s-line"></span>
+                            </button>
+                            <button class="page-action-btn" onclick="movePageDown(this)" title="Descendre d'une page">
+                                <span class="fr-icon-arrow-down-s-line"></span>
+                            </button>
+                            <button class="page-action-btn" onclick="movePageTo(this)" title="Déplacer vers une position spécifique">
+                                <span class="fr-icon-list-ordered"></span>
+                            </button>
                             <button class="page-action-btn" onclick="toggleOrientation(this)" title="${btnTitle}">
                                 <span class="${btnIcon}"></span> ${btnText}
                             </button>
@@ -1158,13 +1167,22 @@ async function restoreDraftFromLocal(jsonString) {
 
                 pageDiv.innerHTML = `
                     <div class="page-actions" contenteditable="false">
-                        <button class="page-action-btn" onclick="toggleOrientation(this)" title="${btnTitle}">
-                            <span class="${btnIcon}"></span> ${btnText}
-                        </button>
-                        <button class="page-action-btn delete" onclick="deletePage(this)" title="Supprimer la page">
-                            <span class="fr-icon-delete-bin-line"></span> Supprimer
-                        </button>
-                    </div>
+                            <button class="page-action-btn" onclick="movePageUp(this)" title="Remonter d'une page">
+                                <span class="fr-icon-arrow-up-s-line"></span>
+                            </button>
+                            <button class="page-action-btn" onclick="movePageDown(this)" title="Descendre d'une page">
+                                <span class="fr-icon-arrow-down-s-line"></span>
+                            </button>
+                            <button class="page-action-btn" onclick="movePageTo(this)" title="Déplacer vers une position spécifique">
+                                <span class="fr-icon-list-ordered"></span>
+                            </button>
+                            <button class="page-action-btn" onclick="toggleOrientation(this)" title="${btnTitle}">
+                                <span class="${btnIcon}"></span> ${btnText}
+                            </button>
+                            <button class="page-action-btn delete" onclick="deletePage(this)" title="Supprimer la page">
+                                <span class="fr-icon-delete-bin-line"></span> Supprimer
+                            </button>
+                        </div>
                     <div class="safe-area">
                         <div class="header-brand">
                             <div class="fr-header__brand">
@@ -1391,6 +1409,9 @@ function openAboutModal() {
                 <p>
                     <strong>PLUME (Plateforme de Lettres Unifiées pour les Ministères et l'État)</strong> est un éditeur de documents WYSIWYG innovant. Il permet de rédiger des rapports, notes et lettres d'information respectant nativement le Système de Design de l'État (DSFR). Les documents générés sont structurés autour du format A4, interactifs, sécurisés et exportables en haute définition.
                 </p>
+                <p>
+    <button class="fr-btn fr-btn--secondary fr-icon-magic-line fr-btn--icon-left" onclick="loadDemo()" title="Charger un document de démonstration complet">Démo</button>
+</p>
                 
                 <hr style="border: none; border-top: 1px solid var(--grey-900); margin: 2rem 0;">
                 
@@ -1474,4 +1495,119 @@ function openAboutModal() {
         if (e.key === 'Escape') closeModal();
     };
     document.addEventListener('keydown', escHandler);
+}
+
+
+// =====================================================================
+// MODULE DE RÉORGANISATION DES PAGES
+// =====================================================================
+
+function movePageUp(btn) {
+    const page = btn.closest('.page-a4');
+    const previousPage = page.previousElementSibling;
+    
+    // On s'assure qu'il y a bien une page au-dessus
+    if (previousPage && previousPage.classList.contains('page-a4')) {
+        page.parentNode.insertBefore(page, previousPage);
+        renumberPages(); // Met à jour le footer (Page 1, Page 2...)
+        page.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+function movePageDown(btn) {
+    const page = btn.closest('.page-a4');
+    const nextPage = page.nextElementSibling;
+    
+    // On s'assure qu'il y a bien une page en dessous
+    if (nextPage && nextPage.classList.contains('page-a4')) {
+        page.parentNode.insertBefore(page, nextPage.nextElementSibling);
+        renumberPages();
+        page.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+async function movePageTo(btn) {
+    const page = btn.closest('.page-a4');
+    const container = page.parentNode;
+    const pages = Array.from(container.querySelectorAll('.page-a4'));
+    const currentIndex = pages.indexOf(page) + 1;
+    const totalPages = pages.length;
+
+    if (totalPages <= 1) {
+        showToast("Action impossible", "Il n'y a qu'une seule page dans le document.", "warning");
+        return;
+    }
+
+    // On réutilise ta modale asynchrone existante (plumeModal)
+    const targetPositionStr = await plumeModal({
+        title: "Déplacer la page",
+        message: `Cette page est actuellement en position ${currentIndex}.\nOù souhaitez-vous la déplacer ? (entre 1 et ${totalPages})`,
+        type: "prompt",
+        defaultValue: currentIndex.toString(),
+        confirmText: "Déplacer"
+    });
+
+    if (!targetPositionStr) return; // L'utilisateur a annulé
+
+    const targetIndex = parseInt(targetPositionStr, 10) - 1;
+
+    // Sécurisation de la saisie
+    if (isNaN(targetIndex) || targetIndex < 0 || targetIndex >= totalPages) {
+        showToast("Position invalide", `Veuillez entrer un nombre compris entre 1 et ${totalPages}.`, "error");
+        return;
+    }
+
+    if (targetIndex === currentIndex - 1) return; // La page est déjà à cette position
+
+    // Réagencement dans le DOM
+    if (targetIndex === totalPages - 1) {
+        // Déplacement tout à la fin
+        container.appendChild(page);
+    } else {
+        // Déplacement à une position spécifique
+        // Si on déplace vers le bas, l'index de référence est décalé
+        const referenceNode = targetIndex > (currentIndex - 1) ? pages[targetIndex + 1] : pages[targetIndex];
+        container.insertBefore(page, referenceNode);
+    }
+    
+    renumberPages();
+    page.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+// =====================================================================
+// CHARGEMENT DU FICHIER DE DÉMONSTRATION
+// =====================================================================
+async function loadDemo() {
+    try {
+        // On affiche un toast pour faire patienter l'utilisateur
+        if (typeof showToast !== 'undefined') {
+            showToast("Chargement...", "Récupération du modèle de démonstration.", "info");
+        }
+
+        // 1. Récupération du fichier via une requête HTTP GET
+        const response = await fetch('./exemple/demo.json');
+        
+        if (!response.ok) {
+            throw new Error(`Le fichier est introuvable (Erreur HTTP: ${response.status})`);
+        }
+        
+        // 2. Extraction du texte brut (le code JSON)
+        const jsonText = await response.text();
+        
+        // 3. Injection dans le moteur de restauration natif de PLUME
+        if (typeof restoreDraftFromLocal === 'function') {
+            // La fonction va repeindre la page, appliquer les thèmes et régénérer les cartes
+            await restoreDraftFromLocal(jsonText);
+            
+            if (typeof showToast !== 'undefined') {
+                showToast("Démonstration chargée", "Le modèle a été appliqué avec succès.", "success");
+            }
+        } else {
+            console.error("Erreur critique : La fonction restoreDraftFromLocal n'est pas définie dans l'application.");
+        }
+    } catch (error) {
+        console.error("Erreur lors du chargement de la démo :", error);
+        if (typeof showToast !== 'undefined') {
+            showToast("Erreur de chargement", "Impossible de charger le fichier './exemple/demo.json'. Vérifiez qu'il est bien présent sur le serveur.", "error");
+        }
+    }
 }
