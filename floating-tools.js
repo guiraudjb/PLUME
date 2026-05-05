@@ -346,7 +346,7 @@ function getImgWrapper(img) {
 imgAlignLeft.onclick = () => {
     if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
     const w = getImgWrapper(hoveredBlock);
-    w.style.display = 'block'; w.style.float = 'left'; w.style.margin = '0 1.5rem 1rem 0';
+    w.style.display = 'block'; w.style.float = 'left'; w.style.margin = '0rem 0.5rem 0rem 0.5rem';
 };
 
 imgAlignCenter.onclick = () => {
@@ -358,8 +358,10 @@ imgAlignCenter.onclick = () => {
 imgAlignRight.onclick = () => {
     if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
     const w = getImgWrapper(hoveredBlock);
-    w.style.display = 'block'; w.style.float = 'right'; w.style.margin = '0 0 1rem 1.5rem';
+    w.style.display = 'block'; w.style.float = 'right'; w.style.margin = '0rem 0.5rem 0rem 0.5rem';
 };
+
+
 
 // Fonction pour cibler le conteneur racine absolu (déplace tout le bloc d'un coup)
 function getTargetBlock(block) {

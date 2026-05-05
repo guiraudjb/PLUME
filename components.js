@@ -38,12 +38,16 @@ function insertImage() {
                 // Export optimisé en WEBP (compression 75%)
                 const compressedBase64 = canvas.toDataURL('image/webp', 0.75);
 
+                // CORRECTION : Un conteneur "block" centré, prêt à être manipulé (float) par la barre flottante
                 const imgHTML = `
-                    <div class="plume-image" style="display: flex; justify-content: center; margin: 1.5rem 0;" contenteditable="false">
-                        <img src="${compressedBase64}" alt="Image d'illustration" style="max-width: 100%; height: auto; object-fit: contain;">
+                    <div class="plume-image" style="display: block; text-align: center; margin: 1.5rem auto; clear: both;" contenteditable="false">
+                        <img src="${compressedBase64}" alt="Image d'illustration" style="max-width: 100%; height: auto; border-radius: 4px; object-fit: contain;">
                     </div>
+                    <p><br></p>
                 `;
                 
+                // Sécurité : on s'assure que le focus est bien dans l'éditeur
+                if (typeof enforceFocus === 'function') enforceFocus();
                 insertHTML(imgHTML);
             };
             img.src = readerEvent.target.result;
