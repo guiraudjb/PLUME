@@ -185,6 +185,67 @@ bulletPictoBtn.style.cssText = `background-color: #fff; border: 1px solid var(--
 // Plus bas, ajoutez-le au floatToolbar
 floatToolbar.appendChild(bulletPictoBtn);
 
+// --- NOUVEAU : Bouton pour une image personnalisée ---
+const customBulletBtn = document.createElement('button');
+customBulletBtn.innerHTML = '<span class="fr-icon-image-add-line" style="font-size: 0.85rem;"></span>';
+customBulletBtn.title = "Importer une image personnalisée pour la puce";
+customBulletBtn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: none; align-items: center; justify-content: center; font-size: 1rem; color: var(--theme-sun);`;
+
+floatToolbar.appendChild(customBulletBtn);
+
+function applyCustomBullet(targetElement) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png, image/jpeg, image/webp, image/svg+xml';
+
+    input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(readerEvent) {
+            const img = new Image();
+            img.onload = function() {
+                // On crée un mini-canvas (64x64 pixels suffisent largement pour une puce)
+                const canvas = document.createElement('canvas');
+                const size = 64; 
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                
+                // Calcul pour centrer et garder les proportions
+                const scale = Math.min(size / img.width, size / img.height);
+                const w = img.width * scale;
+                const h = img.height * scale;
+                const x = (size - w) / 2;
+                const y = (size - h) / 2;
+
+                ctx.clearRect(0, 0, size, size);
+                ctx.drawImage(img, x, y, w, h);
+
+                // Export en PNG léger
+                const base64 = canvas.toDataURL('image/png');
+                
+                targetElement.classList.add('plume-custom-bullet');
+
+                // Application des styles sur la balise <li>
+                targetElement.style.listStyleType = 'none';
+                targetElement.style.backgroundImage = `url('${base64}')`;
+                targetElement.style.backgroundRepeat = 'no-repeat';
+                targetElement.style.backgroundPosition = 'left 0.3rem'; 
+                targetElement.style.backgroundSize = '1.2rem';
+                targetElement.style.paddingLeft = '1.8rem';
+
+                hideFloatToolbar();
+                if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
+            };
+            img.src = readerEvent.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+    input.click();
+}
+
 
 
 // Assemblage final
@@ -280,12 +341,20 @@ document.addEventListener('click', function(e) {
             }
             if (tagName === 'LI' && hoveredBlock.closest('ul')) {
                 bulletPictoBtn.style.display = 'flex';
-                // On attache l'événement de clic au vol pour cibler spécifiquement ce LI
+                customBulletBtn.style.display = 'flex'; // Affiche le bouton personnalisé
+                
+                // Action : Picto DSFR
                 bulletPictoBtn.onclick = () => {
                     openDsfrGalleryModal('bullet', hoveredBlock);
                 };
+                
+                // Action : Image personnalisée
+                customBulletBtn.onclick = () => {
+                    applyCustomBullet(hoveredBlock);
+                };
             } else {
                 bulletPictoBtn.style.display = 'none';
+                customBulletBtn.style.display = 'none'; // Cache le bouton personnalisé
             }
 
             // Calcul de la position (Positionnement intelligent)

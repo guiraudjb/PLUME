@@ -1298,8 +1298,10 @@ function openDsfrGalleryModal(mode = 'insert', targetElement = null) {
                         document.execCommand('insertHTML', false, img.outerHTML);
                     } 
                     else if (mode === 'bullet' && targetElement) {
+						targetElement.classList.add('plume-custom-bullet');
                         targetElement.style.listStyleType = 'none';
                         // On injecte le PNG encodé directement dans le style
+                        
                         targetElement.style.backgroundImage = `url('${pngDataUrl}')`;
                         targetElement.style.backgroundRepeat = 'no-repeat';
                         targetElement.style.backgroundPosition = 'left 0.3rem'; 
