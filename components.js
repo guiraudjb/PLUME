@@ -3,10 +3,19 @@
  * Contient toutes les fonctions d'insertion statiques de l'éditeur.
  */
 
-function insertImage() {
+function insertImage(mode = 'insert', targetElement = null) {
+    // 1. Sauvegarde immédiate de la position du curseur
+    const selection = window.getSelection();
+    let savedRange = null;
+    if (selection.rangeCount > 0) {
+        savedRange = selection.getRangeAt(0).cloneRange();
+    }
+
+    // 2. Ouverture de l'explorateur
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/png, image/jpeg, image/webp';
+    // On autorise aussi le SVG pour les puces
+    input.accept = 'image/png, image/jpeg, image/webp, image/svg+xml';
 
     input.onchange = function(e) {
         const file = e.target.files[0];
@@ -15,40 +24,85 @@ function insertImage() {
         const reader = new FileReader();
 
         reader.onload = function(readerEvent) {
-            // Création d'une image virtuelle pour la compression
             const img = new Image();
             img.onload = function() {
-                // Calcul des dimensions (Max 800px de large pour une feuille A4)
-                const MAX_WIDTH = 800;
-                let width = img.width;
-                let height = img.height;
+                
+                // ==========================================
+                // CAS A : INSERTION D'UNE IMAGE CLASSIQUE
+                // ==========================================
+                if (mode === 'insert') {
+                    // Calcul des dimensions (Max 800px)
+                    const MAX_WIDTH = 800;
+                    let width = img.width;
+                    let height = img.height;
 
-                if (width > MAX_WIDTH) {
-                    height = Math.round((height * MAX_WIDTH) / width);
-                    width = MAX_WIDTH;
+                    if (width > MAX_WIDTH) {
+                        height = Math.round((height * MAX_WIDTH) / width);
+                        width = MAX_WIDTH;
+                    }
+
+                    // Compression WEBP
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const compressedBase64 = canvas.toDataURL('image/webp', 0.75);
+
+                    // Restauration du curseur
+                    if (savedRange) {
+                        selection.removeAllRanges();
+                        selection.addRange(savedRange);
+                    }
+
+                    // Insertion du bloc
+                    const imgHTML = `
+                        <img src="${compressedBase64}" alt="Image personnalisée" class="fr-mx-auto fr-mb-3w fr-mt-3w" style="display: block; max-width: 100%; border-radius: 4px; object-fit: contain;">
+                        <p><br></p>
+                    `;
+                    
+                    if (typeof enforceFocus === 'function') enforceFocus();
+                    insertHTML(imgHTML);
+                } 
+                
+                // ==========================================
+                // CAS B : REMPLACEMENT D'UNE PUCE DE LISTE
+                // ==========================================
+                else if (mode === 'bullet' && targetElement) {
+                    // On force un carré 64x64px
+                    const size = 64; 
+                    const canvas = document.createElement('canvas');
+                    canvas.width = size;
+                    canvas.height = size;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Calcul pour centrer sans déformer
+                    const scale = Math.min(size / img.width, size / img.height);
+                    const w = img.width * scale;
+                    const h = img.height * scale;
+                    const x = (size - w) / 2;
+                    const y = (size - h) / 2;
+
+                    ctx.clearRect(0, 0, size, size);
+                    ctx.drawImage(img, x, y, w, h);
+
+                    // Export en PNG pour la transparence
+                    const base64 = canvas.toDataURL('image/png');
+
+                    // Application au composant LI
+                    targetElement.classList.add('plume-custom-bullet'); 
+                    targetElement.style.listStyleType = 'none';
+                    targetElement.style.backgroundImage = `url('${base64}')`;
+                    targetElement.style.backgroundRepeat = 'no-repeat';
+                    targetElement.style.backgroundPosition = 'left 0.3rem'; 
+                    targetElement.style.backgroundSize = '1.2rem';
+                    targetElement.style.paddingLeft = '1.8rem';
+                    
+                    if (typeof hideFloatToolbar === 'function') hideFloatToolbar();
                 }
 
-                // Canvas invisible pour redimensionner
-                const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-
-                // Export optimisé en WEBP (compression 75%)
-                const compressedBase64 = canvas.toDataURL('image/webp', 0.75);
-
-                // CORRECTION : Un conteneur "block" centré, prêt à être manipulé (float) par la barre flottante
-                const imgHTML = `
-                    <div class="plume-image" style="display: block; text-align: center; margin: 1.5rem auto; clear: both;" contenteditable="false">
-                        <img src="${compressedBase64}" alt="Image d'illustration" style="max-width: 100%; height: auto; border-radius: 4px; object-fit: contain;">
-                    </div>
-                    <p><br></p>
-                `;
-                
-                // Sécurité : on s'assure que le focus est bien dans l'éditeur
-                if (typeof enforceFocus === 'function') enforceFocus();
-                insertHTML(imgHTML);
+                // 3. Sauvegarde automatique après traitement
+                if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
             };
             img.src = readerEvent.target.result;
         };
