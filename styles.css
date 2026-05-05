@@ -23,8 +23,9 @@ body {
 
 
 .editor-header {
-    max-height: 300px;
-    overflow: hidden;
+    max-height: 40vh; /* On utilise une hauteur dynamique (40% de l'écran) plutôt que fixe */
+    overflow-y: auto; /* Active l'ascenseur vertical si le contenu déborde */
+    overflow-x: hidden; /* Empêche le défilement horizontal */
     transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-in-out;
     transform-origin: top;
     background: #fff; 
@@ -39,6 +40,22 @@ body {
     max-height: 0;
     opacity: 0;
     border-bottom: none;
+    overflow: hidden !important; /* Force la disparition de l'ascenseur quand la barre se replie */
+}
+
+/* Optionnel : Rendre l'ascenseur plus élégant et discret (Style Webkit) */
+.editor-header::-webkit-scrollbar {
+    width: 6px;
+}
+.editor-header::-webkit-scrollbar-track {
+    background: var(--grey-975); 
+}
+.editor-header::-webkit-scrollbar-thumb {
+    background: var(--grey-900); 
+    border-radius: 4px;
+}
+.editor-header::-webkit-scrollbar-thumb:hover {
+    background: #a0a0a0; 
 }
 
 .fr-header {
@@ -73,11 +90,59 @@ body {
     padding-right: 0;
 }
 
-.toolbar-row { display: flex; align-items: center; padding: 0.5rem 1rem; gap: 1rem; border-bottom: 1px solid #f0f0f0; overflow-x: auto; }
-.toolbar-group { display: flex; gap: 0.4rem; align-items: center; border-right: 1px solid var(--grey-900); padding-right: 1rem; }
-.toolbar-group:last-child { border-right: none; }
+.toolbar-row { 
+    display: flex; 
+    flex-wrap: wrap; /* Permet le retour à la ligne */
+    align-items: center; 
+    padding: 0.5rem 1rem; 
+    row-gap: 0.5rem; 
+    column-gap: 1rem; 
+    border-bottom: 1px solid #f0f0f0; 
+}
+
+.toolbar-group { 
+    display: flex; 
+    flex-wrap: wrap; /* Permet le retour à la ligne interne */
+    gap: 0.4rem; 
+    align-items: center; 
+    border-right: 1px solid var(--grey-900); 
+    padding-right: 1rem; 
+}
+
+.toolbar-group:last-child { 
+    border-right: none; 
+    padding-right: 0;
+}
+
 .group-label { font-size: 0.6rem; font-weight: 700; color: #999; text-transform: uppercase; writing-mode: vertical-lr; transform: rotate(180deg); }
 .input-text { padding: 0.3rem; border: 1px solid var(--grey-900); border-radius: 4px; font-size: 0.8rem; }
+
+/* =====================================================================
+   ADAPTATION POUR ÉCRANS MOYENS ET PETITS (Tablettes & Mobiles)
+===================================================================== */
+@media (max-width: 1024px) {
+    .toolbar-group {
+        border-right: none; 
+        padding-right: 0;
+        background-color: var(--grey-975);
+        border-radius: 4px;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .toolbar-group input[type="text"], 
+    .toolbar-group select {
+        width: 100% !important; 
+        max-width: 100%;
+    }
+    
+    .toolbar-row > div[style*="flex-grow:1"] {
+        display: none !important;
+    }
+    
+    .toolbar-row {
+        justify-content: flex-start;
+    }
+}
 
 
 /* ===================================================================== */
@@ -578,7 +643,6 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
 .safe-area {
     display: flex;
     flex-direction: column;
-     */
 }
 
 /* L'éditeur s'étire au maximum pour repousser les éléments suivants vers le bas */
@@ -630,6 +694,56 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
     pointer-events: none;
     z-index: 10;
 }
+
+/* =====================================================================
+   STYLE DES COMMENTAIRES (MODE COLLABORATIF)
+===================================================================== */
+mark.plume-comment {
+    background-color: #fee965 !important;
+    color: #161616 !important;
+    cursor: help !important;
+    border-bottom: 2px solid #fccc2d !important;
+    padding: 0 4px !important;
+    border-radius: 2px !important;
+    transition: background-color 0.2s;
+}
+
+mark.plume-comment:hover {
+    background-color: #fccc2d !important;
+}
+
+/* =====================================================================
+   STYLE DU SUIVI DES MODIFICATIONS (PHASE 3)
+===================================================================== */
+ins.plume-ins {
+    color: #1f8d49; /* Vert DSFR (Succès) */
+    text-decoration: underline;
+    text-decoration-color: #1f8d49;
+    text-decoration-thickness: 2px;
+    background-color: rgba(31, 141, 73, 0.1);
+    cursor: pointer;
+}
+
+del.plume-del {
+    color: #e1000f; /* Rouge DSFR (Erreur) */
+    text-decoration: line-through;
+    text-decoration-color: #e1000f;
+    text-decoration-thickness: 2px;
+    background-color: rgba(225, 0, 15, 0.1);
+    cursor: pointer;
+}
+
+/* Changement de style du bouton quand le mode est actif */
+#btn-revision-mode.is-active {
+    background-color: var(--theme-sun) !important;
+    color: #fff !important;
+}
+
+
+
+
+
+
    
 /* On s'assure que les toasts n'apparaissent pas à l'impression */
 @media print {
@@ -656,7 +770,7 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
 
 .content-editable > * {
         outline: none !important;
-
+}
     .content-editable a {
         pointer-events: auto !important;
         text-decoration: underline !important;
@@ -670,6 +784,24 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
     }
 
     #toast-container { display: none !important; }
+      /* 1. Les suppressions sont totalement effacées du PDF */
+    del.plume-del {
+        display: none !important;
+    }
+
+    /* 2. Les ajouts perdent leur couleur verte et leur soulignement pour devenir du texte normal */
+    ins.plume-ins {
+        color: inherit !important;
+        text-decoration: none !important;
+        background-color: transparent !important;
+    }
+
+    /* 3. Les commentaires perdent leur surlignage jaune */
+    mark.plume-comment {
+        background-color: transparent !important;
+        border-bottom: none !important;
+        color: inherit !important;
+    }
 }
 
 

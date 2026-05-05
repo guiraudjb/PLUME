@@ -8,7 +8,7 @@
     <link rel="shortcut icon" href="./libs/dsfr-v1.14.3/dist/favicon/favicon.ico" type="image/x-icon"><link rel="manifest" href="./libs/dsfr-v1.14.3/dist/favicon/manifest.webmanifest" crossorigin="use-credentials">
     <link rel="stylesheet" href="./libs/dsfr-v1.14.3/dist/dsfr.min.css">
     <link rel="stylesheet" href="./libs/dsfr-v1.14.3/dist/utility/icons/icons.min.css">
-    
+    <link rel="stylesheet" href="./libs/katex/katex.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -88,6 +88,11 @@
                     <option value="gris_galet">🪨 Beige Gris Galet</option>
                 </optgroup>
             </select>
+
+    
+            <label class="fr-label" for="cfg-author">Réviseur</label>
+            <input class="fr-input" type="text" id="cfg-author" placeholder="Ex: Agent A" value="">
+
         </div>
         <div class="toolbar-group" role="group" aria-label="Marges colorées" style="display: flex; flex-direction: column; gap: 0.2rem;">
             <span style="font-size: 0.65rem; font-weight: 700; color: #999; text-transform: uppercase;">Marges colorées</span>
@@ -124,6 +129,7 @@
 
             <label for="cfg-date" class="fr-sr-only">Date de publication</label>
             <input type="text" id="cfg-date" value="Avril 2026" oninput="syncMetadata()" class="fr-input" placeholder="Date" title="Date de publication" style="width:200px; margin-bottom: 0; padding: 0.25rem 0.5rem; min-height: 32px;">
+                     
 
             <input type="file" accept="image/*" id="logo-in" onchange="handleLogo(this)" style="display:none" tabindex="-1" aria-hidden="true">
             <button class="fr-btn fr-btn--sm fr-btn--tertiary fr-icon-image-fill" onclick="document.getElementById('logo-in').click()" title="Changer le logo d'en-tête (Bureau)">
@@ -201,8 +207,26 @@
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-link" onclick="insertLink()" title="Insérer un lien">Lien</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-file-text-line" onmousedown="event.preventDefault()" onclick="insertFootnote()" title="Insérer une note de bas de page">Note</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-image-add-line" onclick="insertImage()" title="Insérer une image">Image</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-star-line" onclick="openDsfrGalleryModal('insert')" title="Insérer une icône ou un pictogramme du DSFR">Picto DSFR</button></li>
+                <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-calculator-line" onclick="openMathEditor()" title="Insérer une formule mathématique">Formule</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-separator" onclick="insertDivider()" title="Insérer une ligne de séparation">Ligne</button></li>
                 <li><button class="fr-btn fr-btn--tertiary-no-outline fr-btn--icon-left fr-icon-file-add-line" onclick="insertPageBreak()" title="Insérer un saut de page">Saut de page</button></li>
+            </ul>
+        </div>
+        <div class="toolbar-group" role="group" aria-label="Commentaires">
+            <ul class="fr-btns-group fr-btns-group--sm fr-btns-group--inline">
+                <li>
+                    <button id="btn-revision-mode" class="fr-btn fr-btn--tertiary-no-outline fr-icon-edit-box-line" onclick="toggleRevisionMode()" title="Activer/Désactiver le suivi des modifications">Suivi désactivé</button>
+                </li>
+                <li>
+                    <button type="button" class="fr-btn fr-btn--tertiary-no-outline fr-icon-arrow-go-back-line" onclick="restoreSelectedRevisions()" title="Annuler le suivi sur le texte sélectionné">Restaurer la sélection</button>
+                </li>
+                <li>
+                    <button class="fr-btn fr-btn--tertiary-no-outline fr-icon-chat-3-line" onclick="addComment()" title="Commenter la sélection">Commenter</button>
+                </li>
+                <li>
+                    <button class="fr-btn fr-btn--secondary fr-icon-checkbox-circle-line" onclick="acceptAllRevisions()" title="Accepter toutes les révisions et résoudre les commentaires">Tout valider</button>
+                </li>
             </ul>
         </div>
         
@@ -303,6 +327,7 @@
     <script src="./libs/topojson.v3.min.js"></script>
     <script src="./libs/html2canvas.min.js"></script>
     <script src="./libs/qr-code-styling.js"></script>
+    <script src="./libs/katex/katex.min.js"></script>
 
     <script src="app.js"></script>
     <script src="map.js"></script>
@@ -312,6 +337,9 @@
     <script src="organigramme.js"></script>
     <script src="arbre-decisionnel.js"></script>
     <script src="qrcode.js"></script>
+    <script src="mathEditor.js"></script>
+    <script src="collaboration.js"></script>
+    
     
 </body>
 </html>

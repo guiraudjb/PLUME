@@ -174,6 +174,19 @@ const gridColorCol = createGridBtn('<span class="fr-icon-paint-fill" style="font
 
 gridToolsContainer.append(gridAlignTop, gridAlignCenter, gridAlignBottom, gridColorCol);
 
+
+// --- AJOUT : Bouton pour changer la puce d'une liste ---
+const bulletPictoBtn = document.createElement('button');
+bulletPictoBtn.innerHTML = '<span class="fr-icon-star-fill" style="font-size: 0.85rem;"></span>';
+bulletPictoBtn.title = "Remplacer la puce par un picto";
+bulletPictoBtn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: none; align-items: center; justify-content: center; font-size: 1rem; color: var(--theme-sun);`;
+// -------------------------------------------------------
+
+// Plus bas, ajoutez-le au floatToolbar
+floatToolbar.appendChild(bulletPictoBtn);
+
+
+
 // Assemblage final
 floatToolbar.appendChild(textStyleSelect);
 floatToolbar.appendChild(lettrineBtn);
@@ -191,7 +204,7 @@ document.body.appendChild(floatToolbar);
 
 let hoveredBlock = null;
 let activeLinkNode = null;
-const blockSelectors = '.fr-table, .plume-grid, .fr-summary, .fr-callout, hr, img, [contenteditable="false"], p, h1, h2, h3, h4, h5, h6, blockquote, ul, ol';
+const blockSelectors = '.fr-table, .plume-grid, .fr-summary, .fr-callout, hr, img, [contenteditable="false"], p, h1, h2, h3, h4, h5, h6, blockquote, ul, ol,li';
 
 // 2. Traque par sélection (au clic)
 document.addEventListener('click', function(e) {
@@ -264,6 +277,15 @@ document.addEventListener('click', function(e) {
                 editLinkBtn.style.display = 'flex';
             } else {
                 editLinkBtn.style.display = 'none';
+            }
+            if (tagName === 'LI' && hoveredBlock.closest('ul')) {
+                bulletPictoBtn.style.display = 'flex';
+                // On attache l'événement de clic au vol pour cibler spécifiquement ce LI
+                bulletPictoBtn.onclick = () => {
+                    openDsfrGalleryModal('bullet', hoveredBlock);
+                };
+            } else {
+                bulletPictoBtn.style.display = 'none';
             }
 
             // Calcul de la position (Positionnement intelligent)
