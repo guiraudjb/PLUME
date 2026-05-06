@@ -1,7 +1,7 @@
-
 /**
  * MODULE ARBRE DÉCISIONNEL - PLUME
  * Interface de création et d'intégration d'arbres de décision vectoriels.
+ * Inclut la gestion dynamique des couleurs via les variables CSS du thème.
  */
 
 const TREE_PALETTE_GRADIENTS = {
@@ -28,7 +28,45 @@ const TREE_DSFR_ICONS = {
     "user": ["user-fill", "team-fill", "admin-fill"]
 };
 
-// --- Variables d'état globales de l'arbre ---
+// --- NOUVEAU : Résolveurs Dynamiques ---
+function resolveTreeColor(val) {
+    if (!val) return '#000000';
+    const style = getComputedStyle(document.documentElement);
+    
+    if (val === 'theme_main') return style.getPropertyValue('--theme-sun').trim() || '#000091';
+    if (val === 'theme_bg') return style.getPropertyValue('--theme-bg').trim() || '#f5f5fe';
+    
+    return val; 
+}
+
+function updateDynamicTreeDefs(defsElement) {
+    if (!defsElement) return;
+    const style = getComputedStyle(document.documentElement);
+    const themeSun = style.getPropertyValue('--theme-sun').trim() || '#000091';
+    const themeBg = style.getPropertyValue('--theme-bg').trim() || '#f5f5fe';
+
+    let grad = defsElement.querySelector('#tree-grad-theme_gradient');
+    if (!grad) {
+        grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+        grad.setAttribute('id', 'tree-grad-theme_gradient');
+        grad.setAttribute('x1', '0%'); grad.setAttribute('y1', '0%'); 
+        grad.setAttribute('x2', '100%'); grad.setAttribute('y2', '100%');
+        
+        const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+        stop1.setAttribute('offset', '0%');
+        const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+        stop2.setAttribute('offset', '100%');
+        
+        grad.appendChild(stop1);
+        grad.appendChild(stop2);
+        defsElement.appendChild(grad);
+    }
+    
+    grad.children[0].setAttribute('stop-color', themeBg);
+    grad.children[1].setAttribute('stop-color', themeSun);
+}
+
+// --- Variables d'état globales ---
 let treeData = null;
 let treeNodeCounter = 10;
 let treeFlatNodeList = [];
@@ -49,23 +87,24 @@ function initTreeData(existingConfig = null) {
         treeData = existingConfig.treeData;
         treeNodeCounter = existingConfig.treeNodeCounter || 100;
     } else {
+        // --- MODIFIÉ : Configuration par défaut utilisant le thème dynamique ---
         treeData = {
             id: "root",
             text: "Le projet est-il\nstratégique ?",
-            color: "cumulusAscending",
+            color: "theme_main",
             textColor: "#FFFFFF",
             shape: "diamond",
             size: 280,
             edgeLabel: "",
-            icon: null, // Par défaut pas d'icône pour éviter les dépendances de chemin absentes
+            icon: null,
             ...TREE_DEFAULT_TYPO,
             isBold: true,
             children: [
                 {
-                    id: "node_1", text: "Déploiement\nImmédiat", color: "vertVifAscending", textColor: "#000000", shape: "rect", size: 240, edgeLabel: "Oui", icon: null, ...TREE_DEFAULT_TYPO, children: []
+                    id: "node_1", text: "Déploiement\nImmédiat", color: "theme_gradient", textColor: "#000000", shape: "rect", size: 240, edgeLabel: "Oui", icon: null, ...TREE_DEFAULT_TYPO, children: []
                 },
                 {
-                    id: "node_2", text: "Analyse des\nrisques", color: "tournesolAscending", textColor: "#000000", shape: "rect", size: 240, edgeLabel: "Non", icon: null, ...TREE_DEFAULT_TYPO, children: [
+                    id: "node_2", text: "Analyse des\nrisques", color: "theme_bg", textColor: "theme_main", shape: "rect", size: 240, edgeLabel: "Non", icon: null, ...TREE_DEFAULT_TYPO, children: [
                         { id: "node_3", text: "Projet Rejeté", color: "roseFuschiaAscending", textColor: "#000000", shape: "rect", size: 200, edgeLabel: "Risque Élevé", icon: null, ...TREE_DEFAULT_TYPO, children: [] },
                         { id: "node_4", text: "Validation\nComité", color: "grisGaletAscending", textColor: "#000000", shape: "rect", size: 200, edgeLabel: "Risque Modéré", icon: null, ...TREE_DEFAULT_TYPO, children: [] }
                     ]
@@ -76,7 +115,6 @@ function initTreeData(existingConfig = null) {
     }
 }
 
-// Fonction principale d'ouverture
 function insertArbreDecision() {
     const selection = window.getSelection();
     let savedRange = null;
@@ -108,7 +146,6 @@ function insertArbreDecision() {
             
             .tree-node-group { cursor: pointer; }
             .tree-node-group rect, .tree-node-group circle, .tree-node-group polygon { transition: stroke-width 0.2s, stroke 0.2s; }
-            .tree-node-group:hover rect, .tree-node-group:hover circle, .tree-node-group:hover polygon { stroke: #000091; stroke-width: 4px; }
             .tree-edge-group path.tree-visible-edge { transition: stroke 0.2s, stroke-width 0.2s; }
             .tree-edge-group rect.tree-label-bg { transition: stroke 0.2s; }
         </style>
@@ -150,9 +187,10 @@ function insertArbreDecision() {
                                 <div style="flex: 2;">
                                     <label class="fr-label" style="font-size: 0.8rem;">Couleur texte</label>
                                     <select id="tree-node-text-color" class="fr-select">
+                                        <!-- MODIFIÉ : Ajout option dynamique -->
+                                        <option value="theme_main">Couleur du thème (Dynamique)</option>
                                         <option value="#000000">Noir</option>
                                         <option value="#FFFFFF">Blanc</option>
-                                        <option value="#000091">Bleu France</option>
                                     </select>
                                 </div>
                             </div>
@@ -217,7 +255,6 @@ function insertArbreDecision() {
                 </div>
             </div>
 
-            <!-- ZONE DE PRÉVISUALISATION -->
             <div class="tree-workspace" id="tree-preview-container">
                 <svg id="tree-canvas" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
                     <defs id="tree-gradient-defs"></defs>
@@ -236,7 +273,6 @@ function insertArbreDecision() {
     
     document.body.appendChild(overlay);
 
-    // Initialisation
     initTreeData();
     initTreeGradients();
     initTreeIconMenu();
@@ -246,8 +282,6 @@ function insertArbreDecision() {
     resetTreeZoom();
 
     // --- CÂBLAGE DES ÉVÉNEMENTS ---
-
-    // Caméra (Pan & Zoom)
     document.getElementById('tree-btn-zoom-in').onclick = zoomTreeIn;
     document.getElementById('tree-btn-zoom-out').onclick = zoomTreeOut;
     document.getElementById('tree-btn-zoom-reset').onclick = resetTreeZoom;
@@ -292,7 +326,6 @@ function insertArbreDecision() {
     window.addEventListener('pointermove', pointerMoveHandler);
     window.addEventListener('pointerup', pointerUpHandler);
 
-    // Interface Formulaire
     document.getElementById('tree-node-select').onchange = () => {
         loadTreeNodeData();
         renderTreeSVG();
@@ -314,25 +347,21 @@ function insertArbreDecision() {
     document.getElementById('tree-btn-bold').onclick = () => { toggleTreeTextStyle('bold'); };
     document.getElementById('tree-btn-italic').onclick = () => { toggleTreeTextStyle('italic'); };
 
-    // Icônes
     document.getElementById('tree-icon-theme-select').onchange = populateTreeIconSelect;
     document.getElementById('tree-icon-select').onchange = updateTreeIconPreview;
     document.getElementById('tree-btn-apply-icon').onclick = applyTreeIcon;
     document.getElementById('tree-btn-remove-icon').onclick = removeTreeIcon;
 
-    // Structure
     document.getElementById('tree-btn-add-cond').onclick = () => addTreeChildNode('condition');
     document.getElementById('tree-btn-add-inst').onclick = () => addTreeChildNode('instruction');
     document.getElementById('tree-btn-delete').onclick = removeTreeSelectedNode;
 
-    // Fermeture
     document.getElementById('btn-tree-cancel').onclick = () => {
         window.removeEventListener('pointermove', pointerMoveHandler);
         window.removeEventListener('pointerup', pointerUpHandler);
         overlay.remove();
     };
 
-    // Export et Insertion
     document.getElementById('btn-tree-insert').onclick = () => {
         const { source, w, h } = getCleanTreeSVGSource();
         const exportScale = 2; 
@@ -376,8 +405,6 @@ function insertArbreDecision() {
 }
 
 
-// --- CAMÉRA ET VUE ---
-
 function applyTreeViewBox() { 
     const canvas = document.getElementById('tree-canvas');
     if(canvas) canvas.setAttribute('viewBox', `${treeVbX} ${treeVbY} ${treeVbWidth} ${treeVbHeight}`); 
@@ -397,8 +424,6 @@ function resetTreeZoom() {
     if(treeVbWidth < 1000) { treeVbX -= (1000 - treeVbWidth)/2; treeVbWidth = 1000; }
     applyTreeViewBox();
 }
-
-// --- UTILITAIRES DE DONNÉES ---
 
 function generateTreeId() { return 'node_' + (treeNodeCounter++); }
 
@@ -421,16 +446,30 @@ function findNodeAndParent(id, currentNode = treeData, parent = null, index = -1
     return null;
 }
 
-// --- INTERFACE (UI) ---
-
 function initTreeGradients() {
-    const defs = document.getElementById('tree-gradient-defs');
     const colorSelect = document.getElementById('tree-node-color');
-    
-    // SÉCURITÉ : On ne touche au <select> que s'il est présent à l'écran (modale ouverte)
     if (colorSelect) {
-        colorSelect.innerHTML = '<option value="#FFFFFF">Blanc (Uni)</option>';
+        colorSelect.innerHTML = '';
+        
+        // --- MODIFIÉ : Ajout du groupe de couleurs dynamiques ---
+        const optGroupDynamic = document.createElement('optgroup');
+        optGroupDynamic.label = "Couleurs dynamiques (Thème)";
+        optGroupDynamic.innerHTML = `
+            <option value="theme_main">Couleur principale (Dynamique)</option>
+            <option value="theme_bg">Couleur de fond (Dynamique)</option>
+            <option value="theme_gradient">Dégradé du thème (Dynamique)</option>
+        `;
+        colorSelect.appendChild(optGroupDynamic);
+
+        const optGroupSolid = document.createElement('optgroup');
+        optGroupSolid.label = "Couleurs unies";
+        optGroupSolid.innerHTML = '<option value="#FFFFFF">Blanc (Uni)</option><option value="#000000">Noir (Uni)</option>';
+        colorSelect.appendChild(optGroupSolid);
     }
+
+    const defs = document.getElementById('tree-gradient-defs');
+    const optGroupGrad = document.createElement('optgroup');
+    optGroupGrad.label = "Dégradés DSFR fixes";
 
     for (const [key, cssGradient] of Object.entries(TREE_PALETTE_GRADIENTS)) {
         const colors = cssGradient.match(/#[a-fA-F0-9]{3,6}/gi);
@@ -447,14 +486,17 @@ function initTreeGradients() {
             });
             defs.appendChild(linearGradient);
             
-            // SÉCURITÉ : On n'ajoute l'option que si le select existe
             if (colorSelect) {
                 const opt = document.createElement('option'); opt.value = key; opt.textContent = key;
-                colorSelect.appendChild(opt);
+                optGroupGrad.appendChild(opt);
             }
         }
     }
+    if (colorSelect) {
+        colorSelect.appendChild(optGroupGrad);
+    }
 }
+
 function initTreeIconMenu() {
     const themeSelect = document.getElementById('tree-icon-theme-select');
     themeSelect.innerHTML = '<option value="">-- Thème --</option>';
@@ -598,8 +640,6 @@ function toggleTreeTextStyle(style) {
     loadTreeNodeData(); renderTreeSVG();
 }
 
-// --- ACTIONS SUR L'ARBRE ---
-
 function addTreeChildNode(type) {
     const id = document.getElementById('tree-node-select').value;
     const { node } = findNodeAndParent(id);
@@ -607,9 +647,9 @@ function addTreeChildNode(type) {
     
     let newNode;
     if (type === 'condition') {
-        newNode = { id: generateTreeId(), text: "Nouvelle\nCondition", color: "tournesolAscending", textColor: "#000000", shape: "diamond", size: 240, edgeLabel: "Lien", icon: null, ...TREE_DEFAULT_TYPO, children: [] };
+        newNode = { id: generateTreeId(), text: "Nouvelle\nCondition", color: "theme_gradient", textColor: "#000000", shape: "diamond", size: 240, edgeLabel: "Lien", icon: null, ...TREE_DEFAULT_TYPO, children: [] };
     } else {
-        newNode = { id: generateTreeId(), text: "Nouvelle\nInstruction", color: "grisGaletAscending", textColor: "#000000", shape: "rect", size: 240, edgeLabel: "Lien", icon: null, ...TREE_DEFAULT_TYPO, children: [] };
+        newNode = { id: generateTreeId(), text: "Nouvelle\nInstruction", color: "theme_bg", textColor: "theme_main", shape: "rect", size: 240, edgeLabel: "Lien", icon: null, ...TREE_DEFAULT_TYPO, children: [] };
     }
     
     node.children.push(newNode);
@@ -634,8 +674,6 @@ function selectTreeNodeFromCanvas(id) {
     document.getElementById('tree-node-select').value = id;
     loadTreeNodeData(); renderTreeSVG(); 
 }
-
-// --- MOTEUR SVG (RENDU) ---
 
 function calculateTreeLayout(node) {
     const nodeWidth = Number(node.size) || 200;
@@ -729,6 +767,7 @@ function drawTreeEdge(parentGrp, parentNode, childNode) {
     edgeGroup.appendChild(hitBoxPath);
 
     let bgRect = null;
+    const mainThemeColor = resolveTreeColor('theme_main');
 
     if(childNode.edgeLabel && childNode.edgeLabel.trim() !== "") {
         const labelG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -741,7 +780,7 @@ function drawTreeEdge(parentGrp, parentNode, childNode) {
         textEl.setAttribute('dominant-baseline', 'central');
         textEl.setAttribute('font-size', '16px');
         textEl.setAttribute('font-weight', 'bold');
-        textEl.setAttribute('fill', '#000091');
+        textEl.setAttribute('fill', mainThemeColor); // MODIFIÉ : Couleur thème dynamique
         textEl.textContent = childNode.edgeLabel;
         
         bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -760,9 +799,9 @@ function drawTreeEdge(parentGrp, parentNode, childNode) {
     }
 
     edgeGroup.onmouseenter = () => {
-        path.setAttribute('stroke', '#000091');
+        path.setAttribute('stroke', mainThemeColor); // MODIFIÉ : Couleur thème dynamique au survol
         path.setAttribute('stroke-width', '5');
-        if (bgRect) bgRect.setAttribute('stroke', '#000091');
+        if (bgRect) bgRect.setAttribute('stroke', mainThemeColor);
     };
     edgeGroup.onmouseleave = () => {
         path.setAttribute('stroke', '#666666');
@@ -776,8 +815,19 @@ function drawTreeEdge(parentGrp, parentNode, childNode) {
 function drawTreeShape(group, node, isSelected) {
     const size = Number(node.size) || 200;
     const w = size;
-    const fillValue = node.color === '#FFFFFF' ? '#FFFFFF' : `url(#tree-grad-${node.color})`;
-    const strokeColor = isSelected ? '#000091' : '#1E1E1E';
+    
+    // --- MODIFIÉ : Résolution de la couleur de fond dynamique ---
+    const resolvedColor = resolveTreeColor(node.color);
+    let fillValue;
+    if (resolvedColor === 'theme_gradient') {
+        fillValue = 'url(#tree-grad-theme_gradient)';
+    } else if (resolvedColor.startsWith('#') || resolvedColor.startsWith('rgb')) {
+        fillValue = resolvedColor;
+    } else {
+        fillValue = `url(#tree-grad-${resolvedColor})`;
+    }
+    
+    const strokeColor = isSelected ? resolveTreeColor('theme_main') : '#1E1E1E';
     const strokeWidth = isSelected ? '5' : '1.5';
 
     if (node.shape === 'diamond') {
@@ -816,6 +866,9 @@ function drawTreeNodeContent(group, node) {
     const fSize = Number(node.fontSize) || 24;
     const lineHeight = fSize * 1.25;
 
+    // --- MODIFIÉ : Résolution de la couleur du texte dynamique ---
+    const resolvedTextColor = resolveTreeColor(node.textColor);
+
     if (hasIcon) {
         const iconSize = size * 0.30;
         const img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
@@ -825,13 +878,19 @@ function drawTreeNodeContent(group, node) {
         img.setAttribute('width', iconSize);
         img.setAttribute('height', iconSize);
         img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', node.iconBase64);
-        img.setAttribute('style', `filter: ${node.textColor === '#FFFFFF' ? 'invert(1) brightness(2)' : (node.textColor === '#000091' ? 'invert(0)' : 'none')}; pointer-events: none;`);
+        
+        // Simplification du filtre pour les icônes (Adaptation blanc/noir/couleur thème)
+        let filterStyle = 'none';
+        if (resolvedTextColor === '#FFFFFF' || resolvedTextColor === '#ffffff') {
+            filterStyle = 'invert(1) brightness(2)';
+        }
+        img.setAttribute('style', `filter: ${filterStyle}; pointer-events: none;`);
         group.appendChild(img);
     }
 
     const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     textEl.setAttribute('text-anchor', 'middle');
-    textEl.setAttribute('fill', node.textColor);
+    textEl.setAttribute('fill', resolvedTextColor);
     textEl.setAttribute('font-family', node.fontFamily || "'Marianne', system-ui, sans-serif"); 
     textEl.setAttribute('font-size', fSize + 'px');
     textEl.setAttribute('style', 'pointer-events: none;');
@@ -877,7 +936,7 @@ function renderTreeRecursive(node, nodesGroup, connectorsGroup) {
         if (!isTreePanning) selectTreeNodeFromCanvas(node.id);
     };
 
-    const isSelected = (node.id === document.getElementById('tree-node-select').value);
+    const isSelected = (node.id === (document.getElementById('tree-node-select') ? document.getElementById('tree-node-select').value : null));
     drawTreeShape(g, node, isSelected);
     drawTreeNodeContent(g, node);
 
@@ -887,6 +946,11 @@ function renderTreeRecursive(node, nodesGroup, connectorsGroup) {
 function renderTreeSVG() {
     const connectorsGroup = document.getElementById('tree-connectors');
     const nodesGroup = document.getElementById('tree-nodes');
+    if(!connectorsGroup || !nodesGroup) return;
+
+    // --- MODIFIÉ : Met à jour les définitions des dégradés dynamiques avant le tracé ---
+    updateDynamicTreeDefs(document.getElementById('tree-gradient-defs'));
+
     connectorsGroup.innerHTML = ''; nodesGroup.innerHTML = '';
     document.querySelectorAll('marker[id^="tree-arrow-"]').forEach(m => m.remove());
 
@@ -927,8 +991,7 @@ function getCleanTreeSVGSource() {
     return { source, w, h };
 }
 
-// --- MISE À JOUR DYNAMIQUE (THÈME GLOBAL PLUME) ---
-
+// --- MODIFIÉ : Moteur de rafraîchissement global ---
 async function refreshAllTrees() {
     const treeContainers = document.querySelectorAll('.plume-tree-container[data-tree-config]');
     if (treeContainers.length === 0) return;
@@ -938,7 +1001,7 @@ async function refreshAllTrees() {
             const rawConfig = container.getAttribute('data-tree-config');
             const payload = JSON.parse(decodeURIComponent(rawConfig));
             
-            // 1. Création d'un environnement fantôme sécurisé (car la modale est fermée)
+            // 1. Création d'un environnement fantôme sécurisé
             const hiddenDiv = document.createElement('div');
             hiddenDiv.style.position = 'absolute';
             hiddenDiv.style.left = '-9999px';
@@ -953,15 +1016,10 @@ async function refreshAllTrees() {
             `;
             document.body.appendChild(hiddenDiv);
 
-            // Mock du selecteur (pour tromper intelligemment la fonction renderTreeSVG)
-            const mockSelect = document.createElement('input');
-            mockSelect.id = 'tree-node-select';
-            mockSelect.value = 'none';
-            document.body.appendChild(mockSelect);
-
             // 2. Initialisation et Rendu
-            initTreeGradients();
-            treeData = payload.treeData; // On charge les données sauvegardées
+            treeData = payload.treeData; 
+            
+            // La fonction renderTreeSVG se charge d'appeler updateDynamicTreeDefs
             renderTreeSVG();
 
             // 3. Capture et Cadrage
@@ -997,6 +1055,9 @@ async function refreshAllTrees() {
                     const imgElement = container.querySelector('img');
                     if (imgElement) {
                         imgElement.src = canvas.toDataURL('image/png'); // Mise à jour de l'image
+                        // On sécurise les données au cas où il y ait eu conversion
+                        const newPayload = { treeData: treeData, treeNodeCounter: payload.treeNodeCounter };
+                        container.setAttribute('data-tree-config', encodeURIComponent(JSON.stringify(newPayload)));
                     }
                     resolve();
                 };
@@ -1005,7 +1066,6 @@ async function refreshAllTrees() {
 
             // 5. Nettoyage
             hiddenDiv.remove();
-            mockSelect.remove();
 
         } catch (e) {
             console.error("Impossible de rafraîchir l'arbre décisionnel", e);

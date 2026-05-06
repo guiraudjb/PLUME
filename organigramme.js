@@ -1,6 +1,7 @@
 /**
  * MODULE ORGANIGRAMMES CIRCULAIRES - PLUME
  * Interface de création et d'intégration d'organigrammes vectoriels.
+ * Inclut la gestion des couleurs dynamiques (variables CSS du thème).
  */
 
 const PALETTE_GRADIENTS = {
@@ -59,6 +60,44 @@ const PALETTE_GRADIENTS = {
     grisGaletAscending: "linear-gradient(to right, #AEA397, #f9f6f2)"
 };
 
+// --- NOUVEAU : Résolveurs Dynamiques ---
+function resolveOrgColor(val) {
+    if (!val) return '#000000';
+    const style = getComputedStyle(document.documentElement);
+    
+    if (val === 'theme_main') return style.getPropertyValue('--theme-sun').trim() || '#000091';
+    if (val === 'theme_bg') return style.getPropertyValue('--theme-bg').trim() || '#f5f5fe';
+    
+    return val; // Retourne le code hex ou l'ID du dégradé (ex: 'theme_gradient', 'cumulusAscending')
+}
+
+function updateDynamicSVGDefs(defsElement) {
+    const style = getComputedStyle(document.documentElement);
+    const themeSun = style.getPropertyValue('--theme-sun').trim() || '#000091';
+    const themeBg = style.getPropertyValue('--theme-bg').trim() || '#f5f5fe';
+
+    // Création ou mise à jour du dégradé dynamique
+    let grad = defsElement.querySelector('#grad-theme_gradient');
+    if (!grad) {
+        grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+        grad.setAttribute('id', 'grad-theme_gradient');
+        grad.setAttribute('x1', '0%'); grad.setAttribute('y1', '0%'); 
+        grad.setAttribute('x2', '100%'); grad.setAttribute('y2', '100%');
+        
+        const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+        stop1.setAttribute('offset', '0%');
+        const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+        stop2.setAttribute('offset', '100%');
+        
+        grad.appendChild(stop1);
+        grad.appendChild(stop2);
+        defsElement.appendChild(grad);
+    }
+    
+    grad.children[0].setAttribute('stop-color', themeBg);
+    grad.children[1].setAttribute('stop-color', themeSun);
+}
+
 // --- MOTEUR DE L'ORGANIGRAMME ---
 let diagramData = null;
 let customImageRegistry = {};
@@ -85,7 +124,6 @@ const defaultTypography = {
     isStrike: false 
 };
 
-// Fonctions de vue (Caméra)
 function applyViewBox() { 
     const canvas = document.getElementById('org-canvas');
     if(canvas) canvas.setAttribute('viewBox', `${vbX} ${vbY} ${vbWidth} ${vbHeight}`); 
@@ -120,12 +158,13 @@ function initOrgChartData(existingConfig = null) {
         diagramData = existingConfig.diagramData;
         customImageRegistry = existingConfig.customImageRegistry || {};
     } else {
+        // --- MODIFIÉ : Configuration par défaut utilisant le thème dynamique ---
         diagramData = {
             direction: 'clockwise',
-            center: { text: "BLOC\nCENTRAL", color: "#000091", shape: "rect", size: 300, manualSize: true, textColor: "#FFFFFF", ...defaultTypography, isBold: true, fontSize: 36, icon: null },
+            center: { text: "BLOC\nCENTRAL", color: "theme_main", shape: "rect", size: 300, manualSize: true, textColor: "#FFFFFF", ...defaultTypography, isBold: true, fontSize: 36, icon: null },
             bubbles: [
-                { text: "Niveau 1", color: "cumulusAscending", shape: "circle", size: 280, manualSize: false, textColor: "#000000", icon: null, children: [], ...defaultTypography },
-                { text: "Niveau 1", color: "emeraudeAscending", shape: "circle", size: 280, manualSize: false, textColor: "#000000", icon: null, children: [], ...defaultTypography }
+                { text: "Niveau 1", color: "theme_gradient", shape: "circle", size: 280, manualSize: false, textColor: "#000000", icon: null, children: [], ...defaultTypography },
+                { text: "Niveau 1", color: "theme_bg", shape: "circle", size: 280, manualSize: false, textColor: "theme_main", icon: null, children: [], ...defaultTypography }
             ]
         };
         customImageRegistry = {};
@@ -134,7 +173,6 @@ function initOrgChartData(existingConfig = null) {
     historyFuture = [];
 }
 
-// Fonction principale pour ouvrir la modale
 function insertOrgChart() {
     const selection = window.getSelection();
     let savedRange = null;
@@ -145,7 +183,6 @@ function insertOrgChart() {
     const overlay = document.createElement('div');
     overlay.className = 'chart-modal-overlay';
     
-    // Correction de l'UI pour respecter le DSFR (suppression des conflits flex/margin)
     overlay.innerHTML = `
         <style>
             .org-sidebar { width: 380px; background: #fff; border-right: 1px solid var(--grey-900); padding: 1.5rem 1rem; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; overflow-x: hidden; flex-shrink: 0; }
@@ -166,8 +203,6 @@ function insertOrgChart() {
         </style>
 
         <div class="chart-modal" style="width: 1400px; max-width: 95vw; height: 85vh; display: flex; overflow: hidden;">
-            
-            <!-- BARRE LATÉRALE DE CONTRÔLES -->
             <div class="org-sidebar">
                 <h3 style="margin:0 0 1rem 0; color:var(--theme-sun); font-size:1.1rem;">
                     <span class="fr-icon-mind-map"></span> Studio Organigramme
@@ -199,9 +234,9 @@ function insertOrgChart() {
                                 <div style="flex: 2;">
                                     <label class="fr-label" style="font-size: 0.8rem;">Couleur texte</label>
                                     <select id="org-node-text-color" class="fr-select">
+                                        <option value="theme_main">Couleur du thème (Dynamique)</option>
                                         <option value="#000000">Noir</option>
                                         <option value="#FFFFFF">Blanc</option>
-                                        <option value="#000091">Bleu France</option>
                                     </select>
                                 </div>
                             </div>
@@ -246,14 +281,12 @@ function insertOrgChart() {
                     <button id="org-btn-delete" class="fr-btn fr-btn--sm" style="margin-top: 0.5rem; background-color: #ffe8e5; color: #e1000f; width: 100%; justify-content: center;"><span class="fr-icon-delete-bin-line fr-mr-1w"></span> Supprimer sélection</button>
                 </div>
 
-                <!-- BOUTONS D'ACTION PLUME -->
                 <div style="margin-top:auto; padding-top: 1rem; border-top: 1px solid var(--grey-900); display:flex; gap:0.5rem;">
                     <button class="fr-btn fr-btn--secondary" id="btn-org-cancel" style="flex:1; justify-content: center;">Annuler</button>
                     <button class="fr-btn" id="btn-org-insert" style="flex:1; justify-content: center;">Insérer</button>
                 </div>
             </div>
 
-            <!-- ZONE DE PRÉVISUALISATION -->
             <div class="org-workspace" id="org-preview-container">
                 <svg id="org-canvas" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%; touch-action: none; cursor: grab;">
                     <defs id="org-gradient-defs"></defs>
@@ -272,7 +305,6 @@ function insertOrgChart() {
     
     document.body.appendChild(overlay);
     
-    // --- INITIALISATION DE L'ÉTAT ET DU RENDU ---
     initOrgChartData(); 
     initOrgGradientsAndSelect(); 
     updateOrgSelectMenu(); 
@@ -280,7 +312,7 @@ function insertOrgChart() {
     renderSVG();
     resetZoom();           
     
-    // --- ÉVÉNEMENTS DE CAMÉRA (PAN & ZOOM) ---
+    // --- ÉVÉNEMENTS (IDENTIQUES) ---
     document.getElementById('org-btn-zoom-in').onclick = zoomIn;
     document.getElementById('org-btn-zoom-out').onclick = zoomOut;
     document.getElementById('org-btn-zoom-reset').onclick = resetZoom;
@@ -288,10 +320,8 @@ function insertOrgChart() {
     document.getElementById('org-canvas').addEventListener('pointerdown', e => {
         if (e.target.tagName === 'svg' || e.target.id === 'org-canvas') {
             isPanningView = true;
-            startPanClientX = e.clientX;
-            startPanClientY = e.clientY;
-            startVbX = vbX;
-            startVbY = vbY;
+            startPanClientX = e.clientX; startPanClientY = e.clientY;
+            startVbX = vbX; startVbY = vbY;
             document.getElementById('org-canvas').style.cursor = 'grabbing';
         }
     });
@@ -301,8 +331,7 @@ function insertOrgChart() {
         const f = e.deltaY > 0 ? 1.08 : 0.92;
         const s = document.getElementById('org-canvas');
         const pt = s.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
-        const ctm = s.getScreenCTM();
-        if(!ctm) return;
+        const ctm = s.getScreenCTM(); if(!ctm) return;
         const svgP = pt.matrixTransform(ctm.inverse());
         
         vbX -= (vbWidth * f - vbWidth) * ((svgP.x - vbX) / vbWidth);
@@ -311,7 +340,6 @@ function insertOrgChart() {
         applyViewBox();
     }, {passive: false});
 
-    // --- Événements globaux D&D gérés au niveau de la modale ---
     const pointerMoveHandler = e => {
         const s = document.getElementById('org-canvas');
         if(!s) return;
@@ -370,8 +398,7 @@ function insertOrgChart() {
                 dragGhost.remove(); 
                 dragGhost = null; 
             }
-            dragItemId = null; 
-            hoverItemId = null;
+            dragItemId = null; hoverItemId = null;
             renderSVG();
         } 
     };
@@ -379,30 +406,21 @@ function insertOrgChart() {
     window.addEventListener('pointermove', pointerMoveHandler);
     window.addEventListener('pointerup', pointerUpHandler);
     
-    // --- CÂBLAGE DE L'INTERFACE EN TEMPS RÉEL ---
-    document.getElementById('org-node-select').onchange = () => {
-        loadOrgNodeData();
-        renderSVG();
-    };
+    document.getElementById('org-node-select').onchange = () => { loadOrgNodeData(); renderSVG(); };
 
-    // Textes mis à jour en temps réel (événement 'input')
     const textInputs = ['org-node-text', 'org-node-font-size'];
     textInputs.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
-            el.addEventListener('input', () => updateOrgNode(false)); // Temps réel
-            el.addEventListener('change', () => saveOrgState()); // Sauvegarde historique
+            el.addEventListener('input', () => updateOrgNode(false)); 
+            el.addEventListener('change', () => saveOrgState()); 
         }
     });
 
-    // Menus déroulants (événement 'change')
     const selectInputs = ['org-node-color', 'org-node-text-color', 'org-node-shape', 'org-node-font-family'];
     selectInputs.forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener('change', () => {
-            saveOrgState();
-            updateOrgNode(false);
-        });
+        if (el) el.addEventListener('change', () => { saveOrgState(); updateOrgNode(false); });
     });
 
     document.getElementById('org-node-size').addEventListener('input', () => updateOrgNode(true));
@@ -451,11 +469,7 @@ function insertOrgChart() {
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             const imgData = canvas.toDataURL('image/png');
 
-            const payload = { 
-                version: 2, 
-                diagramData: diagramData, 
-                customImageRegistry: customImageRegistry 
-            };
+            const payload = { version: 2, diagramData: diagramData, customImageRegistry: customImageRegistry };
             const safeConfig = encodeURIComponent(JSON.stringify(payload));
 
             const finalHTML = `
@@ -486,6 +500,11 @@ function insertOrgChart() {
 
 function renderSVG() {
     const cG = document.getElementById('org-connectors'), nG = document.getElementById('org-nodes');
+    if(!cG || !nG) return;
+
+    // --- MODIFIÉ : Mise à jour des dégradés dynamiques à chaque rendu ---
+    updateDynamicSVGDefs(document.getElementById('org-gradient-defs'));
+
     cG.innerHTML = ''; nG.innerHTML = '';
     
     const dir = diagramData.direction === 'clockwise' ? 1 : -1;
@@ -495,21 +514,12 @@ function renderSVG() {
 
     layoutNodes.push({
         id: 'center', data: diagramData.center,
-        x: 0, y: 0, 
-        r: (Number(diagramData.center.size) || 300) / 2, 
-        level: 0
+        x: 0, y: 0, r: (Number(diagramData.center.size) || 300) / 2, level: 0
     });
 
     function computeBranch(node, idPath, cx, cy, startAngle, angleSpread, level, parentId) {
         const bSize = Number(node.size) || 250;
-        
-        layoutNodes.push({
-            id: idPath, data: node,
-            x: cx, y: cy, 
-            r: (bSize / 2),
-            level: level, parentId: parentId
-        });
-
+        layoutNodes.push({ id: idPath, data: node, x: cx, y: cy, r: (bSize / 2), level: level, parentId: parentId });
         connections.push({ source: parentId, target: idPath, color: node.color });
 
         if (node.children && node.children.length > 0) {
@@ -544,36 +554,23 @@ function renderSVG() {
         });
     }
 
-    const ITERATIONS = 50;  
-    const PADDING = 40;     
+    const ITERATIONS = 50, PADDING = 40;     
 
     for (let iter = 0; iter < ITERATIONS; iter++) {
         for (let i = 0; i < layoutNodes.length; i++) {
             for (let j = i + 1; j < layoutNodes.length; j++) {
-                let n1 = layoutNodes[i];
-                let n2 = layoutNodes[j];
-                
-                let dx = n2.x - n1.x;
-                let dy = n2.y - n1.y;
-                let dist = Math.sqrt(dx * dx + dy * dy);
-                
+                let n1 = layoutNodes[i], n2 = layoutNodes[j];
+                let dx = n2.x - n1.x, dy = n2.y - n1.y, dist = Math.sqrt(dx * dx + dy * dy);
                 let minDist = n1.r + n2.r + PADDING;
 
                 if (dist < minDist) {
                     if (dist === 0) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; dist = Math.sqrt(dx*dx + dy*dy); }
-                    
                     let overlap = minDist - dist;
-                    let pushX = (dx / dist) * overlap * 0.5;
-                    let pushY = (dy / dist) * overlap * 0.5;
+                    let pushX = (dx / dist) * overlap * 0.5, pushY = (dy / dist) * overlap * 0.5;
 
-                    if (n1.id === 'center') {
-                        n2.x += pushX * 2; n2.y += pushY * 2;
-                    } else if (n2.id === 'center') {
-                        n1.x -= pushX * 2; n1.y -= pushY * 2;
-                    } else {
-                        n1.x -= pushX; n1.y -= pushY;
-                        n2.x += pushX; n2.y += pushY;
-                    }
+                    if (n1.id === 'center') { n2.x += pushX * 2; n2.y += pushY * 2; } 
+                    else if (n2.id === 'center') { n1.x -= pushX * 2; n1.y -= pushY * 2; } 
+                    else { n1.x -= pushX; n1.y -= pushY; n2.x += pushX; n2.y += pushY; }
                 }
             }
         }
@@ -588,8 +585,8 @@ function renderSVG() {
     });
 
     layoutNodes.forEach(n => {
-        const isSelected = (n.id === document.getElementById('org-node-select').value);
-        const g = drawNode(nG, n.data, n.x, n.y, n.id);
+        const isSelected = (n.id === (document.getElementById('org-node-select') ? document.getElementById('org-node-select').value : null));
+        const g = drawNode(nG, n.data, n.x, n.y, n.id, isSelected);
         g.setAttribute('class', 'node-group draggable');
         
         g.onpointerdown = e => { 
@@ -603,14 +600,16 @@ function renderSVG() {
             if(isDraggingNode && dragItemId && dragItemId !== n.id && !n.id.startsWith(dragItemId)){ 
                 hoverItemId = n.id; 
                 const s = g.querySelector('.node-shape'); 
-                if(s) { s.setAttribute('stroke', '#00A95F'); s.setAttribute('stroke-width', '6'); g.style.transform = 'scale(1.05)'; } 
+                const themeSun = getComputedStyle(document.documentElement).getPropertyValue('--theme-sun').trim() || '#000091';
+                if(s) { s.setAttribute('stroke', themeSun); s.setAttribute('stroke-width', '6'); g.style.transform = 'scale(1.05)'; } 
             } 
         };
         g.onpointerleave = () => { 
             if(isDraggingNode && dragItemId && dragItemId !== n.id){ 
                 if(hoverItemId === n.id) hoverItemId = null; 
                 const s = g.querySelector('.node-shape'); 
-                if(s) { s.setAttribute('stroke', isSelected ? '#000091' : 'rgba(0,0,0,0.1)'); s.setAttribute('stroke-width', isSelected ? '4' : '1'); g.style.transform = ''; } 
+                const mainColor = getComputedStyle(document.documentElement).getPropertyValue('--theme-sun').trim() || '#000091';
+                if(s) { s.setAttribute('stroke', isSelected ? mainColor : 'rgba(0,0,0,0.1)'); s.setAttribute('stroke-width', isSelected ? '4' : '1'); g.style.transform = ''; } 
             } 
         };
     });
@@ -624,11 +623,14 @@ function drawCurve(parent, x1, y1, x2, y2, strokeColor) {
     const c1x=x1+(x2-x1)*0.4, c1y=y1+(y2-y1)*0.1, c2x=x2-(x2-x1)*0.1, c2y=y2-(y2-y1)*0.4;
     p.setAttribute('d', `M ${x1} ${y1} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${x2} ${y2}`);
     
+    // --- MODIFIÉ : Résolution de la couleur de la courbe ---
+    let resolvedCurve = resolveOrgColor(strokeColor);
     let finalColor = '#A0A0A0';
-    if (strokeColor) {
-        if (strokeColor === '#FFFFFF') finalColor = '#A0A0A0'; 
-        else if (strokeColor.startsWith('#')) finalColor = strokeColor;
-        else finalColor = `url(#grad-${strokeColor})`;
+    if (resolvedCurve) {
+        if (resolvedCurve === '#FFFFFF') finalColor = '#A0A0A0'; 
+        else if (resolvedCurve === 'theme_gradient') finalColor = 'url(#grad-theme_gradient)';
+        else if (resolvedCurve.startsWith('#') || resolvedCurve.startsWith('rgb')) finalColor = resolvedCurve;
+        else finalColor = `url(#grad-${resolvedCurve})`;
     }
 
     p.setAttribute('stroke', finalColor); 
@@ -639,18 +641,16 @@ function drawCurve(parent, x1, y1, x2, y2, strokeColor) {
     parent.appendChild(p);
 }
 
-function drawNode(parent, nodeData, x, y, nodeId) {
+function drawNode(parent, nodeData, x, y, nodeId, isSelected) {
     const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     group.setAttribute('class', 'node-group');
     group.onclick = function(e) { if(!isDraggingNode && !e.target.classList.contains('resize-handle')) orgSelectNodeFromCanvas(nodeId); };
     
     const cx = Number(x) || 0, cy = Number(y) || 0, bSize = Number(nodeData.size) || 200, bRadius = bSize / 2;
     const fSize = Number(nodeData.fontSize) || 30, lineHeight = fSize * 1.25, shapeType = nodeData.shape || "circle";
-    const isSelected = (nodeId === document.getElementById('org-node-select').value);
     
     const lines = (nodeData.text || "").split('\n');
     const padding = 15;
-
     let contentHeight = (lines.length * lineHeight);
 
     let shapeEl;
@@ -660,7 +660,6 @@ function drawNode(parent, nodeData, x, y, nodeId) {
         let rectHeight = Math.max(bSize * 0.5, contentHeight + padding * 2);
         shapeTopY = cy - rectHeight / 2; 
         shapeBottomY = cy + rectHeight / 2;
-        
         shapeEl = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         shapeEl.setAttribute('x', cx - bSize / 2); shapeEl.setAttribute('y', shapeTopY);
         shapeEl.setAttribute('width', bSize); shapeEl.setAttribute('height', rectHeight); 
@@ -675,9 +674,18 @@ function drawNode(parent, nodeData, x, y, nodeId) {
         shapeEl.setAttribute('cx', cx); shapeEl.setAttribute('cy', cy); shapeEl.setAttribute('r', bRadius);
     }
     
+    // --- MODIFIÉ : Application des couleurs résolues ---
+    const resolvedBg = resolveOrgColor(nodeData.color);
+    let fillAttr;
+    if (resolvedBg === 'theme_gradient') { fillAttr = 'url(#grad-theme_gradient)'; } 
+    else if (resolvedBg.startsWith('#') || resolvedBg.startsWith('rgb')) { fillAttr = resolvedBg; } 
+    else { fillAttr = `url(#grad-${resolvedBg})`; }
+    
+    const mainColor = getComputedStyle(document.documentElement).getPropertyValue('--theme-sun').trim() || '#000091';
+    
     shapeEl.setAttribute('class', 'node-shape'); 
-    shapeEl.setAttribute('fill', (nodeData.color && nodeData.color.startsWith('#')) ? nodeData.color : `url(#grad-${nodeData.color})`);
-    shapeEl.setAttribute('stroke', isSelected ? '#000091' : 'rgba(0,0,0,0.1)');
+    shapeEl.setAttribute('fill', fillAttr);
+    shapeEl.setAttribute('stroke', isSelected ? mainColor : 'rgba(0,0,0,0.1)');
     shapeEl.setAttribute('stroke-width', isSelected ? '4' : '1');
     shapeEl.setAttribute('filter', 'url(#shadow)');
     group.appendChild(shapeEl);
@@ -685,8 +693,10 @@ function drawNode(parent, nodeData, x, y, nodeId) {
     let currentDrawY = cy - (contentHeight / 2);
 
     const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    textEl.setAttribute('text-anchor', 'middle'); textEl.setAttribute('fill', nodeData.textColor);
-    textEl.setAttribute('font-family', nodeData.fontFamily); textEl.setAttribute('font-size', fSize + 'px');
+    textEl.setAttribute('text-anchor', 'middle'); 
+    textEl.setAttribute('fill', resolveOrgColor(nodeData.textColor)); // Couleur résolue
+    textEl.setAttribute('font-family', nodeData.fontFamily); 
+    textEl.setAttribute('font-size', fSize + 'px');
     if (nodeData.isBold) textEl.setAttribute('font-weight', 'bold');
     if (nodeData.isItalic) textEl.setAttribute('font-style', 'italic');
     if (nodeData.isStrike) textEl.setAttribute('text-decoration', 'line-through');
@@ -729,8 +739,6 @@ function calculateMaxExtent() {
     return { orbitRadius, maxExtent };
 }
 
-// --- FONCTIONS UTILITAIRES DE L'INTERFACE ET D'ACTION ---
-
 function orgSelectNodeFromCanvas(id) { 
     document.getElementById('org-node-select').value = id; 
     loadOrgNodeData(); 
@@ -757,7 +765,7 @@ function autoFitOrgCurrentNode() {
 }
 
 function addOrgMainBubble() { 
-    diagramData.bubbles.push({text:"NOUVELLE BULLE", color:"tournesolAscending", textColor:"#000000", shape:"circle", size:250, manualSize:false, icon:null, isCustomImage:false, iconSizeScale:0.35, children:[], ...defaultTypography}); 
+    diagramData.bubbles.push({text:"NOUVELLE BULLE", color:"theme_gradient", textColor:"#000000", shape:"circle", size:250, manualSize:false, icon:null, isCustomImage:false, iconSizeScale:0.35, children:[], ...defaultTypography}); 
     updateOrgSelectMenu(); 
     document.getElementById('org-node-select').value = (diagramData.bubbles.length-1).toString(); 
     const n = diagramData.bubbles[diagramData.bubbles.length-1]; 
@@ -771,7 +779,7 @@ function addOrgSubBubble() {
     if (v === 'center') return; 
     const parentNode = getOrgNodeById(v);
     if (!parentNode.children) parentNode.children = []; 
-    parentNode.children.push({text: "Détail", color: "grisGaletAscending", textColor: "#000000", shape: "circle", size: 160, manualSize: false, icon: null, isCustomImage: false, iconSizeScale: 0.35, children: [], ...defaultTypography, fontSize: 20}); 
+    parentNode.children.push({text: "Détail", color: "theme_bg", textColor: "theme_main", shape: "circle", size: 160, manualSize: false, icon: null, isCustomImage: false, iconSizeScale: 0.35, children: [], ...defaultTypography, fontSize: 20}); 
     updateOrgSelectMenu(); 
     document.getElementById('org-node-select').value = `${v}-${parentNode.children.length - 1}`; 
     const newNode = parentNode.children[parentNode.children.length - 1]; 
@@ -797,10 +805,7 @@ function removeOrgSelectedNode() {
     renderSVG(); 
 }
 
-function getOrgSelectedNode() { 
-    const v = document.getElementById('org-node-select').value; 
-    return getOrgNodeById(v); 
-}
+function getOrgSelectedNode() { return getOrgNodeById(document.getElementById('org-node-select').value); }
 
 function getOrgNodeById(id) {
     if (id === 'center') return diagramData.center;
@@ -834,7 +839,6 @@ function updateOrgSelectMenu() {
         });
     }
     buildOptions(diagramData.bubbles, "", 0);
-    
     s.value = Array.from(s.options).some(o => o.value === c) ? c : 'center'; 
     document.getElementById('org-btn-add-sub').disabled = (s.value === 'center');
 }
@@ -856,7 +860,6 @@ function loadOrgNodeData() {
     document.getElementById('org-node-font-size').value = n.fontSize || 30; 
     document.getElementById('org-node-font-family').value = n.fontFamily || "'Marianne', system-ui, sans-serif"; 
     
-    // Classes DSFR pour indiquer l'état actif/inactif des boutons typo
     document.getElementById('org-btn-bold').className = n.isBold ? 'fr-btn fr-btn--sm' : 'fr-btn fr-btn--sm fr-btn--secondary';
     document.getElementById('org-btn-italic').className = n.isItalic ? 'fr-btn fr-btn--sm' : 'fr-btn fr-btn--sm fr-btn--secondary';
     document.getElementById('org-btn-strike').className = n.isStrike ? 'fr-btn fr-btn--sm' : 'fr-btn fr-btn--sm fr-btn--secondary';
@@ -882,14 +885,11 @@ function updateOrgNode(isSlider) {
         n.size = Number(document.getElementById('org-node-size').value); 
         n.manualSize = true; 
     } else if (!n.manualSize) {
-        // Redimensionnement automatique si le texte change en mode "Ajustement auto"
         n.size = calculateOrgOptimalSize(n);
         document.getElementById('org-node-size').value = n.size;
     }
-    
     document.getElementById('org-size-val').textContent = n.size; 
     
-    // Actualisation ciblée de la liste déroulante (évite les pertes de focus au clavier)
     if (oldText !== n.text) {
         const select = document.getElementById('org-node-select');
         const selectedOption = select.options[select.selectedIndex];
@@ -898,7 +898,6 @@ function updateOrgNode(isSlider) {
         const label = depth === 0 && select.value !== 'center' ? 'Bulle '+(parseInt(select.value)+1) : (select.value === 'center' ? 'Bloc Central' : 'Sous-bulle');
         selectedOption.textContent = `${prefix}${label}: ${n.text.substring(0,15).replace(/\n/g,' ')}`;
     }
-    
     renderSVG(); 
 }
 
@@ -922,6 +921,16 @@ function initOrgGradientsAndSelect() {
     
     s.innerHTML = ''; 
 
+    // --- MODIFIÉ : Ajout du groupe de couleurs dynamiques ---
+    const optGroupDynamic = document.createElement('optgroup');
+    optGroupDynamic.label = "Couleurs dynamiques (Thème)";
+    optGroupDynamic.innerHTML = `
+        <option value="theme_main">Couleur principale (Dynamique)</option>
+        <option value="theme_bg">Couleur de fond (Dynamique)</option>
+        <option value="theme_gradient">Dégradé du thème (Dynamique)</option>
+    `;
+    s.appendChild(optGroupDynamic);
+
     const optGroupSolid = document.createElement('optgroup');
     optGroupSolid.label = "Couleurs de base";
     const baseColors = {"Blanc": "#ffffff", "Noir": "#161616", "Bleu France": "#000091", "Gris": "#7b7b7b"};
@@ -931,7 +940,7 @@ function initOrgGradientsAndSelect() {
     s.appendChild(optGroupSolid);
 
     const optGroupGrad = document.createElement('optgroup');
-    optGroupGrad.label = "Dégradés DSFR";
+    optGroupGrad.label = "Dégradés DSFR fixes";
     for(const [k, g] of Object.entries(PALETTE_GRADIENTS)){ 
         const c = g.match(/#[a-fA-F0-9]{3,6}/gi); 
         if(c){ 
@@ -948,8 +957,7 @@ function initOrgGradientsAndSelect() {
     s.appendChild(optGroupGrad);
 }
 
-// --- MISE À JOUR DYNAMIQUE ET RESTAURATION ---
-
+// --- MODIFIÉ : Moteur de rafraîchissement global ---
 async function refreshAllOrgCharts() {
     const orgContainers = document.querySelectorAll('.plume-orgchart-container[data-orgchart-config]');
     if (orgContainers.length === 0) return;
@@ -959,29 +967,24 @@ async function refreshAllOrgCharts() {
             const rawConfig = container.getAttribute('data-orgchart-config');
             const payload = JSON.parse(decodeURIComponent(rawConfig));
 
-            // 1. Création d'un environnement fantôme sécurisé
             const hiddenDiv = document.createElement('div');
             hiddenDiv.style.position = 'absolute';
             hiddenDiv.style.left = '-9999px';
             
-            // On intègre le canvas ET les inputs virtuels pour que le moteur ne plante pas
             hiddenDiv.innerHTML = `
                 <svg id="org-canvas" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
                     <defs id="org-gradient-defs"></defs>
                     <g id="org-connectors"></g>
                     <g id="org-nodes"></g>
                 </svg>
-                <input type="text" id="org-node-select" value="none">
-                <select id="org-node-color"></select>
             `;
             document.body.appendChild(hiddenDiv);
 
-            // 2. Initialisation et Rendu
-            initOrgGradientsAndSelect();
             diagramData = payload.diagramData;
+            
+            // La fonction renderSVG se charge d'appeler updateDynamicSVGDefs
             renderSVG();
 
-            // 3. Capture et Cadrage (avec garantie Haute Définition)
             const svg = document.getElementById('org-canvas');
             const extent = calculateMaxExtent(); 
             const padding = 60;
@@ -996,7 +999,6 @@ async function refreshAllOrgCharts() {
                 source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
             }
 
-            // 4. Conversion et injection asynchrone
             const exportScale = 2;
             const img = new Image();
             
@@ -1010,14 +1012,16 @@ async function refreshAllOrgCharts() {
                     
                     const imgElement = container.querySelector('img');
                     if (imgElement) {
-                        imgElement.src = canvas.toDataURL('image/png'); // Mise à jour de l'image
+                        imgElement.src = canvas.toDataURL('image/png');
+                        // Met à jour la config en Base64 au cas où des modifications aient été forcées
+                        const newPayload = { version: 2, diagramData: diagramData, customImageRegistry: customImageRegistry };
+                        container.setAttribute('data-orgchart-config', encodeURIComponent(JSON.stringify(newPayload)));
                     }
                     resolve();
                 };
                 img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(source)));
             });
 
-            // 5. Nettoyage
             hiddenDiv.remove();
 
         } catch (e) {

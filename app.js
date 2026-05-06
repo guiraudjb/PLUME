@@ -1425,6 +1425,11 @@ function applyPalette() {
     if (typeof refreshAllQRCodes === 'function') refreshAllQRCodes();
     if (typeof refreshAllTrees === 'function') refreshAllTrees();
     if (typeof refreshAllMaths === 'function') refreshAllMaths();
+// NOUVEAU : Mettre à jour les logigrammes (DAG)
+    if (typeof updateAllDAGThemes === 'function') updateAllDAGThemes();
+    if (typeof refreshAllOrgCharts === 'function') refreshAllOrgCharts();
+    if (typeof refreshAllTrees === 'function') refreshAllTrees();
+    
     
 }
 
