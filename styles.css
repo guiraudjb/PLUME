@@ -802,6 +802,31 @@ del.plume-del {
         border-bottom: none !important;
         color: inherit !important;
     }
+    
+    /* =====================================================================
+       NETTOYAGE DU MODE RÉVISION ET COMMENTAIRES POUR L'EXPORT
+    ===================================================================== */
+
+    /* 1. IGNORER LES AJOUTS : Les propositions d'insertion sont masquées du PDF */
+    ins.plume-ins {
+        display: none !important;
+    }
+
+    /* 2. IGNORER LES SUPPRESSIONS : Le texte que le réviseur a barré est restauré et affiché normalement */
+    del.plume-del {
+        display: inline !important;
+        color: inherit !important;
+        text-decoration: none !important;
+        background-color: transparent !important;
+    }
+
+    /* 3. IGNORER LES COMMENTAIRES : On retire le surlignage jaune */
+    mark.plume-comment {
+        background-color: transparent !important;
+        border-bottom: none !important;
+        color: inherit !important;
+        text-decoration: none !important;
+    }
 }
 
 
