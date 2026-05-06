@@ -827,6 +827,29 @@ del.plume-del {
         color: inherit !important;
         text-decoration: none !important;
     }
+    
+    /* 1. Rendre toute la hauteur au document et désactiver les boîtes de défilement */
+    html, 
+    body, 
+    .content-editable, 
+    .plume-editor-container, /* Adaptez si votre conteneur de travail a un nom différent */
+    * {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+    }
+
+    /* 2. Cacher explicitement l'interface de la barre de défilement (Chrome, Edge, Safari) */
+    ::-webkit-scrollbar {
+        display: none !important;
+    }
+    
+    /* 3. Masquer pour Firefox */
+    * {
+        scrollbar-width: none !important;
+    }
+    
+    
 }
 
 
