@@ -740,13 +740,63 @@ del.plume-del {
 }
 
 
+/* ===================================================================== */
+/* ACCESSIBILITÉ RGAA : LECTEURS D'ÉCRAN UNIQUEMENT                      */
+/* ===================================================================== */
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
 
 
+/* ===================================================================== */
+/* PAGINATION VISUELLE (CALQUE OVERLAY)                                  */
+/* ===================================================================== */
+.pagination-overlay {
+    position: absolute;
+    top: 0; 
+    left: 0; 
+    right: 0; 
+    bottom: 0;
+    pointer-events: none; /* Magique : laisse passer les clics de souris vers le texte en dessous */
+    z-index: 50;
+    overflow: hidden;
+}
+
+.virtual-page-break {
+    position: absolute;
+    width: 100%;
+    border-top: 2px dashed rgba(0, 0, 145, 0.3); /* Utilisation discrète de var(--theme-sun) */
+    text-align: right;
+}
+
+.virtual-page-break::after {
+    content: attr(data-page);
+    background: var(--grey-975);
+    color: rgba(0, 0, 145, 0.8);
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    position: relative;
+    top: -10px;
+    right: 20px;
+    border-radius: 10px;
+    font-weight: 700;
+}
 
 
    
 /* On s'assure que les toasts n'apparaissent pas à l'impression */
 @media print {
+.pagination-overlay {
+        display: none !important;
+    }
     .page-a4.has-margin-top { border-top: 24px solid var(--theme-sun) !important; }
     .page-a4.has-margin-bottom { border-bottom: 24px solid var(--theme-sun) !important; }
     .page-a4.has-margin-left { border-left: 36px solid var(--theme-sun) !important; }

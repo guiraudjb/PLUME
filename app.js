@@ -1298,7 +1298,7 @@ function openDsfrGalleryModal(mode = 'insert', targetElement = null) {
                         document.execCommand('insertHTML', false, img.outerHTML);
                     } 
                     else if (mode === 'bullet' && targetElement) {
-						targetElement.classList.add('plume-custom-bullet');
+                        targetElement.classList.add('plume-custom-bullet');
                         targetElement.style.listStyleType = 'none';
                         // On injecte le PNG encodé directement dans le style
                         
@@ -1428,7 +1428,6 @@ function applyPalette() {
 // NOUVEAU : Mettre à jour les logigrammes (DAG)
     if (typeof updateAllDAGThemes === 'function') updateAllDAGThemes();
     if (typeof refreshAllOrgCharts === 'function') refreshAllOrgCharts();
-    if (typeof refreshAllTrees === 'function') refreshAllTrees();
     
     
 }
@@ -1519,6 +1518,10 @@ function addNewPage() {
     });
     newPage.setAttribute('data-margin-text', document.getElementById('cfg-margin-text').value.toUpperCase());
     document.getElementById('pages-container').appendChild(newPage);
+    const newEditor = newPage.querySelector('.content-editable');
+    if (typeof paginationObserver !== 'undefined') {
+        paginationObserver.observe(newEditor);
+    }
     syncMetadata();
 }
 
@@ -1533,7 +1536,7 @@ async function saveJSON() {
         footer: document.getElementById('cfg-footer').value,
         marginText: document.getElementById('cfg-margin-text').value,
         author: document.getElementById('cfg-author').value,
-        comments: plumeComments, 
+        
         margins: {
             top: document.getElementById('cfg-margin-top').checked,
             bottom: document.getElementById('cfg-margin-bottom').checked,
@@ -1552,7 +1555,13 @@ async function saveJSON() {
         
         // --- LA PURGE (Le secret de la performance) ---
         // On repère toutes les images générées par nos outils (CORRECTION APPLIQUÉE ICI)
-        const generatedImages = editor.querySelectorAll('.chart-container img, .plume-map-container img');
+        const generatedImages = editor.querySelectorAll(`
+            .chart-container img, 
+            .plume-map-container img, 
+            .plume-orgchart-container img, 
+            .plume-tree-container img, 
+            img.plume-dag-image
+        `);
         
         generatedImages.forEach(img => {
             // On vide le SRC (qui contient le Base64 massif)
@@ -1605,7 +1614,7 @@ function restoreJSON(input) {
             if (state.footer) document.getElementById('cfg-footer').value = state.footer;
             if (state.author !== undefined) document.getElementById('cfg-author').value = state.author;
             // NOUVEAU : Restauration de la base de commentaires
-            plumeComments = state.comments || {}; 
+            
             
             if (state.marginText !== undefined) {
                     document.getElementById('cfg-margin-text').value = state.marginText;
@@ -1655,6 +1664,9 @@ function restoreJSON(input) {
                             </button>
                             <button class="page-action-btn" onclick="toggleOrientation(this)" title="${btnTitle}">
                                 <span class="${btnIcon}"></span> ${btnText}
+                            </button>
+                            <button class="page-action-btn" onclick="sanitizeCurrentPage(this)" title="Nettoyer le code source de cette page">
+                                <span class="fr-icon-brush-3-line"></span> Nettoyer
                             </button>
                             <button class="page-action-btn delete" onclick="deletePage(this)" title="Supprimer la page">
                                 <span class="fr-icon-delete-bin-line"></span> Supprimer
@@ -1730,6 +1742,11 @@ function restoreJSON(input) {
                 if (typeof refreshAllQRCodes === 'function') refreshAllQRCodes();
                 if (typeof refreshAllTrees === 'function') await refreshAllTrees();
                 if (typeof refreshAllOrgCharts === 'function') await refreshAllOrgCharts();
+                if (typeof paginationObserver !== 'undefined') {
+                    document.querySelectorAll('.content-editable').forEach(editor => {
+                        paginationObserver.observe(editor);
+                    });
+                }
             }, 100);
             
         } catch (err) {
@@ -2177,6 +2194,9 @@ window.onload = async () => {
     }
 
     setInterval(saveDraftToLocal, 30000);
+    document.querySelectorAll('.content-editable').forEach(editor => {
+    paginationObserver.observe(editor);
+});
 };
 
 // 3. Sauvegarde de sécurité au moment exact où l'utilisateur ferme l'onglet ou rafraîchit
@@ -2303,6 +2323,106 @@ document.addEventListener("DOMContentLoaded", () => {
                     selection.removeAllRanges();
                     selection.addRange(newRange);
                     return;
+                }
+            }
+        }
+        // --- C. PROTECTION ABSOLUE DES IMAGES (BACKSPACE ET SUPPR) ---
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+            const selection = window.getSelection();
+            if (!selection.rangeCount || !selection.isCollapsed) return;
+
+            const range = selection.getRangeAt(0);
+            let currentNode = range.startContainer;
+            if (currentNode.nodeType === 3) currentNode = currentNode.parentNode;
+            
+            const currentBlock = currentNode.closest('p, h1, h2, h3, h4, h5, h6, li');
+            const editor = currentNode.closest('.content-editable');
+            if (!editor) return;
+
+            // 1. Protection "hors paragraphe" (Si le navigateur a placé le curseur directement dans l'éditeur)
+            if (!currentBlock && currentNode.classList && currentNode.classList.contains('content-editable')) {
+                const targetIndex = e.key === 'Backspace' ? range.startOffset - 1 : range.startOffset;
+                const child = currentNode.childNodes[targetIndex];
+                if (child && child.getAttribute && child.getAttribute('contenteditable') === 'false') {
+                    e.preventDefault(); // On bloque l'effacement
+                    return;
+                }
+            }
+
+            // 2. Protection "dans un paragraphe"
+            if (currentBlock) {
+                // CAS A : TOUCHE RETOUR ARRIÈRE (BACKSPACE)
+                if (e.key === 'Backspace') {
+                    let isAtStart = (range.startOffset === 0);
+                    // Tolérance si la ligne est vide
+                    if (currentBlock.textContent.trim() === '' && currentBlock.childNodes.length <= 1) {
+                        isAtStart = true;
+                    }
+
+                    if (isAtStart) {
+                        const prevSibling = currentBlock.previousElementSibling;
+                        if (prevSibling && prevSibling.getAttribute('contenteditable') === 'false') {
+                            e.preventDefault(); // BOUCLIER ACTIF
+                            
+                            if (currentBlock.textContent.trim() === '') currentBlock.remove();
+                            
+                            const prevPrevSibling = prevSibling.previousElementSibling;
+                            if (prevPrevSibling && prevPrevSibling.getAttribute('contenteditable') !== 'false') {
+                                // On téléporte au-dessus
+                                const newRange = document.createRange();
+                                newRange.selectNodeContents(prevPrevSibling);
+                                newRange.collapse(false);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                            } else {
+                                // L'image est au plafond ! On crée une vraie ligne au-dessus.
+                                const newP = document.createElement('p');
+                                newP.innerHTML = '<br>';
+                                prevSibling.parentNode.insertBefore(newP, prevSibling);
+                                const newRange = document.createRange();
+                                newRange.selectNodeContents(newP);
+                                newRange.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                            }
+                        }
+                    }
+                } 
+                // CAS B : TOUCHE SUPPRIMER (DELETE)
+                else if (e.key === 'Delete') {
+                    let isAtEnd = (range.startOffset >= currentBlock.textContent.length);
+                    if (currentBlock.textContent.trim() === '' && currentBlock.childNodes.length <= 1) {
+                        isAtEnd = true;
+                    }
+
+                    if (isAtEnd) {
+                        const nextSibling = currentBlock.nextElementSibling;
+                        if (nextSibling && nextSibling.getAttribute('contenteditable') === 'false') {
+                            e.preventDefault(); // BOUCLIER ACTIF
+                            
+                            if (currentBlock.textContent.trim() === '') currentBlock.remove();
+                            
+                            const nextNextSibling = nextSibling.nextElementSibling;
+                            if (nextNextSibling && nextNextSibling.getAttribute('contenteditable') !== 'false') {
+                                // On téléporte en-dessous
+                                const newRange = document.createRange();
+                                newRange.selectNodeContents(nextNextSibling);
+                                newRange.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                            } else {
+                                // L'image est tout en bas ! On crée une ligne en-dessous.
+                                const newP = document.createElement('p');
+                                newP.innerHTML = '<br>';
+                                nextSibling.parentNode.insertBefore(newP, nextSibling.nextSibling);
+                                const newRange = document.createRange();
+                                newRange.selectNodeContents(newP);
+                                newRange.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -2447,7 +2567,7 @@ function saveDraftToLocal() {
         footer: document.getElementById('cfg-footer').value,
         marginText: document.getElementById('cfg-margin-text').value,
         author: document.getElementById('cfg-author').value,
-        comments: plumeComments, 
+        
         margins: {
             top: document.getElementById('cfg-margin-top').checked,
             bottom: document.getElementById('cfg-margin-bottom').checked,
@@ -2463,7 +2583,13 @@ function saveDraftToLocal() {
         const editor = clone.querySelector('.content-editable');
         
         // Purge des images lourdes générées par l'éditeur (elles seront recréées à la volée)
-        const generatedImages = editor.querySelectorAll('.chart-container img, .plume-map-container img');
+        const generatedImages = editor.querySelectorAll(`
+            .chart-container img, 
+            .plume-map-container img, 
+            .plume-orgchart-container img, 
+            .plume-tree-container img, 
+            img.plume-dag-image
+        `);
         generatedImages.forEach(img => {
             img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; 
         });
@@ -2504,7 +2630,7 @@ async function restoreDraftFromLocal(jsonString) {
         if (state.footer) document.getElementById('cfg-footer').value = state.footer;
         if (state.author !== undefined) document.getElementById('cfg-author').value = state.author;
             // NOUVEAU : Restauration de la base de commentaires
-           plumeComments = state.comments || {}; 
+           
         if (state.marginText !== undefined) {
             document.getElementById('cfg-margin-text').value = state.marginText;
             updateMarginText(); // On applique visuellement le changement
@@ -2552,6 +2678,9 @@ async function restoreDraftFromLocal(jsonString) {
                             </button>
                             <button class="page-action-btn" onclick="toggleOrientation(this)" title="${btnTitle}">
                                 <span class="${btnIcon}"></span> ${btnText}
+                            </button>
+                            <button class="page-action-btn" onclick="sanitizeCurrentPage(this)" title="Nettoyer le code source de cette page">
+                                <span class="fr-icon-brush-3-line"></span> Nettoyer
                             </button>
                             <button class="page-action-btn delete" onclick="deletePage(this)" title="Supprimer la page">
                                 <span class="fr-icon-delete-bin-line"></span> Supprimer
@@ -2620,6 +2749,11 @@ async function restoreDraftFromLocal(jsonString) {
             if (typeof refreshAllQRCodes === 'function') refreshAllQRCodes();
                 if (typeof refreshAllTrees === 'function') await refreshAllTrees();
                 if (typeof refreshAllOrgCharts === 'function') await refreshAllOrgCharts();
+                if (typeof paginationObserver !== 'undefined') {
+                    document.querySelectorAll('.content-editable').forEach(editor => {
+                        paginationObserver.observe(editor);
+                    });
+                }
         }, 100);
         
         if (typeof showToast !== 'undefined') {
@@ -2983,5 +3117,89 @@ async function loadDemo() {
         if (typeof showToast !== 'undefined') {
             showToast("Erreur de chargement", "Impossible de charger le fichier './exemple/demo.json'. Vérifiez qu'il est bien présent sur le serveur.", "error");
         }
+    }
+}
+// =====================================================================
+// MODULE DE PAGINATION VISUELLE (OVERLAY SANS ALTÉRATION DU DOM)
+// =====================================================================
+
+// Hauteur utile approximative d'une feuille A4 à l'écran (ajustable selon vos marges)
+const A4_HEIGHT_PX = 1050; 
+
+function drawPaginationGuides(editor) {
+    // 1. On identifie la page parente et la zone sécurisée
+    const page = editor.closest('.page-a4');
+    const safeArea = page.querySelector('.safe-area');
+    
+    // Le conteneur parent doit être relatif pour que l'overlay absolu se superpose bien
+    if (getComputedStyle(safeArea).position === 'static') {
+        safeArea.style.position = 'relative';
+    }
+
+    // 2. Création ou récupération de l'overlay
+    let overlay = safeArea.querySelector('.pagination-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'pagination-overlay';
+        safeArea.appendChild(overlay);
+    }
+
+    // 3. Nettoyage des anciennes lignes avant le redessin
+    overlay.innerHTML = '';
+
+    // 4. Calcul du nombre de pages virtuelles nécessaires
+    const editorHeight = editor.scrollHeight;
+    const numberOfBreaks = Math.floor(editorHeight / A4_HEIGHT_PX);
+
+    // 5. Dessin des lignes de césure
+    for (let i = 1; i <= numberOfBreaks; i++) {
+        const breakLine = document.createElement('div');
+        breakLine.className = 'virtual-page-break';
+        
+        // On calcule la position Y de la ligne par rapport au haut de l'éditeur
+        const yPosition = editor.offsetTop + (i * A4_HEIGHT_PX);
+        breakLine.style.top = `${yPosition}px`;
+        
+        // On indique visuellement à l'utilisateur où il en est
+        breakLine.setAttribute('data-page', `Saut de page visuel (~Page ${i + 1})`);
+        
+        overlay.appendChild(breakLine);
+    }
+}
+
+// 6. L'observateur de performances (Évite d'utiliser un setTimeout ou un onkeydown)
+const paginationObserver = new ResizeObserver((entries) => {
+    // requestAnimationFrame garantit que le dessin se fera sans saccades visuelles (60fps)
+    requestAnimationFrame(() => {
+        for (let entry of entries) {
+            drawPaginationGuides(entry.target);
+        }
+    });
+});
+// =====================================================================
+// NETTOYAGE MANUEL D'UNE PAGE
+// =====================================================================
+function sanitizeCurrentPage(btn) {
+    const page = btn.closest('.page-a4');
+    const editor = page.querySelector('.content-editable');
+    if (!editor) return;
+
+    // 1. On nettoie le HTML via votre fonction existante
+    const cleanHTML = sanitizePlumeHTML(editor.innerHTML);
+    editor.innerHTML = cleanHTML;
+
+    // 2. On laisse le DOM respirer 50ms, puis on relance les moteurs graphiques
+    // pour s'assurer que les images Base64, les cartes et DAG s'affichent correctement
+    setTimeout(async () => {
+        if (typeof refreshAllCharts === 'function') refreshAllCharts();
+        if (typeof refreshAllMaps === 'function') await refreshAllMaps();
+        if (typeof refreshAllTimelines === 'function') await refreshAllTimelines();
+        if (typeof refreshAllTrees === 'function') await refreshAllTrees();
+        if (typeof refreshAllOrgCharts === 'function') await refreshAllOrgCharts();
+        if (typeof updateAllDAGThemes === 'function') updateAllDAGThemes();
+    }, 50);
+
+    if (typeof showToast !== 'undefined') {
+        showToast("Page nettoyée", "Les scories invisibles de mise en page ont été purgées.", "success");
     }
 }

@@ -472,9 +472,14 @@ function insertOrgChart() {
             const payload = { version: 2, diagramData: diagramData, customImageRegistry: customImageRegistry };
             const safeConfig = encodeURIComponent(JSON.stringify(payload));
 
+            // On génère la liste sémantique
+            const accessibleListHTML = buildAccessibleOrgList(diagramData);
+
             const finalHTML = `
                 <div class="plume-orgchart-container" data-orgchart-config="${safeConfig}" style="margin: 2.5rem 0; text-align: center;" contenteditable="false">
-                    <img src="${imgData}" alt="Organigramme" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" />
+                    <img src="${imgData}" alt="Représentation visuelle de l'organigramme" aria-hidden="true" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" />
+                    
+                    ${accessibleListHTML}
                 </div>
                 <p><br></p>
             `;
@@ -1028,4 +1033,40 @@ async function refreshAllOrgCharts() {
             console.error("Impossible de rafraîchir l'organigramme", e);
         }
     }
+}
+// --- ACCESSIBILITÉ : Générateur de liste hiérarchique invisible ---
+function buildAccessibleOrgList(data) {
+    if (!data || !data.center) return '';
+    
+    let html = `<ul class="sr-only">`;
+    // On nettoie les retours à la ligne pour le lecteur d'écran
+    const centerText = (data.center.text || "Bloc Central").replace(/\n/g, ' ');
+    html += `<li><strong>${centerText}</strong>`;
+    
+    if (data.bubbles && data.bubbles.length > 0) {
+        html += `<ul>`;
+        data.bubbles.forEach(bubble => {
+            html += buildAccessibleBubbleItem(bubble);
+        });
+        html += `</ul>`;
+    }
+    
+    html += `</li></ul>`;
+    return html;
+}
+
+function buildAccessibleBubbleItem(node) {
+    const nodeText = (node.text || "Bulle").replace(/\n/g, ' ');
+    let html = `<li>${nodeText}`;
+    
+    if (node.children && node.children.length > 0) {
+        html += `<ul>`;
+        node.children.forEach(child => {
+            html += buildAccessibleBubbleItem(child);
+        });
+        html += `</ul>`;
+    }
+    
+    html += `</li>`;
+    return html;
 }

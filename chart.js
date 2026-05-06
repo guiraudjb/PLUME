@@ -206,6 +206,13 @@ function generateChartFromCSV(data, type, savedRange) {
         };
         const safeConfig = encodeURIComponent(JSON.stringify(chartConfig));
 
+        // --- NOUVEAU : Génération du tableau d'accessibilité RGAA ---
+        // On recrée la structure attendue par la fonction buildAccessibleChartTable
+        const accessibilityData = {
+            data: { labels: chartConfig.labels, datasets: chartConfig.datasets }
+        };
+        const accessibleTableHTML = buildAccessibleChartTable(accessibilityData, chartConfig.title);
+
         chart.destroy(); overlay.remove();
 
         if (savedRange) {
@@ -214,9 +221,11 @@ function generateChartFromCSV(data, type, savedRange) {
             selection.addRange(savedRange);
         }
 
+        // --- NOUVEAU : Ajout de aria-hidden="true" et de ${accessibleTableHTML} ---
         const chartHTML = `
             <div class="chart-container" data-chart-config="${safeConfig}" style="display: flex; justify-content: center; margin: 2.5rem 0;" contenteditable="false">
-                <img src="${imgData}" alt="Graphique de données" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; padding: 1.2rem; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                <img src="${imgData}" alt="Représentation visuelle du graphique" aria-hidden="true" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; padding: 1.2rem; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                ${accessibleTableHTML}
             </div>
             <p><br></p>
         `;
@@ -310,4 +319,37 @@ function refreshAllCharts() {
             console.error("Impossible de rafraîchir le graphique", e);
         }
     });
+}
+// --- ACCESSIBILITÉ : Générateur de tableau invisible pour Chart.js ---
+function buildAccessibleChartTable(chartConfig, chartTitle) {
+    if (!chartConfig || !chartConfig.data) return '';
+    
+    const labels = chartConfig.data.labels || [];
+    const datasets = chartConfig.data.datasets || [];
+    
+    let html = `<table class="sr-only">`;
+    html += `<caption>Données du graphique : ${chartTitle || 'Statistiques'}</caption>`;
+    
+    // En-têtes du tableau
+    html += `<thead><tr><th scope="col">Catégorie</th>`;
+    datasets.forEach(ds => {
+        html += `<th scope="col">${ds.label || 'Série de données'}</th>`;
+    });
+    html += `</tr></thead>`;
+    
+    // Corps du tableau
+    html += `<tbody>`;
+    labels.forEach((label, i) => {
+        html += `<tr>`;
+        html += `<th scope="row">${label}</th>`; // Nom de la barre/part de camembert
+        
+        datasets.forEach(ds => {
+            const val = ds.data[i] !== undefined ? ds.data[i] : 'N/A';
+            html += `<td>${val}</td>`; // Valeur chiffrée
+        });
+        html += `</tr>`;
+    });
+    
+    html += `</tbody></table>`;
+    return html;
 }

@@ -246,6 +246,25 @@ function applyCustomBullet(targetElement) {
     input.click();
 }
 
+// =====================================================================
+// NOUVEAUX BOUTONS : INSÉRER UNE LIGNE (Anti-Enfermement)
+// =====================================================================
+
+const insertLineContainer = document.createElement('div');
+insertLineContainer.style.cssText = "display: none; align-items: center; gap: 0.3rem; border-right: 1px solid var(--grey-900); padding-right: 0.5rem; margin-right: 0.2rem;";
+
+const insertAboveBtn = document.createElement('button');
+insertAboveBtn.innerHTML = '<span style="font-weight:bold;">+ ⬆</span>'; 
+insertAboveBtn.title = "Insérer une ligne de texte au-dessus";
+insertAboveBtn.style.cssText = `background-color: #e6feda; border: 1px solid #68a532; border-radius: 4px; width: 34px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; color: #447049;`;
+
+const insertBelowBtn = document.createElement('button');
+insertBelowBtn.innerHTML = '<span style="font-weight:bold;">+ ⬇</span>'; 
+insertBelowBtn.title = "Insérer une ligne de texte en-dessous";
+insertBelowBtn.style.cssText = `background-color: #e6feda; border: 1px solid #68a532; border-radius: 4px; width: 34px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; color: #447049;`;
+
+insertLineContainer.append(insertAboveBtn, insertBelowBtn);
+
 
 
 // Assemblage final
@@ -253,6 +272,7 @@ floatToolbar.appendChild(textStyleSelect);
 floatToolbar.appendChild(lettrineBtn);
 floatToolbar.appendChild(cleanBtn);
 floatToolbar.appendChild(editLinkBtn);
+floatToolbar.appendChild(insertLineContainer);
 floatToolbar.appendChild(imgToolsContainer);
 floatToolbar.appendChild(gridToolsContainer);
 floatToolbar.appendChild(moveUpBtn);
@@ -320,6 +340,19 @@ document.addEventListener('click', function(e) {
                 imgResizeSlider.value = parseInt(currentWidth);
             } else {
                 imgToolsContainer.style.display = 'none';
+            }
+            
+            // NOUVEAU : Affichage des boutons "Insérer une ligne" (Protège des blocages)
+            // On les affiche si le bloc est une image, une grille, un tableau ou un module verrouillé (Graphique, Carte...)
+            const isLockedBlock = tagName === 'IMG' || 
+                                  hoveredBlock.classList.contains('fr-table') || 
+                                  hoveredBlock.classList.contains('plume-grid') || 
+                                  hoveredBlock.closest('[contenteditable="false"]');
+            
+            if (isLockedBlock) {
+                insertLineContainer.style.display = 'flex';
+            } else {
+                insertLineContainer.style.display = 'none';
             }
             // NOUVEAU : Affichage conditionnel des outils de grille
             if (hoveredBlock.closest('.plume-grid')) {
@@ -978,3 +1011,37 @@ editLinkBtn.addEventListener('click', function(e) {
         hideFloatToolbar(); 
     };
 });
+
+function insertLineNearBlock(position) {
+    if (!hoveredBlock) return;
+
+    // 1. On cible le bon conteneur (pour ne pas insérer la ligne *à l'intérieur* du graphique)
+    const targetBlock = hoveredBlock.closest('[contenteditable="false"], .fr-table, .plume-grid') || hoveredBlock;
+    
+    // 2. Création du paragraphe vierge
+    const p = document.createElement('p');
+    p.innerHTML = '<br>';
+
+    // 3. Insertion selon la position demandée
+    if (position === 'above') {
+        targetBlock.parentNode.insertBefore(p, targetBlock);
+    } else if (position === 'below') {
+        targetBlock.parentNode.insertBefore(p, targetBlock.nextSibling);
+    }
+
+    // 4. On déplace le curseur dans ce nouveau paragraphe pour que l'agent puisse taper direct
+    const range = document.createRange();
+    range.setStart(p, 0);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    // 5. On masque la barre flottante et on sauvegarde le brouillon
+    hideFloatToolbar(); 
+    if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
+}
+
+// Branchement des clics sur les boutons
+insertAboveBtn.onclick = () => insertLineNearBlock('above');
+insertBelowBtn.onclick = () => insertLineNearBlock('below');
