@@ -1,31 +1,64 @@
+/**
+ * MODULE COLLABORATION & RÉVISION - PLUME (Version Sécurisée)
+ * Gestion des commentaires persistants, du suivi des modifications (sessions)
+ * et colorimétrie déterministe par utilisateur.
+ */
+
 // =====================================================================
-// SYSTÈME DE COMMENTAIRES (PHASE 2)
+// GESTION DE L'AUTEUR (LOCAL STORAGE & COULEURS)
+// =====================================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    const authorInput = document.getElementById('cfg-author');
+    if (authorInput) {
+        // Chargement du pseudonyme sauvegardé
+        const savedAuthor = localStorage.getItem('plume_author');
+        if (savedAuthor) authorInput.value = savedAuthor;
+        
+        // Sauvegarde silencieuse à chaque modification
+        authorInput.addEventListener('input', (e) => {
+            localStorage.setItem('plume_author', e.target.value.trim());
+        });
+    }
+});
+
+// Algorithme de hachage pour attribuer une couleur unique à chaque pseudonyme
+function getAuthorColor(authorName) {
+    if (!authorName || authorName === "Anonyme") return { hex: "#666666", bg: "rgba(102, 102, 102, 0.1)" };
+    
+    let hash = 0;
+    for (let i = 0; i < authorName.length; i++) {
+        hash = authorName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    // On génère une teinte (0-360) avec une saturation et luminosité fixes pour la lisibilité
+    const hue = Math.abs(hash % 360);
+    return {
+        hex: `hsl(${hue}, 75%, 40%)`,
+        bg: `hsla(${hue}, 75%, 40%, 0.1)`
+    };
+}
+
+// =====================================================================
+// AUTO-ENCAPSULATION ET GESTION DES COMMENTAIRES
 // =====================================================================
 
 async function addComment() {
     const selection = window.getSelection();
-   
-    // 1. On vérifie qu'il y a bien du texte sélectionné
     if (!selection.rangeCount || selection.isCollapsed) {
-        if (typeof showToast !== 'undefined') {
-            showToast("Sélection requise", "Veuillez surligner un passage du texte avant de commenter.", "warning");
-        }
+        if (typeof showToast !== 'undefined') showToast("Sélection requise", "Veuillez surligner un passage du texte.", "warning");
         return;
     }
 
-    // 2. LA CORRECTION : On sauvegarde précieusement la sélection AVANT d'ouvrir la modale
     const savedRange = selection.getRangeAt(0).cloneRange();
-   
-    // On extrait le code HTML exact de ce qui a été sélectionné (pour garder les gras/italiques)
+    
     const tempDiv = document.createElement('div');
     tempDiv.appendChild(savedRange.cloneContents());
     const selectedHTML = tempDiv.innerHTML;
 
-    // 3. On récupère le nom de l'auteur
     const authorInput = document.getElementById('cfg-author');
     const author = (authorInput && authorInput.value.trim() !== '') ? authorInput.value : "Anonyme";
 
-    // 4. Ouverture de la modale (Ici, le navigateur "perd" le surlignage bleu visuellement)
+    // Modale de création
     const commentText = await plumeModal({
         title: "Nouveau commentaire",
         message: "Saisissez votre remarque pour le passage sélectionné :",
@@ -33,74 +66,86 @@ async function addComment() {
         confirmText: "Commenter"
     });
 
-    if (!commentText) return; // L'utilisateur a annulé
+    if (!commentText) return; 
 
-    // 5. Création de la donnée du commentaire
     const commentId = 'cmt-' + Date.now().toString(36);
     const today = new Date().toLocaleDateString('fr-FR');
    
-    plumeComments[commentId] = {
-        author: author,
-        date: today,
-        text: commentText,
-        resolved: false
-    };
+    // Encodage du texte pour éviter de casser les attributs HTML avec des guillemets
+    const safeText = encodeURIComponent(commentText);
 
-    // 6. RESTAURATION : On remet le curseur exactement là où il était
+    // Injection directe des données dans la balise (Infaillible)
+    const wrappedHTML = `<mark class="plume-comment" data-comment-id="${commentId}" data-author="${author}" data-date="${today}" data-text="${safeText}" title="Cliquer pour lire">${selectedHTML}</mark>`;
+    
     selection.removeAllRanges();
     selection.addRange(savedRange);
-
-    // 7. On emballe le texte sauvegardé dans notre balise jaune et on l'insère proprement
-    const wrappedHTML = `<mark class="plume-comment" data-comment-id="${commentId}" title="Cliquer pour lire">${selectedHTML}</mark>`;
-   
-    // execCommand est la méthode la plus robuste pour remplacer une sélection sans casser le DOM
     document.execCommand('insertHTML', false, wrappedHTML);
 
-    // On efface la sélection bleue pour finir
     selection.removeAllRanges();
-   
     if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
 }
 
-// =====================================================================
-// LECTURE ET RÉSOLUTION DES COMMENTAIRES
-// =====================================================================
-document.addEventListener('click', async function(e) {
-    // Si on clique sur une zone jaune
+document.addEventListener('click', function(e) {
     const mark = e.target.closest('mark.plume-comment');
     if (!mark) return;
 
-    const commentId = mark.getAttribute('data-comment-id');
-    const commentData = plumeComments[commentId];
+    e.preventDefault();
+    e.stopPropagation();
 
-    if (!commentData) {
-        if (typeof showToast !== 'undefined') showToast("Erreur", "Le commentaire n'est plus en mémoire.", "error");
-        return;
-    }
+    // Lecture des données embarquées dans la balise
+    const author = mark.getAttribute('data-author') || "Inconnu";
+    const date = mark.getAttribute('data-date') || "";
+    const text = decodeURIComponent(mark.getAttribute('data-text') || "Commentaire illisible.");
 
-    const resolve = await plumeModal({
-        title: `💬 Commentaire de ${commentData.author}`,
-        message: `<span style="font-size: 0.85rem; color: #666;">Le ${commentData.date}</span><br><br><strong>${commentData.text}</strong><br><br><hr style="margin: 1rem 0; border: none; border-top: 1px solid #ddd;">Voulez-vous marquer ce commentaire comme résolu ?`,
-        confirmText: "Résoudre et effacer",
-        cancelText: "Fermer"
+    // Création d'une modale large et sur-mesure pour la lecture
+    const modalId = 'read-cmt-modal-' + Date.now();
+    const modalHtml = `
+        <div id="${modalId}" class="chart-modal-overlay" style="z-index: 100000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(2px);">
+            <div class="chart-modal" style="width: 750px; max-width: 95vw; background: #fff; border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.2);">
+                
+                <div style="padding: 1.5rem; background: var(--grey-975); border-bottom: 1px solid var(--grey-900);">
+                    <h3 style="margin:0; color:var(--theme-sun); font-size:1.2rem;">💬 Commentaire de ${author}</h3>
+                </div>
+                
+                <div style="padding: 2rem; overflow-y: auto; max-height: 50vh;">
+                    <span style="font-size: 0.9rem; font-weight: 700; color: #666; text-transform: uppercase;">Le ${date}</span>
+                    <p style="margin-top: 1rem; font-size: 1.1rem; line-height: 1.6; color: #1e1e1e;">${text}</p>
+                </div>
+                
+                <div style="padding: 1rem 1.5rem; background: var(--grey-975); border-top: 1px solid var(--grey-900); display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center;">
+                    <button class="fr-btn fr-btn--secondary" id="btn-cmt-close">Fermer</button>
+                    <button class="fr-btn" id="btn-cmt-resolve" style="background-color: var(--theme-sun); color: #fff;">Résoudre et effacer</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modalEl = document.getElementById(modalId);
+
+    const destroyModal = () => modalEl.remove();
+
+    document.getElementById('btn-cmt-close').onclick = destroyModal;
+    modalEl.addEventListener('click', (event) => {
+        if (event.target === modalEl) destroyModal();
     });
 
-    if (resolve) {
-        // Pour résoudre, on remplace la balise jaune par son contenu brut (le texte normal)
+    document.getElementById('btn-cmt-resolve').onclick = () => {
+        // Libération du texte d'origine
         const parent = mark.parentNode;
-        while (mark.firstChild) {
-            parent.insertBefore(mark.firstChild, mark);
-        }
+        while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
         parent.removeChild(mark);
        
-        // On nettoie la base de données
-        delete plumeComments[commentId];
-       
         if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
-    }
+        destroyModal();
+    };
 });
+// =====================================================================
+// SUIVI DES MODIFICATIONS (SESSIONS ET COULEURS DYNAMIQUES)
+// =====================================================================
 
 let isRevisionMode = false;
+let currentRevisionSessionId = null;
 
 function toggleRevisionMode() {
     isRevisionMode = !isRevisionMode;
@@ -109,107 +154,49 @@ function toggleRevisionMode() {
     if (isRevisionMode) {
         btn.classList.add('is-active');
         btn.innerText = "Suivi activé";
-        if (typeof showToast !== 'undefined') showToast("Mode Révision", "Le suivi des modifications est activé.", "info");
+        currentRevisionSessionId = 'rev-' + Date.now().toString(36);
+        if (typeof showToast !== 'undefined') showToast("Mode Révision", "Suivi activé.", "info");
     } else {
         btn.classList.remove('is-active');
         btn.innerText = "Suivi désactivé";
-        if (typeof showToast !== 'undefined') showToast("Mode Révision", "Le suivi des modifications est désactivé.", "info");
+        currentRevisionSessionId = null;
+        if (typeof showToast !== 'undefined') showToast("Mode Révision", "Suivi désactivé.", "info");
     }
 }
 
+function getRevisionGroupId() {
+    return currentRevisionSessionId + '-' + Math.random().toString(36).substr(2, 5);
+}
 
-async function acceptAllRevisions() {
-    // 1. On demande confirmation (Action destructrice)
-    const confirmed = await plumeModal({
-        title: "Validation globale",
-        message: "Êtes-vous sûr de vouloir <strong>accepter toutes les modifications</strong> et <strong>résoudre tous les commentaires</strong> du document ?<br>Cette action est irréversible.",
-        confirmText: "Tout accepter et nettoyer",
-        cancelText: "Annuler"
-    });
-
-    if (!confirmed) return;
-
-    let hasChanges = false;
-
-    // 2. Traitement des ajouts (On conserve le texte, on détruit la balise <ins>)
-    document.querySelectorAll('ins.plume-ins').forEach(ins => {
-        const parent = ins.parentNode;
-        while (ins.firstChild) parent.insertBefore(ins.firstChild, ins);
-        parent.removeChild(ins);
-        hasChanges = true;
-    });
-
-    // 3. Traitement des suppressions (On détruit totalement la balise <del> et son contenu)
-    document.querySelectorAll('del.plume-del').forEach(del => {
-        del.remove();
-        hasChanges = true;
-    });
-
-    // 4. Traitement des commentaires (On conserve le texte, on détruit la balise <mark>)
-    document.querySelectorAll('mark.plume-comment').forEach(mark => {
-        const parent = mark.parentNode;
-        while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
-        parent.removeChild(mark);
-        hasChanges = true;
-    });
-
-    // 5. Purge de la base de données des commentaires
-    plumeComments = {};
-
-    // 6. Sauvegarde et notification
-    if (hasChanges) {
-        if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
-        if (typeof showToast !== 'undefined') showToast("Nettoyage terminé", "Le document est désormais figé et prêt.", "success");
+// Fonction pour appliquer le style personnalisé
+function styleRevisionNode(node, authorName, isInsertion) {
+    const colors = getAuthorColor(authorName);
+    if (isInsertion) {
+        node.style.color = colors.hex;
+        node.style.textDecoration = "underline";
+        node.style.textDecorationColor = colors.hex;
+        node.style.textDecorationThickness = "2px";
+        node.style.backgroundColor = colors.bg;
     } else {
-        if (typeof showToast !== 'undefined') showToast("Info", "Il n'y avait aucune révision à valider.", "info");
+        node.style.color = colors.hex;
+        node.style.textDecoration = "line-through";
+        node.style.textDecorationColor = colors.hex;
+        node.style.textDecorationThickness = "2px";
+        node.style.backgroundColor = colors.bg;
     }
 }
 
-// =====================================================================
-// RESTAURATION CHIRURGICALE PAR SÉLECTION
-// =====================================================================
-function restoreSelectedRevisions() {
-    const selection = window.getSelection();
-   
-    // Si l'utilisateur n'a rien surligné, on abandonne
-    if (!selection.rangeCount || selection.isCollapsed) {
-        if (typeof showToast !== 'undefined') showToast("Info", "Veuillez d'abord surligner les caractères à restaurer.", "warning");
-        return;
-    }
-   
-    // On récupère TOUTES les balises de révision du document
-    const allRevisions = document.querySelectorAll('ins.plume-ins, del.plume-del');
-    let changed = false;
-   
-    allRevisions.forEach(el => {
-        // MAGIE : Le navigateur vérifie si cette lettre fait partie (même partiellement) de la sélection bleue de l'utilisateur !
-        if (selection.containsNode(el, true)) {
-            if (el.tagName.toLowerCase() === 'ins') {
-                // Si c'était un ajout, on le retire (annulation)
-                el.remove();
-            } else {
-                // Si c'était une suppression, on casse la balise rouge et on libère la lettre (restauration)
-                const parent = el.parentNode;
-                while (el.firstChild) parent.insertBefore(el.firstChild, el);
-                parent.removeChild(el);
-            }
-            changed = true;
-        }
-    });
-   
-    if (changed) {
-        selection.removeAllRanges(); // On efface le surlignage bleu
-        if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
-        if (typeof showToast !== 'undefined') showToast("Restauré", "Le marquage a été retiré des caractères sélectionnés.", "success");
-    }
-}
-
-// L'intercepteur global de frappe (PHASE 3 - CORRIGÉE)
 document.addEventListener('beforeinput', function(e) {
     if (!isRevisionMode) return;
 
     const editor = e.target.closest('.content-editable');
     if (!editor) return;
+
+    if (['insertFromPaste', 'insertFromDrop', 'insertLineBreak', 'insertParagraph'].includes(e.inputType)) {
+        e.preventDefault();
+        if (typeof showToast !== 'undefined') showToast("Action bloquée", "Le collage ou les sauts de ligne complexes sont désactivés en mode révision.", "warning");
+        return;
+    }
 
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
@@ -218,19 +205,17 @@ document.addEventListener('beforeinput', function(e) {
     const authorInput = document.getElementById('cfg-author');
     const author = (authorInput && authorInput.value.trim() !== '') ? authorInput.value : "Anonyme";
 
-    // ==========================================
-    // CAS 1 : INSERTION DE TEXTE
-    // ==========================================
     if (e.inputType === 'insertText') {
         e.preventDefault();
-
+        
         const ins = document.createElement('ins');
         ins.className = 'plume-ins';
         ins.setAttribute('data-author', author);
+        ins.setAttribute('data-rev-id', currentRevisionSessionId); 
         ins.textContent = e.data;
+        styleRevisionNode(ins, author, true);
 
         if (!currentRange.collapsed) currentRange.deleteContents();
-
         currentRange.insertNode(ins);
        
         currentRange.setStartAfter(ins);
@@ -241,74 +226,51 @@ document.addEventListener('beforeinput', function(e) {
         if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
     }
    
-    // ==========================================
-    // CAS 2 : SUPPRESSION (Retour arrière ou Suppr)
-    // ==========================================
     else if (e.inputType === 'deleteContentBackward' || e.inputType === 'deleteContentForward') {
         const targetRanges = e.getTargetRanges();
         if (!targetRanges || targetRanges.length === 0) return;
        
         const staticRange = targetRanges[0];
-
-        // 1. CONVERSION DU STATIC RANGE EN VRAI RANGE (La clé pour corriger l'erreur !)
         const targetRange = document.createRange();
         try {
             targetRange.setStart(staticRange.startContainer, staticRange.startOffset);
             targetRange.setEnd(staticRange.endContainer, staticRange.endOffset);
-        } catch (err) {
-            return; // Sécurité si les noeuds ont été altérés
-        }
+        } catch (err) { return; }
 
-        // 2. SÉCURITÉ ANTI-NŒUDS MULTIPLES
         let currentNode = targetRange.startContainer;
-        if (currentNode.nodeType === 3) {
-            currentNode = currentNode.parentNode; // On remonte au parent si c'est un noeud texte
-        }
+        if (currentNode.nodeType === 3) currentNode = currentNode.parentNode;
        
-        // Si on efface un texte vert (ajouté récemment), on laisse le navigateur le détruire
-        if (currentNode && currentNode.closest && currentNode.closest('ins.plume-ins')) {
-            return;
-        }
-       
-        // Si on bute contre un texte DÉJÀ rouge (supprimé), on fait sauter le curseur par-dessus
-        const parentDel = currentNode && currentNode.closest ? currentNode.closest('del.plume-del') : null;
-        if (parentDel) {
-            e.preventDefault();
-            const jumpRange = document.createRange();
-            if (e.inputType === 'deleteContentBackward') {
-                jumpRange.setStartBefore(parentDel);
-            } else {
-                jumpRange.setStartAfter(parentDel);
+        if (currentNode && currentNode.closest('ins.plume-ins')) {
+            const insNode = currentNode.closest('ins.plume-ins');
+            if (insNode.getAttribute('data-author') === author) {
+                return; // Laisse le navigateur supprimer nativement le texte fraîchement tapé par l'auteur
             }
-            jumpRange.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(jumpRange);
+        }
+       
+        if (currentNode && currentNode.closest('del.plume-del')) {
+            e.preventDefault();
             return;
         }
 
-        // 3. PROCÉDURE DE SUPPRESSION
         e.preventDefault();
        
         if (!targetRange.collapsed && targetRange.toString().length > 0) {
-            const extracted = targetRange.extractContents();
-           
+            const textToMark = targetRange.toString();
+            targetRange.deleteContents(); // Extraction sécurisée du texte pur
+            
             const del = document.createElement('del');
             del.className = 'plume-del';
             del.setAttribute('data-author', author);
-            del.appendChild(extracted);
+            del.setAttribute('data-rev-id', currentRevisionSessionId);
+            del.textContent = textToMark;
+            styleRevisionNode(del, author, false);
            
             targetRange.insertNode(del);
            
-            // LA CORRECTION DU DÉCALAGE : Le curseur se place selon la touche pressée
-            if (e.inputType === 'deleteContentBackward') {
-                // Touche Retour Arrière : le curseur se place à gauche du texte barré
-                targetRange.setStartBefore(del);
-            } else {
-                // Touche Suppr : le curseur saute par-dessus et se place à droite
-                targetRange.setStartAfter(del);
-            }
+            if (e.inputType === 'deleteContentBackward') targetRange.setStartBefore(del);
+            else targetRange.setStartAfter(del);
+            
             targetRange.collapse(true);
-           
             selection.removeAllRanges();
             selection.addRange(targetRange);
            
@@ -317,50 +279,82 @@ document.addEventListener('beforeinput', function(e) {
     }
 });
 
-document.addEventListener('click', async function(e) {
+// =====================================================================
+// MODALE DE RÉSOLUTION À TROIS VOIES (ACCEPTER, REFUSER, IGNORER)
+// =====================================================================
+
+document.addEventListener('click', function(e) {
+    if (!isRevisionMode) return;
+
     const clickedTag = e.target.closest('ins.plume-ins, del.plume-del');
     if (!clickedTag) return;
 
-    const isInsertion = clickedTag.tagName.toLowerCase() === 'ins';
+    e.preventDefault(); 
+    e.stopPropagation();
+
+    // On stocke le type exact de la balise cliquée ('ins' ou 'del')
+    const tagName = clickedTag.tagName.toLowerCase();
+    const isInsertion = tagName === 'ins';
     const author = clickedTag.getAttribute('data-author') || "Inconnu";
+    const revId = clickedTag.getAttribute('data-rev-id');
     const actionText = isInsertion ? "ajouté" : "supprimé";
+    const colors = getAuthorColor(author);
    
-    // 1. REGROUPEMENT : On rassemble les lettres adjacentes
-    let group = [clickedTag];
-   
-    // On cherche les morceaux à gauche
-    let prev = clickedTag.previousSibling;
-    while (prev) {
-        if (prev.nodeType === 3 && prev.textContent === '') { prev = prev.previousSibling; continue; }
-        if (prev.nodeType === 1 && prev.tagName === clickedTag.tagName && prev.getAttribute('data-author') === author) {
-            group.unshift(prev);
-            prev = prev.previousSibling;
-        } else { break; }
-    }
-   
-    // On cherche les morceaux à droite
-    let next = clickedTag.nextSibling;
-    while (next) {
-        if (next.nodeType === 3 && next.textContent === '') { next = next.nextSibling; continue; }
-        if (next.nodeType === 1 && next.tagName === clickedTag.tagName && next.getAttribute('data-author') === author) {
-            group.push(next);
-            next = next.nextSibling;
-        } else { break; }
+    // CORRECTION : On ne regroupe QUE les balises du même type (tagName) pour cette session
+    let group = [];
+    if (revId) {
+        group = Array.from(document.querySelectorAll(`${tagName}[data-rev-id="${revId}"]`));
+    } else {
+        group = [clickedTag];
     }
 
-    // 2. On reconstitue le mot ou la phrase complète pour l'affichage
     const fullText = group.map(el => el.textContent).join('');
 
-    // On affiche une belle zone de prévisualisation dans la modale
-    const decision = await plumeModal({
-        title: `Révision de ${author}`,
-        message: `Cet utilisateur a <strong>${actionText}</strong> ce texte :<br><br><div style="padding:0.5rem; background:var(--background-alt-grey); border-left:3px solid ${isInsertion ? '#1f8d49' : '#e1000f'}; margin-bottom:1rem; font-size:1.1rem;"><strong>${fullText}</strong></div>Que souhaitez-vous faire ?`,
-        confirmText: "Accepter",
-        cancelText: "Refuser"
+    const modalId = 'rev-modal-' + Date.now();
+    const modalHtml = `
+        <div id="${modalId}" class="chart-modal-overlay" style="z-index: 100000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(2px);">
+            <div class="chart-modal" style="width: 750px; max-width: 95vw; background: #fff; border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.2);">
+                
+                <div style="padding: 1.5rem; background: var(--grey-975); border-bottom: 1px solid var(--grey-900);">
+                    <h3 style="margin:0; color:var(--theme-sun); font-size:1.2rem;">Révision de ${author}</h3>
+                </div>
+                
+                <div style="padding: 2rem; overflow-y: auto; max-height: 50vh;">
+                    <p style="margin-top: 0; font-size: 1.1rem;">Cet utilisateur a <strong>${actionText}</strong> ce texte :</p>
+                    
+                    <div style="padding: 1.5rem; background: ${colors.bg}; border-left: 5px solid ${colors.hex}; font-size: 1.2rem; line-height: 1.6; margin-bottom: 1.5rem; word-break: break-word; border-radius: 0 4px 4px 0;">
+                        <strong style="color: ${colors.hex}; text-decoration: ${isInsertion ? 'none' : 'line-through'};">${fullText}</strong>
+                    </div>
+                    
+                    <p style="margin-bottom: 0; font-weight: 700; color: #1e1e1e;">Que souhaitez-vous faire avec cette modification ?</p>
+                </div>
+                
+                <div style="padding: 1rem 1.5rem; background: var(--grey-975); border-top: 1px solid var(--grey-900); display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center;">
+                    <button class="fr-btn fr-btn--secondary" id="btn-rev-close">Ignorer (Fermer)</button>
+                    
+                    <div style="display: flex; gap: 1rem;">
+                        <button class="fr-btn" style="background-color: #ffe8e5; color: #e1000f; border: 1px solid #e1000f;" id="btn-rev-reject">Refuser la modification</button>
+                        <button class="fr-btn" style="background-color: #1f8d49; color: #fff; border: 1px solid #1f8d49;" id="btn-rev-accept">Accepter la modification</button>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modalEl = document.getElementById(modalId);
+
+    const destroyModal = () => modalEl.remove();
+
+    // IGNORER
+    document.getElementById('btn-rev-close').onclick = destroyModal;
+    modalEl.addEventListener('click', (event) => {
+        if (event.target === modalEl) destroyModal();
     });
 
-    if (decision === true) {
-        // ACCEPTER : On applique la décision à TOUTES les lettres du groupe
+    // ACCEPTER
+    document.getElementById('btn-rev-accept').onclick = () => {
         group.forEach(revision => {
             if (isInsertion) {
                 const parent = revision.parentNode;
@@ -370,9 +364,12 @@ document.addEventListener('click', async function(e) {
                 revision.remove();
             }
         });
-    }
-    else if (decision === false) {
-        // REFUSER : On applique la décision à TOUTES les lettres du groupe
+        if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
+        destroyModal();
+    };
+
+    // REFUSER
+    document.getElementById('btn-rev-reject').onclick = () => {
         group.forEach(revision => {
             if (isInsertion) {
                 revision.remove();
@@ -382,7 +379,50 @@ document.addEventListener('click', async function(e) {
                 parent.removeChild(revision);
             }
         });
-    }
-   
-    if (decision !== null && typeof saveDraftToLocal === 'function') saveDraftToLocal();
+        if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
+        destroyModal();
+    };
 });
+
+// =====================================================================
+// VALIDATION ET NETTOYAGE GLOBAL
+// =====================================================================
+
+async function acceptAllRevisions() {
+    const confirmed = await plumeModal({
+        title: "Validation globale",
+        message: "Êtes-vous sûr de vouloir <strong>accepter toutes les modifications</strong> et <strong>résoudre tous les commentaires</strong> ?<br>Cette action est irréversible.",
+        confirmText: "Tout accepter",
+        cancelText: "Annuler"
+    });
+
+    if (!confirmed) return;
+
+    let hasChanges = false;
+
+    document.querySelectorAll('ins.plume-ins').forEach(ins => {
+        const parent = ins.parentNode;
+        while (ins.firstChild) parent.insertBefore(ins.firstChild, ins);
+        parent.removeChild(ins);
+        hasChanges = true;
+    });
+
+    document.querySelectorAll('del.plume-del').forEach(del => {
+        del.remove();
+        hasChanges = true;
+    });
+
+    document.querySelectorAll('mark.plume-comment').forEach(mark => {
+        const parent = mark.parentNode;
+        while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+        parent.removeChild(mark);
+        hasChanges = true;
+    });
+
+    saveCommentsDB({});
+
+    if (hasChanges) {
+        if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
+        if (typeof showToast !== 'undefined') showToast("Nettoyage terminé", "Le document est prêt.", "success");
+    }
+}
