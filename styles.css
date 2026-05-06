@@ -828,12 +828,13 @@ del.plume-del {
         text-decoration: none !important;
     }
     
-    /* 1. Rendre toute la hauteur au document et désactiver les boîtes de défilement */
+    /* 1. Rendre la hauteur aux conteneurs structurels sans toucher aux balises multimédias */
     html, 
     body, 
     .content-editable, 
-    .plume-editor-container, /* Adaptez si votre conteneur de travail a un nom différent */
-    * {
+    .plume-editor-container,
+    /* On cible les boîtes génériques qui pourraient avoir un scroll */
+    div, section, article, main {
         overflow: visible !important;
         height: auto !important;
         max-height: none !important;
@@ -844,7 +845,7 @@ del.plume-del {
         display: none !important;
     }
     
-    /* 3. Masquer pour Firefox */
+    /* 3. Masquer pour Firefox (Ici le * ne pose pas de problème de rendu) */
     * {
         scrollbar-width: none !important;
     }
