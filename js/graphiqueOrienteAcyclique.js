@@ -257,14 +257,12 @@ function delN(id) {
     document.getElementById("dag-node-editor").innerHTML = `<p class="fr-text--xs">Bloc supprimé.</p>`;
     renderDAG(currentDAGConfig);
 }
-
 async function finalizeAndInsertDAG() {
     isLinkModeActive = false;
     selectedSourceNodeId = null;
     renderDAG(currentDAGConfig);
 
     try {
-        // --- MODIFIÉ : Utilisation du résolveur ---
         const theme = resolveDAGTheme(currentDAGConfig.theme);
         
         const g = new dagre.graphlib.Graph().setGraph({ rankdir: "TB", nodesep: 70, ranksep: 80 }).setDefaultEdgeLabel(() => ({}));
@@ -340,13 +338,16 @@ async function finalizeAndInsertDAG() {
         const canvas = await html2canvas(shadowContainer, { backgroundColor: "#ffffff", scale: 4, useCORS: true, logging: false });
        
         const base64Image = canvas.toDataURL("image/png");
-        const configJSON = JSON.stringify(currentDAGConfig).replace(/'/g, "&#39;");
+        
+        // SÉCURITÉ MAJEURE : Encodage URI pour éviter la corruption du JSON par le navigateur
+        const configJSON = encodeURIComponent(JSON.stringify(currentDAGConfig));
 
+        // Ajout des classes plume-protected pour interdire à DOMPurify d'y toucher
         const html = `
-            <div class="plume-component-wrapper fr-my-3w" contenteditable="false" style="text-align:center;">
+            <div class="plume-component-wrapper fr-my-3w plume-protected" contenteditable="false" style="text-align:center;">
                 <img src="${base64Image}"
-                     data-dag-config='${configJSON}'
-                     class="plume-dag-image"
+                     data-dag-config="${configJSON}"
+                     class="plume-dag-image plume-protected"
                      style="max-width:100%; height:auto; box-shadow: 0 2px 6px rgba(0,0,0,0.05);"
                      alt="Logigramme">
             </div><p><br></p>`;
@@ -370,7 +371,7 @@ async function finalizeAndInsertDAG() {
     }
 }
 
-// --- MODIFIÉ : Moteur de rafraîchissement global sans paramètre ---
+// --- MOTEUR DE RAFRAÎCHISSEMENT RÉPARÉ ---
 async function updateAllDAGThemes() {
     const dagImages = document.querySelectorAll('.plume-dag-image');
    
@@ -379,10 +380,16 @@ async function updateAllDAGThemes() {
             const rawConfig = img.getAttribute('data-dag-config');
             if (!rawConfig) continue;
            
-            let config = JSON.parse(rawConfig);
+            let config;
+            try {
+                // Décodage URI standard sécurisé
+                config = JSON.parse(decodeURIComponent(rawConfig));
+            } catch (e) {
+                // Rétrocompatibilité pour sauver les anciens logigrammes
+                config = JSON.parse(rawConfig.replace(/&#39;/g, "'"));
+            }
             
-            // On ne met à jour QUE si le graphique a été configuré avec le thème dynamique
-            if (config.theme !== "dynamique") continue;
+            // LA LIGNE FAUTIVE (if config.theme !== dynamique) A ÉTÉ DÉFINITIVEMENT SUPPRIMÉE ICI
 
             const shadowContainer = document.createElement('div');
             shadowContainer.style.position = 'absolute';
@@ -422,8 +429,6 @@ async function updateAllDAGThemes() {
             shadowContainer.appendChild(svgElement);
            
             const svg = d3.select(svgElement);
-            
-            // --- MODIFIÉ : Utilisation du résolveur avec la config relue ---
             const theme = resolveDAGTheme(config.theme);
             
             const innerSvg = svg.append("g").attr("transform", `translate(${-minX + padding}, ${-minY + padding})`);
@@ -461,7 +466,9 @@ async function updateAllDAGThemes() {
             const canvas = await html2canvas(shadowContainer, { backgroundColor: "#ffffff", scale: 4, useCORS: true, logging: false });
            
             img.src = canvas.toDataURL("image/png");
-            img.setAttribute('data-dag-config', JSON.stringify(config).replace(/'/g, "&#39;"));
+            
+            // On met à jour l'attribut avec le format encodé, prêt pour la prochaine sauvegarde
+            img.setAttribute('data-dag-config', encodeURIComponent(JSON.stringify(config)));
            
             document.body.removeChild(shadowContainer);
 

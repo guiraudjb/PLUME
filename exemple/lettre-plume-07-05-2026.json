@@ -1,0 +1,22 @@
+{
+  "palette": "marianne",
+  "bureau": "NOM DU BUREAU",
+  "titre": "TITRE DU DOCUMENT",
+  "date": "Avril 2026",
+  "footer": "lettre.information@institution.gouv.fr",
+  "marginText": "NEWSLETTER",
+  "author": "Jean-Baptiste GUIRAUD",
+  "margins": {
+    "top": false,
+    "bottom": false,
+    "left": false,
+    "right": false
+  },
+  "logo": "",
+  "pages": [
+    {
+      "content": "\n                    <h1>Saisissez votre contenu</h1>\n                    <p>Commencez à rédiger. Utilisez la barre d'outils pour structurer votre document.</p><div class=\"plume-component-wrapper fr-my-3w plume-protected\" contenteditable=\"false\" style=\"text-align:center;\">\n                <img src=\"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7\" data-dag-config=\"%7B%22nodes%22%3A%5B%7B%22id%22%3A%22node_1%22%2C%22text%22%3A%22D%C3%A9but%22%2C%22type%22%3A%22start%22%7D%5D%2C%22links%22%3A%5B%5D%2C%22theme%22%3A%22dynamique%22%7D\" class=\"plume-dag-image plume-protected\" style=\"max-width:100%; height:auto; box-shadow: 0 2px 6px rgba(0,0,0,0.05);\" alt=\"Logigramme\">\n            </div><p><br></p>\n                <div class=\"plume-pagination-overlay\" contenteditable=\"false\" style=\"pointer-events: none; display: block; height: 778px;\"></div>",
+      "isLandscape": false
+    }
+  ]
+}

@@ -1742,6 +1742,7 @@ function restoreJSON(input) {
                 if (typeof refreshAllQRCodes === 'function') refreshAllQRCodes();
                 if (typeof refreshAllTrees === 'function') await refreshAllTrees();
                 if (typeof refreshAllOrgCharts === 'function') await refreshAllOrgCharts();
+                if (typeof updateAllDAGThemes === 'function') updateAllDAGThemes();
                 if (typeof paginationObserver !== 'undefined') {
                     document.querySelectorAll('.content-editable').forEach(editor => {
                         paginationObserver.observe(editor);
@@ -1843,7 +1844,7 @@ const purifyConfig = {
         'data-math-formula', 'data-math-theme'
     ],
     // On autorise les URI de type "data:" pour conserver vos images en Base64
-    ALLOW_DATA_ATTR: true,
+    ALLOW_DATA_URI: true,
     // On s'assure de ne pas supprimer les iframes ou autres objets non sollicités
     FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
     // Force target="_blank" et rel="noopener noreferrer" sur tous les liens pour la sécurité
@@ -2674,6 +2675,7 @@ async function restoreDraftFromLocal(jsonString) {
             if (typeof refreshAllQRCodes === 'function') refreshAllQRCodes();
                 if (typeof refreshAllTrees === 'function') await refreshAllTrees();
                 if (typeof refreshAllOrgCharts === 'function') await refreshAllOrgCharts();
+                if (typeof updateAllDAGThemes === 'function') updateAllDAGThemes();
                 if (typeof paginationObserver !== 'undefined') {
                     document.querySelectorAll('.content-editable').forEach(editor => {
                         paginationObserver.observe(editor);
