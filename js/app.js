@@ -1841,7 +1841,7 @@ const purifyConfig = {
         'data-orgchart-config',   // <-- Pour l'Organigramme
         'data-tree-config',       // <-- Pour l'Arbre décisionnel
         'data-author', 'data-date', 'data-comment-id', 
-        'data-math-formula', 'data-math-theme'
+        'data-math-formula', 'data-math-theme''data-qrcode-config', 'data-rev-id', 'data-page'
     ],
     // On autorise les URI de type "data:" pour conserver vos images en Base64
     ALLOW_DATA_URI: true,
