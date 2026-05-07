@@ -1997,16 +1997,23 @@ function openTablePasteModal(rawData, savedRange) {
     document.body.appendChild(overlay);
 
     // 2. Moteur de prévisualisation en temps réel
+    // 2. Moteur de prévisualisation en temps réel
     function renderPreview() {
         const style = document.getElementById('paste-table-header').value;
         const hasColHeader = style === 'col' || style === 'both';
         const hasRowHeader = style === 'row' || style === 'both';
 
-        let html = '<div class="fr-table" contenteditable="false"><table contenteditable="true">';
+        // L'ASTUCE ARCHITECTURALE : 
+        // - margin: 1.5rem auto; -> Centre le tableau dans la page A4
+        // - width: max-content; -> Permet à la barre flottante de manipuler la largeur sans être contrainte à 100%
+        // - max-width: 100%; -> Empêche le débordement si le tableau est géant
+        let html = `<div class="fr-table" contenteditable="false" style="margin: 1.5rem auto; width: max-content; max-width: 100%; overflow-x: auto;">
+                        <table contenteditable="true" style="margin: 0; min-width: 50%;">`;
+        
         let tbodyOpened = false;
 
         rawData.forEach((row, rowIndex) => {
-            if (row.join('').trim() !== '') { // Ignore les lignes totalement vides
+            if (row.join('').trim() !== '') { 
                 if (rowIndex === 0 && hasColHeader) {
                     html += '<thead><tr>';
                     row.forEach(col => html += `<th scope="col">${col.trim()}</th>`);
@@ -2026,9 +2033,8 @@ function openTablePasteModal(rawData, savedRange) {
         html += '</table></div>';
 
         document.getElementById('paste-table-preview').innerHTML = html;
-        return html; // Retourne le HTML pour l'insertion finale
+        return html; 
     }
-
     // Premier affichage
     renderPreview();
 
@@ -2066,98 +2072,6 @@ document.addEventListener('dblclick', function(e) {
     }
 });
 
-
-
-
-// =====================================================================
-// INTERCEPTEUR DE COLLAGE (SPECIAL TABLEUR + NETTOYAGE STRICT)
-// =====================================================================
-document.addEventListener('paste', function(e) {
-    const editor = e.target.closest('.content-editable');
-    if (!editor) return;
-
-    const clipboardData = e.clipboardData || window.clipboardData;
-    const textData = clipboardData.getData('text/plain');
-    const htmlData = clipboardData.getData('text/html');
-    
-    // Détection d'une structure de type Tableur (Tabulations + Sauts de ligne)
-    const isSpreadsheet = textData.includes('\t') && textData.includes('\n');
-
-    // On vérifie immédiatement où se trouve le curseur de l'utilisateur
-    const activeElement = document.activeElement;
-    const inExistingTable = activeElement.closest('table');
-
-    if (isSpreadsheet) {
-        e.preventDefault(); 
-
-        if (inExistingTable) {
-            showToast("Collage refusé", "Vous ne pouvez pas coller un tableau dans un autre tableau.", "warning");
-            return; 
-        }
-
-        // 1. On sauvegarde la position du curseur AVANT d'ouvrir la modale
-        const selection = window.getSelection();
-        let savedRange = null;
-        if (selection.rangeCount > 0) {
-            savedRange = selection.getRangeAt(0).cloneRange();
-        }
-
-        // 2. On transforme le texte brut en un tableau JavaScript propre (2 dimensions)
-        const rows = textData.trim().split('\n').map(row => row.split('\t'));
-
-        // 3. On ouvre notre Studio de prévisualisation !
-        openTablePasteModal(rows, savedRange);
-
-    } else if (htmlData) {
-        // --- SÉCURISATION DU COLLAGE WEB/WORD (La Douane) ---
-        e.preventDefault(); 
-        
-        let cleanPaste = htmlData;
-
-        if (typeof DOMPurify !== 'undefined') {
-            // Configuration ultra-stricte réservée au collage
-            const pasteConfig = {
-                // On préserve uniquement la structure sémantique
-                ALLOWED_TAGS: ['p', 'br', 'b', 'strong', 'i', 'em', 'u', 'a', 'ul', 'ol', 'li', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
-                // On n'autorise QUE les liens
-                ALLOWED_ATTR: ['href'],
-                // On détruit tout le reste (styles en ligne, classes, IDs, divs, images externes)
-                FORBID_TAGS: ['style', 'script', 'img', 'table', 'div', 'span', 'iframe', 'form', 'input'],
-                FORBID_ATTR: ['style', 'class', 'id', 'data-chart-config', 'data-map-config']
-            };
-
-            // On nettoie le HTML
-            cleanPaste = DOMPurify.sanitize(htmlData, pasteConfig);
-            
-            // Sécurité UX : On force les liens collés à s'ouvrir dans un nouvel onglet pour ne pas perdre l'éditeur
-            cleanPaste = cleanPaste.replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" ');
-        } else {
-            console.warn("DOMPurify absent : repli sur l'importation en texte brut.");
-            cleanPaste = textData.replace(/\n/g, '<br>');
-        }
-
-        document.execCommand('insertHTML', false, cleanPaste);
-        
-    } else if (textData) {
-        // --- COLLAGE DEPUIS LE BLOC-NOTES (Texte pur) ---
-        e.preventDefault();
-        
-        // On découpe le texte copié à chaque retour à la ligne (\n ou \r\n)
-        const formattedText = textData
-            .split(/\r?\n/)
-            .map(line => {
-                // Si la ligne est vide (double saut de ligne), on crée un paragraphe vide respectueux de la sémantique
-                if (line.trim() === '') {
-                    return '<p><br></p>';
-                }
-                // Sinon, on emballe la ligne dans un paragraphe
-                return `<p>${line}</p>`;
-            })
-            .join(''); // On recolle le tout
-
-        document.execCommand('insertHTML', false, formattedText);
-    }
-});
 
 window.onresize = scaleUI;
 // =====================================================================
@@ -2840,51 +2754,42 @@ function plumeModal({
  * SANITIZER ROBUSTE - VERSION DSFR INTEGRALE
  * Nettoie les scories de Word tout en préservant 100% des composants PLUME/DSFR.
  */
-function sanitizePlumeHTML(rawHtml) {
+function sanitizePlumeHTML(html) {
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = rawHtml;
+    tempDiv.innerHTML = html;
 
-    // 1. DÉFINITION DU "COMPOSANT SACRÉ"
-    // On protège tout ce qui a une classe DSFR ou des métadonnées PLUME
-// 1. DÉFINITION DU "COMPOSANT SACRÉ" (Version Corrigée)
-    const isProtected = (el) => {
-        // On ajoute la détection des classes commençant par 'plume-'
-        const hasProtectedClass = Array.from(el.classList).some(cls => 
-            cls.startsWith('fr-') || cls.startsWith('plume-')
-        );
-        
-        const hasDataAttr = el.getAttributeNames().some(attr => attr.startsWith('data-'));
-        
-        // On met à jour le sélecteur .closest pour inclure plume-
-        const isInsideComponent = el.closest('[class*="fr-"], [class*="plume-"], [data-map-config], [data-chart-config]');
-        
-        return hasProtectedClass || hasDataAttr || isInsideComponent;
-    };
-    
-    // 2. NETTOYAGE SÉLECTIF DES STYLES
-    tempDiv.querySelectorAll('*[style]').forEach(el => {
-        if (isProtected(el)) return; // On ne touche pas aux composants DSFR
+    // 1. PROTECTION DES CLASSES ET STYLES LÉGITIMES
+    tempDiv.querySelectorAll('*').forEach(el => {
+        // Immunité pour les composants Plume et DSFR
+        const isProtected = el.tagName === 'IMG' || 
+                           el.classList.contains('plume-custom-bullet') ||
+                           el.classList.contains('plume-protected') ||
+                           Array.from(el.classList).some(c => c.startsWith('fr-'));
 
-        // On ne nettoie que les styles "parasites" sur le texte standard
-        const textAlign = el.style.textAlign; // On préserve l'alignement (choix utilisateur)
-        el.removeAttribute('style');
-        if (textAlign) el.style.textAlign = textAlign;
-    });
-
-    // 3. PURGE DES BALISES VIDES (AVEC PRÉCAUTION)
-    tempDiv.querySelectorAll('p, div, span, h1, h2, h3, h4, h5, h6').forEach(el => {
-        if (isProtected(el)) return; // Protection des structures DSFR vides (ex: conteneurs d'icônes)
-        
-        const content = el.innerHTML.trim();
-        if (content === '' || content === '<br>' || content === '&nbsp;') {
-            el.remove();
+        if (!isProtected) {
+            // On ne garde le style que s'il est vital (ex: Flexbox d'alignement)
+            if (el.style.display !== 'flex') {
+                el.removeAttribute('style');
+            }
+            // On purge les classes non-DSFR / non-Plume
+            const safeClasses = Array.from(el.classList).filter(c => c.startsWith('fr-') || c.startsWith('plume-'));
+            if (safeClasses.length > 0) {
+                el.setAttribute('class', safeClasses.join(' '));
+            } else {
+                el.removeAttribute('class');
+            }
         }
     });
 
-    // 4. NORMALISATION SÉMANTIQUE
-    // On remplace les scories de mise en forme par du HTML propre
-    tempDiv.querySelectorAll('b').forEach(el => { el.outerHTML = `<strong>${el.innerHTML}</strong>`; });
-    tempDiv.querySelectorAll('i').forEach(el => { el.outerHTML = `<em>${el.innerHTML}</em>`; });
+    // 2. PROTECTION DES LIGNES VIDES INTENTIONNELLES
+    tempDiv.querySelectorAll('p').forEach(p => {
+        const content = p.innerHTML.trim();
+        // On ne supprime que si c'est TOTALEMENT vide. 
+        // Si ça contient <br> ou \u200B (le cadenas), on garde.
+        if (content === '' || content === '&nbsp;') {
+            p.remove();
+        }
+    });
 
     return tempDiv.innerHTML;
 }
@@ -3119,71 +3024,60 @@ async function loadDemo() {
         }
     }
 }
-// =====================================================================
-// MODULE DE PAGINATION VISUELLE (OVERLAY SANS ALTÉRATION DU DOM)
-// =====================================================================
-
-// Hauteur utile approximative d'une feuille A4 à l'écran (ajustable selon vos marges)
-const A4_HEIGHT_PX = 1050; 
 
 // =====================================================================
 // MODULE DE PAGINATION VISUELLE (OVERLAY SANS ALTÉRATION DU DOM)
 // =====================================================================
 
 function drawPaginationGuides(editor) {
-    if (getComputedStyle(editor).position === 'static') {
-        editor.style.position = 'relative';
-    }
-
     let overlay = editor.querySelector('.plume-pagination-overlay');
     if (!overlay) {
         overlay = document.createElement('div');
         overlay.className = 'plume-pagination-overlay';
         overlay.contentEditable = "false";
+        overlay.style.pointerEvents = 'none'; 
         editor.appendChild(overlay);
     }
 
-    // 1. CORRECTIF ABSOLU : On sort totalement le calque du flux 
-    // pour qu'il ne pollue plus du tout la mesure du scroll.
+    // 1. On masque l'overlay pour mesurer le contenu réel
     overlay.style.display = 'none';
+    
+    // 2. La limite est la hauteur visible de la zone de saisie
+    const availableHeight = editor.clientHeight; 
+    const contentHeight = editor.scrollHeight;
 
-    // 2. On prend la mesure chirurgicale du texte nu
-    const editorHeight = editor.scrollHeight;
-    const pageLimit = editor.clientHeight;
-
-    // 3. On réaffiche le calque, on le redimensionne et on le vide
+    // 3. Mise à jour de l'overlay (il doit faire la taille du texte pour défiler avec lui)
     overlay.style.display = 'block';
-    overlay.style.height = `${editorHeight}px`;
+    overlay.style.height = `${contentHeight}px`;
     overlay.innerHTML = '';
 
-    // 4. Si la VRAIE hauteur du texte dépasse la limite visible, on dessine l'alerte
-    if (editorHeight > pageLimit + 5) { 
+    // 4. Si le texte est plus grand que la zone visible, on trace la ligne
+    if (contentHeight > availableHeight) {
         const breakLine = document.createElement('div');
         breakLine.className = 'virtual-page-break';
         
-        breakLine.style.top = `${pageLimit}px`;
-        breakLine.setAttribute('data-page', `🚨 DÉBORDEMENT (Ce texte ne sera pas imprimé)`);
+        // La ligne se place pile à la fin de la zone visible (début du footer)
+        breakLine.style.top = `${availableHeight}px`;
         
+        breakLine.setAttribute('data-page', `🚨 DÉBORDEMENT (Tronqué à l'impression)`);
         overlay.appendChild(breakLine);
     }
 }
 
-// 6. LE SUPER-OBSERVATEUR (Remplacement intelligent)
+// 6. LE SUPER-OBSERVATEUR
 const paginationObserver = {
     observe: function(editor) {
-        // Sécurité : on évite d'attacher les écouteurs plusieurs fois
         if (editor._hasPaginationObserver) return;
         
-        // A. Surveille les changements structurels (Apparition de l'ascenseur)
         const ro = new ResizeObserver(() => requestAnimationFrame(() => drawPaginationGuides(editor)));
         ro.observe(editor);
         
-        // B. CORRECTIF : Surveille CHAQUE frappe, collage ou suppression (Backspace/Delete)
         editor.addEventListener('input', () => requestAnimationFrame(() => drawPaginationGuides(editor)));
-        
         editor._hasPaginationObserver = true;
     }
 };
+
+// Suppression de l'accolade orpheline qui était ici
 // =====================================================================
 // NETTOYAGE MANUEL D'UNE PAGE
 // =====================================================================
@@ -3211,3 +3105,19 @@ function sanitizeCurrentPage(btn) {
         showToast("Page nettoyée", "Les scories invisibles de mise en page ont été purgées.", "success");
     }
 }
+
+document.addEventListener('keyup', (e) => {
+    if (e.key === 'Enter') {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+        let node = sel.anchorNode;
+        if (node.nodeType === 3) node = node.parentNode;
+        
+        const block = node.closest('.plume-img-wrap-left, .plume-img-wrap-right');
+        // Si la nouvelle ligne est Flexbox mais sans image, on la "nettoie"
+        if (block && !block.querySelector('img')) {
+            block.classList.remove('plume-img-wrap-left', 'plume-img-wrap-right');
+            if (block.className === '') block.removeAttribute('class');
+        }
+    }
+});

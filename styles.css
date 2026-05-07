@@ -469,12 +469,70 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
     line-height: 1.4;
 }
 
+.footer-wrapper {
+    flex-shrink: 0 !important;
+    min-height: 80px; /* Ajustez selon la hauteur réelle de votre footer */
+    background-color: #fff;
+    z-index: 10;
+}
+
+/* Force la zone d'édition à être la seule variable d'ajustement */
+.content-editable {
+    flex-grow: 1;
+    overflow-y: auto !important; /* L'ascenseur n'apparaît qu'ici */
+    position: relative;
+}
 
 /* ===================================================================== */
 /* CONFIGURATION D'IMPRESSION ET D'EXPORT PDF                            */
 /* ===================================================================== */
 
 @media print {
+.page-a4 {
+        display: flex !important;
+        flex-direction: column !important;
+        height: 297mm !important;
+        max-height: 297mm !important;
+        overflow: hidden !important;
+    }
+
+    /* 2. LE TEXTE (Débordement naturel) */
+    .content-editable {
+        flex: 1 1 auto !important; /* Prend l'espace disponible sans forcer */
+        min-height: 0 !important;  /* CRUCIAL : Autorise le navigateur à tronquer le flexbox */
+        overflow: hidden !important;
+        padding-bottom: 0 !important; /* On retire notre ancien "frein" de 80px */
+    }
+
+    /* 3. LE PIED DE PAGE (Retour à la normale + Bouclier) */
+    .footer-wrapper {
+        position: relative !important; /* On annule le absolute destructeur ! */
+        flex-shrink: 0 !important;     /* Interdit au footer de s'écraser */
+        
+        /* On garde juste le bouclier blanc au cas où une lettre dépasse d'un pixel */
+        background-color: #ffffff !important; 
+        z-index: 9999 !important;
+        
+        /* On s'assure d'annuler les anciennes valeurs si elles sont chargées */
+        bottom: auto !important;
+        left: auto !important;
+        right: auto !important;
+    }
+    
+    /* On s'assure que l'overlay rouge n'est jamais imprimé */
+    .plume-pagination-overlay, 
+    .virtual-page-break {
+        display: none !important;
+    }
+
+
+
+
+    /* On cache l'ascenseur visuel pour un rendu papier propre */
+    .content-editable::-webkit-scrollbar {
+        display: none !important;
+    }
+
 
     p.plume-protected {
         border-right: none !important;
