@@ -524,13 +524,12 @@ function insertCitation() {
 }
 
 function insertChiffreCle() {
-    // AJOUT DE LA CLASSE 'plume-chiffre' SUR LA DIV PRINCIPALE
     insertHTML(`
         <div class="plume-chiffre" style="display: flex; align-items: center; gap: 1.5rem; margin: 2rem 0; padding: 1.5rem; background-color: var(--theme-bg); border-radius: 4px; border-left: 4px solid var(--theme-sun);" contenteditable="false">
-            <div style="font-size: 3.5rem; font-weight: 800; color: var(--theme-sun); line-height: 1; min-width: max-content; outline: none;" contenteditable="true">
+            <div class="plume-chiffre-valeur" style="font-size: 3.5rem; font-weight: 800; color: var(--theme-sun); line-height: 1; min-width: max-content; outline: none;" contenteditable="true">
                 +42%
             </div>
-            <div style="font-size: 1.1rem; font-weight: 500; color: #1e1e1e; line-height: 1.4; outline: none;" contenteditable="true">
+            <div class="plume-chiffre-texte" style="font-size: 1.1rem; font-weight: 500; color: #1e1e1e; line-height: 1.4; outline: none;" contenteditable="true">
                 <p style="margin: 0;"><strong>Libellé du chiffre clé.</strong> Expliquez ici la signification de cette statistique.</p>
             </div>
         </div>

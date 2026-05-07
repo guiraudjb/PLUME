@@ -3,19 +3,31 @@
 // =====================================================================
 
 // 1. CONFIGURATION AVANCÉE DE DOMPURIFY (Les Hooks de Sécurité)
+// 1. CONFIGURATION AVANCÉE DE DOMPURIFY (Les Hooks de Sécurité)
 if (typeof DOMPurify !== 'undefined') {
     
     // On détache les anciens hooks au cas où le script est rechargé
     DOMPurify.removeAllHooks();
 
     // Hook appelé APRÈS que DOMPurify ait nettoyé les menaces graves (scripts, etc.)
-    // C'est ici que nous appliquons la logique métier de PLUME.
     DOMPurify.addHook('afterSanitizeAttributes', function(node) {
         
-        // A. NETTOYAGE DES CLASSES (On tue Word, on garde le DSFR et PLUME)
+        // --- NOUVEAU : LE BOUCLIER D'IMMUNITÉ (Synchronisé avec app.js) ---
+        let isProtected = false;
+        if (node.tagName === 'IMG' || (node.classList && node.classList.contains('plume-protected'))) {
+            isProtected = true;
+        }
         if (node.hasAttribute('class')) {
+            const hasProtectedClass = Array.from(node.classList).some(c => 
+                c.startsWith('fr-') || c.startsWith('plume-') || c.startsWith('chart-')
+            );
+            if (hasProtectedClass) isProtected = true;
+        }
+
+        // A. NETTOYAGE DES CLASSES
+        if (node.hasAttribute('class') && !isProtected) {
             const classes = node.getAttribute('class').split(' ');
-            const safeClasses = classes.filter(c => c.startsWith('fr-') || c.startsWith('plume-'));
+            const safeClasses = classes.filter(c => c.startsWith('fr-') || c.startsWith('plume-') || c.startsWith('chart-'));
             
             if (safeClasses.length > 0) {
                 node.setAttribute('class', safeClasses.join(' '));
@@ -24,26 +36,30 @@ if (typeof DOMPurify !== 'undefined') {
             }
         }
 
-        // B. NETTOYAGE DES STYLES INLINE (L'Immunité Diplomatique)
+        // B. NETTOYAGE DES STYLES INLINE
         if (node.hasAttribute('style')) {
-            // Est-ce un élément légitime de PLUME qui a le droit de garder son style ?
-            const isImmune = node.tagName === 'IMG' || 
-                             node.style.display === 'flex' || 
-                             (node.classList && node.classList.contains('plume-custom-bullet'));
+            if (!isProtected) {
+                // Si ce n'est PAS protégé (ex: collage Word), on ne garde que la mise en forme de base
+                let safeStyles = [];
+                if (node.style.display === 'flex') safeStyles.push('display: flex');
+                if (node.style.textAlign) safeStyles.push(`text-align: ${node.style.textAlign}`);
 
-            if (!isImmune) {
-                node.removeAttribute('style'); // On détruit les polices (Calibri), couleurs et marges de Word
+                if (safeStyles.length > 0) {
+                    node.setAttribute('style', safeStyles.join('; '));
+                } else {
+                    node.removeAttribute('style'); // On détruit les polices et couleurs parasites
+                }
             }
+            // Si c'est protégé (isProtected === true), DOMPurify ne touche à aucun style !
         }
 
         // C. SÉCURITÉ DES LIENS (Anti-Phishing & Anti-TabNabbing)
         if (node.tagName === 'A' && node.hasAttribute('href')) {
-            node.setAttribute('target', '_blank'); // Force l'ouverture dans un nouvel onglet
-            node.setAttribute('rel', 'noopener noreferrer'); // Protège l'onglet PLUME des attaques externes
+            node.setAttribute('target', '_blank'); 
+            node.setAttribute('rel', 'noopener noreferrer'); 
         }
     });
 }
-
 // 2. LE BOUCLIER ACTIF : INTERCEPTION DU COPIER-COLLER
 function handleSecurePasteAndDrop(e) {
     const editor = e.target.closest('.content-editable');

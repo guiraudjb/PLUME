@@ -2758,21 +2758,31 @@ function sanitizePlumeHTML(html) {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = html;
 
-    // 1. PROTECTION DES CLASSES ET STYLES LÉGITIMES
     tempDiv.querySelectorAll('*').forEach(el => {
-        // Immunité pour les composants Plume et DSFR
-        const isProtected = el.tagName === 'IMG' || 
-                           el.classList.contains('plume-custom-bullet') ||
-                           el.classList.contains('plume-protected') ||
-                           Array.from(el.classList).some(c => c.startsWith('fr-'));
+        // Le Bouclier : inclut désormais fr-, plume- et chart-
+        const hasProtectedClass = Array.from(el.classList).some(c => 
+            c.startsWith('fr-') || c.startsWith('plume-') || c.startsWith('chart-')
+        );
+
+        const isProtected = el.tagName === 'IMG' || el.classList.contains('plume-protected') || hasProtectedClass;
 
         if (!isProtected) {
-            // On ne garde le style que s'il est vital (ex: Flexbox d'alignement)
-            if (el.style.display !== 'flex') {
-                el.removeAttribute('style');
+            // Sauvetage des alignements (pour éviter de casser le texte justifié/centré de base)
+            let safeStyles = [];
+            if (el.style.display === 'flex') safeStyles.push('display: flex');
+            if (el.style.textAlign) safeStyles.push(`text-align: ${el.style.textAlign}`);
+            
+            if (safeStyles.length > 0) {
+                el.setAttribute('style', safeStyles.join('; '));
+            } else {
+                el.removeAttribute('style'); 
             }
-            // On purge les classes non-DSFR / non-Plume
-            const safeClasses = Array.from(el.classList).filter(c => c.startsWith('fr-') || c.startsWith('plume-'));
+
+            // Purge chirurgicale des classes toxiques
+            const safeClasses = Array.from(el.classList).filter(c => 
+                c.startsWith('fr-') || c.startsWith('plume-') || c.startsWith('chart-')
+            );
+            
             if (safeClasses.length > 0) {
                 el.setAttribute('class', safeClasses.join(' '));
             } else {
@@ -2781,19 +2791,13 @@ function sanitizePlumeHTML(html) {
         }
     });
 
-    // 2. PROTECTION DES LIGNES VIDES INTENTIONNELLES
     tempDiv.querySelectorAll('p').forEach(p => {
         const content = p.innerHTML.trim();
-        // On ne supprime que si c'est TOTALEMENT vide. 
-        // Si ça contient <br> ou \u200B (le cadenas), on garde.
-        if (content === '' || content === '&nbsp;') {
-            p.remove();
-        }
+        if (content === '' || content === '&nbsp;') p.remove();
     });
 
     return tempDiv.innerHTML;
 }
-
 // =====================================================================
 // MODALE À PROPOS ET MANIFESTE
 // =====================================================================

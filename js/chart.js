@@ -222,8 +222,8 @@ function generateChartFromCSV(data, type, savedRange) {
         }
 
         // --- NOUVEAU : Ajout de aria-hidden="true" et de ${accessibleTableHTML} ---
-        const chartHTML = `
-            <div class="chart-container" data-chart-config="${safeConfig}" style="display: flex; justify-content: center; margin: 2.5rem 0;" contenteditable="false">
+       const chartHTML = `
+            <div class="chart-container plume-protected" data-chart-config="${safeConfig}" style="display: flex; justify-content: center; margin: 2.5rem 0;" contenteditable="false">
                 <img src="${imgData}" alt="Représentation visuelle du graphique" aria-hidden="true" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; padding: 1.2rem; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
                 ${accessibleTableHTML}
             </div>
@@ -327,7 +327,7 @@ function buildAccessibleChartTable(chartConfig, chartTitle) {
     const labels = chartConfig.data.labels || [];
     const datasets = chartConfig.data.datasets || [];
     
-    let html = `<table class="sr-only">`;
+    let html = `<table class="fr-sr-only">`;
     html += `<caption>Données du graphique : ${chartTitle || 'Statistiques'}</caption>`;
     
     // En-têtes du tableau
