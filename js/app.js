@@ -2782,8 +2782,17 @@ function sanitizePlumeHTML(html) {
         if (!isProtected) {
             // Sauvetage des alignements (pour éviter de casser le texte justifié/centré de base)
             let safeStyles = [];
-            if (el.style.display === 'flex') safeStyles.push('display: flex');
-            if (el.style.textAlign) safeStyles.push(`text-align: ${el.style.textAlign}`);
+            const allowedProps = [
+                'display', 'text-align', 'vertical-align', 
+                'width', 'min-width', 'max-width', 'height', 
+                'flex', 'flex-basis', 'flex-grow', 'flex-shrink', 
+                'background-color'
+            ];
+            
+            allowedProps.forEach(prop => {
+                const val = el.style.getPropertyValue(prop);
+                if (val) safeStyles.push(`${prop}: ${val}`);
+            });
             
             if (safeStyles.length > 0) {
                 el.setAttribute('style', safeStyles.join('; '));

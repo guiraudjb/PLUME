@@ -39,18 +39,26 @@ if (typeof DOMPurify !== 'undefined') {
         // B. NETTOYAGE DES STYLES INLINE
         if (node.hasAttribute('style')) {
             if (!isProtected) {
-                // Si ce n'est PAS protégé (ex: collage Word), on ne garde que la mise en forme de base
+                // --- NOUVEAU : Liste Blanche Étendue pour la Restauration ---
                 let safeStyles = [];
-                if (node.style.display === 'flex') safeStyles.push('display: flex');
-                if (node.style.textAlign) safeStyles.push(`text-align: ${node.style.textAlign}`);
+                const allowedProps = [
+                    'display', 'text-align', 'vertical-align', 
+                    'width', 'min-width', 'max-width', 'height', 
+                    'flex', 'flex-basis', 'flex-grow', 'flex-shrink', 
+                    'background-color'
+                ];
+                
+                allowedProps.forEach(prop => {
+                    const val = node.style.getPropertyValue(prop);
+                    if (val) safeStyles.push(`${prop}: ${val}`);
+                });
 
                 if (safeStyles.length > 0) {
                     node.setAttribute('style', safeStyles.join('; '));
                 } else {
-                    node.removeAttribute('style'); // On détruit les polices et couleurs parasites
+                    node.removeAttribute('style'); 
                 }
             }
-            // Si c'est protégé (isProtected === true), DOMPurify ne touche à aucun style !
         }
 
         // C. SÉCURITÉ DES LIENS (Anti-Phishing & Anti-TabNabbing)
@@ -154,7 +162,7 @@ function handleSecurePasteAndDrop(e) {
     if (htmlContent && typeof DOMPurify !== 'undefined') {
         const cleanHTML = DOMPurify.sanitize(htmlContent, {
             // Balises autorisées (Strict minimum pour une lettre)
-            ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'em', 'strong', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'img', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'div', 'span', 'figure', 'figcaption'],
+            ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'em', 'strong', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'img', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'div', 'span', 'figure', 'figcaption', 'col', 'colgroup'],
             // Attributs autorisés avant passage dans le Hook
             ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'style', 'title', 'target', 'rel', 'contenteditable', 'data-page'],
             // Autoriser le Base64 (VITAL POUR PLUME)
