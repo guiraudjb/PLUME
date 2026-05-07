@@ -1830,7 +1830,18 @@ function renumberPages() {
 // =====================================================================
 const purifyConfig = {
     // On autorise explicitement les attributs dont notre éditeur a besoin
-    ADD_ATTR: ['class', 'style', 'contenteditable', 'data-chart-config', 'data-map-config', 'target', 'rel', 'scope','data-author', 'data-date', 'data-comment-id', 'data-math-formula', 'data-math-theme'],
+    // AJOUT MAJEUR : data-dag-config, mais aussi les attributs pour les autres plugins éventuels
+    ADD_ATTR: [
+        'class', 'style', 'contenteditable', 'target', 'rel', 'scope',
+        'data-chart-config', 
+        'data-map-config', 
+        'data-dag-config',        // <-- LE BOUCLIER POUR LES LOGIGRAMMES
+        'data-timeline-config',   // <-- Pour éviter le même bug sur la Frise chronologique
+        'data-orgchart-config',   // <-- Pour l'Organigramme
+        'data-tree-config',       // <-- Pour l'Arbre décisionnel
+        'data-author', 'data-date', 'data-comment-id', 
+        'data-math-formula', 'data-math-theme'
+    ],
     // On autorise les URI de type "data:" pour conserver vos images en Base64
     ALLOW_DATA_ATTR: true,
     // On s'assure de ne pas supprimer les iframes ou autres objets non sollicités
