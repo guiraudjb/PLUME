@@ -39,6 +39,10 @@ lettrineBtn.innerHTML = '<span class="fr-icon-font-size" style="font-size: 0.85r
 lettrineBtn.title = "Activer/Désactiver la lettrine";
 lettrineBtn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: none; align-items: center; justify-content: center; font-size: 1rem; color: var(--theme-sun);`;
 
+const lockBtn = document.createElement('button');
+lockBtn.innerHTML = '<span class="fr-icon-lock-line"></span>'; 
+lockBtn.title = "Protéger cette ligne du nettoyage (Cadenas)";
+lockBtn.style.cssText = `background-color: #fff; border: 1px solid var(--grey-900); border-radius: 4px; width: 30px; height: 30px; cursor: pointer; display: none; align-items: center; justify-content: center; font-size: 1rem; color: var(--theme-sun);`;
 
 const resizeBtn = document.createElement('button');
 resizeBtn.innerHTML = '📏'; resizeBtn.title = "Modifier la largeur des colonnes";
@@ -99,7 +103,7 @@ moveDownBtn.style.cssText = `background-color: #fff; border: 1px solid var(--gre
 const imgCropBtn = createImgBtn('fr-icon-image-edit-line', 'Recadrer (Original / Carré / 16:9)');
 
 const imgResizeSlider = document.createElement('input');
-imgResizeSlider.type = 'range'; imgResizeSlider.min = '15'; imgResizeSlider.max = '100'; imgResizeSlider.value = '100';
+imgResizeSlider.type = 'range'; imgResizeSlider.min = '5'; imgResizeSlider.max = '100'; imgResizeSlider.value = '100';
 imgResizeSlider.title = "Ajuster la taille";
 imgResizeSlider.style.cssText = "width: 70px; margin: 0 0.5rem; cursor: pointer;";
 
@@ -270,6 +274,7 @@ insertLineContainer.append(insertAboveBtn, insertBelowBtn);
 // Assemblage final
 floatToolbar.appendChild(textStyleSelect);
 floatToolbar.appendChild(lettrineBtn);
+floatToolbar.appendChild(lockBtn)
 floatToolbar.appendChild(cleanBtn);
 floatToolbar.appendChild(editLinkBtn);
 floatToolbar.appendChild(insertLineContainer);
@@ -323,10 +328,15 @@ document.addEventListener('click', function(e) {
                 cleanBtn.style.display = 'flex';
                 if (tagName === 'P') {
                     lettrineBtn.style.display = 'flex';
+                    lockBtn.style.display = 'flex';
+					const isProtected = hoveredBlock.classList.contains('plume-protected');
+					lockBtn.style.backgroundColor = isProtected ? '#e3e3fd' : '#fff';
+					lockBtn.innerHTML = isProtected ? '<span class="fr-icon-lock-fill"></span>' : '<span class="fr-icon-lock-line"></span>';
                     // Met le bouton en surbrillance si la lettrine est déjà active
                     lettrineBtn.style.backgroundColor = hoveredBlock.classList.contains('plume-lettrine') ? '#e3e3fd' : '#fff';
                 } else {
                     lettrineBtn.style.display = 'none';
+                    
                 }
             } else {
                 textStyleSelect.style.display = 'none';
@@ -1045,3 +1055,24 @@ function insertLineNearBlock(position) {
 // Branchement des clics sur les boutons
 insertAboveBtn.onclick = () => insertLineNearBlock('above');
 insertBelowBtn.onclick = () => insertLineNearBlock('below');
+
+lockBtn.onclick = (e) => {
+    e.preventDefault();
+    if (!hoveredBlock) return;
+
+    const isLocked = hoveredBlock.classList.toggle('plume-protected');
+    
+    if (isLocked) {
+        // 1. Insertion du caractère invisible (Zero Width Space)
+        // Ce caractère empêche le .trim() de vider la balise
+        if (!hoveredBlock.textContent.includes('\u200B')) {
+            hoveredBlock.prepend('\u200B');
+        }
+        showToast("Ligne verrouillée", "Cette ligne est désormais protégée du nettoyage automatique.", "success");
+    } else {
+        showToast("Protection retirée", "Le nettoyeur traitera cette ligne normalement.", "info");
+    }
+
+    hideFloatToolbar();
+    if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
+};

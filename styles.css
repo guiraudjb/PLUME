@@ -117,6 +117,11 @@ body {
 .group-label { font-size: 0.6rem; font-weight: 700; color: #999; text-transform: uppercase; writing-mode: vertical-lr; transform: rotate(180deg); }
 .input-text { padding: 0.3rem; border: 1px solid var(--grey-900); border-radius: 4px; font-size: 0.8rem; }
 
+
+p.plume-protected {
+    border-right: 2px solid color-mix(in srgb, var(--theme-sun), transparent 80%);
+}
+
 /* =====================================================================
    ADAPTATION POUR ÉCRANS MOYENS ET PETITS (Tablettes & Mobiles)
 ===================================================================== */
@@ -470,6 +475,10 @@ img.block-hover-focus { outline: 3px solid var(--theme-main, #6a6af4) !important
 /* ===================================================================== */
 
 @media print {
+
+    p.plume-protected {
+        border-right: none !important;
+    }
     /* Forcer l'impression des couleurs de fond (CSS natif) */
     * { 
         -webkit-print-color-adjust: exact !important; 
