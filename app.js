@@ -3126,13 +3126,15 @@ async function loadDemo() {
 // Hauteur utile approximative d'une feuille A4 à l'écran (ajustable selon vos marges)
 const A4_HEIGHT_PX = 1050; 
 
+// =====================================================================
+// MODULE DE PAGINATION VISUELLE (OVERLAY SANS ALTÉRATION DU DOM)
+// =====================================================================
+
 function drawPaginationGuides(editor) {
-    // 1. L'éditeur lui-même devient le parent de référence
     if (getComputedStyle(editor).position === 'static') {
         editor.style.position = 'relative';
     }
 
-    // 2. On accroche l'overlay AU TEXTE (et on utilise la classe plume- pour la sauvegarde)
     let overlay = editor.querySelector('.plume-pagination-overlay');
     if (!overlay) {
         overlay = document.createElement('div');
@@ -3141,36 +3143,47 @@ function drawPaginationGuides(editor) {
         editor.appendChild(overlay);
     }
 
-    // 3. L'overlay doit grandir avec le texte pour pouvoir scroller avec lui
-    overlay.style.height = `${editor.scrollHeight}px`;
+    // 1. CORRECTIF ABSOLU : On sort totalement le calque du flux 
+    // pour qu'il ne pollue plus du tout la mesure du scroll.
+    overlay.style.display = 'none';
+
+    // 2. On prend la mesure chirurgicale du texte nu
+    const editorHeight = editor.scrollHeight;
+    const pageLimit = editor.clientHeight;
+
+    // 3. On réaffiche le calque, on le redimensionne et on le vide
+    overlay.style.display = 'block';
+    overlay.style.height = `${editorHeight}px`;
     overlay.innerHTML = '';
 
-    const editorHeight = editor.scrollHeight;
-    const numberOfBreaks = Math.floor(editorHeight / A4_HEIGHT_PX);
-
-    // 4. Dessin des lignes
-    for (let i = 1; i <= numberOfBreaks; i++) {
+    // 4. Si la VRAIE hauteur du texte dépasse la limite visible, on dessine l'alerte
+    if (editorHeight > pageLimit + 5) { 
         const breakLine = document.createElement('div');
         breakLine.className = 'virtual-page-break';
         
-        // Le calcul est désormais direct depuis le haut du texte
-        const yPosition = i * A4_HEIGHT_PX;
-        breakLine.style.top = `${yPosition}px`;
-        
-        breakLine.setAttribute('data-page', `Saut de page visuel (~Page ${i + 1})`);
+        breakLine.style.top = `${pageLimit}px`;
+        breakLine.setAttribute('data-page', `🚨 DÉBORDEMENT (Ce texte ne sera pas imprimé)`);
         
         overlay.appendChild(breakLine);
     }
 }
-// 6. L'observateur de performances (Évite d'utiliser un setTimeout ou un onkeydown)
-const paginationObserver = new ResizeObserver((entries) => {
-    // requestAnimationFrame garantit que le dessin se fera sans saccades visuelles (60fps)
-    requestAnimationFrame(() => {
-        for (let entry of entries) {
-            drawPaginationGuides(entry.target);
-        }
-    });
-});
+
+// 6. LE SUPER-OBSERVATEUR (Remplacement intelligent)
+const paginationObserver = {
+    observe: function(editor) {
+        // Sécurité : on évite d'attacher les écouteurs plusieurs fois
+        if (editor._hasPaginationObserver) return;
+        
+        // A. Surveille les changements structurels (Apparition de l'ascenseur)
+        const ro = new ResizeObserver(() => requestAnimationFrame(() => drawPaginationGuides(editor)));
+        ro.observe(editor);
+        
+        // B. CORRECTIF : Surveille CHAQUE frappe, collage ou suppression (Backspace/Delete)
+        editor.addEventListener('input', () => requestAnimationFrame(() => drawPaginationGuides(editor)));
+        
+        editor._hasPaginationObserver = true;
+    }
+};
 // =====================================================================
 // NETTOYAGE MANUEL D'UNE PAGE
 // =====================================================================
