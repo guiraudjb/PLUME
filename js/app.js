@@ -2786,7 +2786,7 @@ function sanitizePlumeHTML(html) {
                 'display', 'text-align', 'vertical-align', 
                 'width', 'min-width', 'max-width', 'height', 
                 'flex', 'flex-basis', 'flex-grow', 'flex-shrink', 
-                'background-color'
+                'background-color','align-items', 'justify-content', 'margin' 
             ];
             
             allowedProps.forEach(prop => {
