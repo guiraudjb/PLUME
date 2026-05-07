@@ -759,13 +759,13 @@ del.plume-del {
 /* ===================================================================== */
 /* PAGINATION VISUELLE (CALQUE OVERLAY)                                  */
 /* ===================================================================== */
-.pagination-overlay {
+.plume-pagination-overlay {
     position: absolute;
     top: 0; 
     left: 0; 
     right: 0; 
-    bottom: 0;
-    pointer-events: none; /* Magique : laisse passer les clics de souris vers le texte en dessous */
+    /* La hauteur est gérée dynamiquement par le JS, on supprime 'bottom: 0' */
+    pointer-events: none;
     z-index: 50;
     overflow: hidden;
 }
@@ -773,14 +773,14 @@ del.plume-del {
 .virtual-page-break {
     position: absolute;
     width: 100%;
-    border-top: 2px dashed rgba(0, 0, 145, 0.3); /* Utilisation discrète de var(--theme-sun) */
+    border-top: 2px dashed color-mix(in srgb, var(--theme-sun), transparent 70%); 
     text-align: right;
 }
 
 .virtual-page-break::after {
     content: attr(data-page);
     background: var(--grey-975);
-    color: rgba(0, 0, 145, 0.8);
+    color: color-mix(in srgb, var(--theme-sun), transparent 20%);
     font-size: 0.75rem;
     padding: 2px 8px;
     position: relative;
@@ -811,6 +811,27 @@ del.plume-del {
         print-color-adjust: exact !important;
     }
     
+.plume-pagination-overlay {
+        display: none !important;
+    }
+
+/* On force l'affichage du débordement pour éviter la troncature A4 */
+.page-a4 {
+        height: 297mm !important;
+        max-height: 297mm !important;
+        overflow: hidden !important; 
+    }
+    
+    .safe-area {
+        overflow: hidden !important;
+    }
+    
+    .content-editable {
+        /* On retire le débordement pour couper net à la limite de la zone de frappe */
+        overflow: hidden !important;
+        max-height: 100% !important; 
+    }
+
 #plume-floating-toolbar,
     .chart-modal-overlay,
     #plume-global-loader,

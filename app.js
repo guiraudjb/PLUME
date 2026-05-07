@@ -3127,46 +3127,41 @@ async function loadDemo() {
 const A4_HEIGHT_PX = 1050; 
 
 function drawPaginationGuides(editor) {
-    // 1. On identifie la page parente et la zone sécurisée
-    const page = editor.closest('.page-a4');
-    const safeArea = page.querySelector('.safe-area');
-    
-    // Le conteneur parent doit être relatif pour que l'overlay absolu se superpose bien
-    if (getComputedStyle(safeArea).position === 'static') {
-        safeArea.style.position = 'relative';
+    // 1. L'éditeur lui-même devient le parent de référence
+    if (getComputedStyle(editor).position === 'static') {
+        editor.style.position = 'relative';
     }
 
-    // 2. Création ou récupération de l'overlay
-    let overlay = safeArea.querySelector('.pagination-overlay');
+    // 2. On accroche l'overlay AU TEXTE (et on utilise la classe plume- pour la sauvegarde)
+    let overlay = editor.querySelector('.plume-pagination-overlay');
     if (!overlay) {
         overlay = document.createElement('div');
-        overlay.className = 'pagination-overlay';
-        safeArea.appendChild(overlay);
+        overlay.className = 'plume-pagination-overlay';
+        overlay.contentEditable = "false";
+        editor.appendChild(overlay);
     }
 
-    // 3. Nettoyage des anciennes lignes avant le redessin
+    // 3. L'overlay doit grandir avec le texte pour pouvoir scroller avec lui
+    overlay.style.height = `${editor.scrollHeight}px`;
     overlay.innerHTML = '';
 
-    // 4. Calcul du nombre de pages virtuelles nécessaires
     const editorHeight = editor.scrollHeight;
     const numberOfBreaks = Math.floor(editorHeight / A4_HEIGHT_PX);
 
-    // 5. Dessin des lignes de césure
+    // 4. Dessin des lignes
     for (let i = 1; i <= numberOfBreaks; i++) {
         const breakLine = document.createElement('div');
         breakLine.className = 'virtual-page-break';
         
-        // On calcule la position Y de la ligne par rapport au haut de l'éditeur
-        const yPosition = editor.offsetTop + (i * A4_HEIGHT_PX);
+        // Le calcul est désormais direct depuis le haut du texte
+        const yPosition = i * A4_HEIGHT_PX;
         breakLine.style.top = `${yPosition}px`;
         
-        // On indique visuellement à l'utilisateur où il en est
         breakLine.setAttribute('data-page', `Saut de page visuel (~Page ${i + 1})`);
         
         overlay.appendChild(breakLine);
     }
 }
-
 // 6. L'observateur de performances (Évite d'utiliser un setTimeout ou un onkeydown)
 const paginationObserver = new ResizeObserver((entries) => {
     // requestAnimationFrame garantit que le dessin se fera sans saccades visuelles (60fps)
