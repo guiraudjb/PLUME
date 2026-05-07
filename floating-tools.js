@@ -458,21 +458,57 @@ function getImgWrapper(img) {
 imgAlignLeft.onclick = () => {
     if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
     const w = getImgWrapper(hoveredBlock);
-    w.style.display = 'block'; w.style.float = 'left'; w.style.margin = '0rem 0.5rem 0rem 0.5rem';
+    const p = w.closest('p, h1, h2, h3, h4, h5, h6');
+   
+    if (p) {
+        // On libère le paragraphe de sa prison Flexbox (s'il en avait une)
+        p.classList.remove('plume-img-wrap-left', 'plume-img-wrap-right');
+        if (p.className.trim() === '') p.removeAttribute('class');
+    }
+   
+    w.classList.remove('plume-img-float-right', 'plume-img-center', 'plume-img-center-flex');
+    w.classList.add('plume-img-float-left');
+   
+    // On nettoie juste les anciens conflits d'alignement (sans toucher au Zoom/Radius)
+    w.style.float = ''; w.style.margin = ''; w.style.display = ''; w.style.justifyContent = '';
 };
 
 imgAlignCenter.onclick = () => {
     if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
     const w = getImgWrapper(hoveredBlock);
-    w.style.display = 'flex'; w.style.justifyContent = 'center'; w.style.float = 'none'; w.style.margin = '1.5rem 0';
+    const p = w.closest('p, h1, h2, h3, h4, h5, h6');
+   
+    if (p) {
+        p.classList.remove('plume-img-wrap-left', 'plume-img-wrap-right');
+        if (p.className.trim() === '') p.removeAttribute('class');
+    }
+   
+    w.classList.remove('plume-img-float-left', 'plume-img-float-right');
+   
+    if (w.tagName === 'IMG') {
+        w.classList.add('plume-img-center');
+    } else {
+        w.classList.add('plume-img-center-flex');
+    }
+   
+    w.style.float = ''; w.style.margin = ''; w.style.display = ''; w.style.justifyContent = '';
 };
 
 imgAlignRight.onclick = () => {
     if (!hoveredBlock || hoveredBlock.tagName !== 'IMG') return;
     const w = getImgWrapper(hoveredBlock);
-    w.style.display = 'block'; w.style.float = 'right'; w.style.margin = '0rem 0.5rem 0rem 0.5rem';
+    const p = w.closest('p, h1, h2, h3, h4, h5, h6');
+   
+    if (p) {
+        p.classList.remove('plume-img-wrap-left', 'plume-img-wrap-right');
+        if (p.className.trim() === '') p.removeAttribute('class');
+    }
+   
+    w.classList.remove('plume-img-float-left', 'plume-img-center', 'plume-img-center-flex');
+    w.classList.add('plume-img-float-right');
+   
+    w.style.float = ''; w.style.margin = ''; w.style.display = ''; w.style.justifyContent = '';
 };
-
 
 
 // Fonction pour cibler le conteneur racine absolu (déplace tout le bloc d'un coup)
