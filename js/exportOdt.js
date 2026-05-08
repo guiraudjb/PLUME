@@ -51,7 +51,15 @@ function parseHtmlToFodt(node) {
     const cl = node.classList;
 
     // Ignorer les éléments techniques et la zone des notes (qui est gérée nativement)
-    if (node.style.display === 'none' || cl.contains('plume-pagination-overlay') || cl.contains('fr-footnotes')) return '';
+    if (
+        node.style.display === 'none' || 
+        cl.contains('plume-pagination-overlay') || 
+        cl.contains('fr-footnotes') || 
+        cl.contains('fr-sr-only') || 
+        cl.contains('sr-only')
+    ) {
+        return '';
+    }
 
     // --- GRILLES ET COLONNES PLUME ---
     if (cl.contains('plume-grid')) {
@@ -83,17 +91,33 @@ function parseHtmlToFodt(node) {
     }
 
     // --- TABLEAUX NATIFS ---
-    if (tag === 'table') {
-        return `<table:table table:style-name="Standard_Table">${Array.from(node.childNodes).map(parseHtmlToFodt).join('')}</table:table>`;
+if (tag === 'table') {
+        return `<table:table table:style-name="Standard_Table">${Array.from(node.children).map(parseHtmlToFodt).join('')}</table:table>`;
     }
-    if (tag === 'thead' || tag === 'tbody') return Array.from(node.childNodes).map(parseHtmlToFodt).join('');
-    if (tag === 'tr') return `<table:table-row>${Array.from(node.childNodes).map(parseHtmlToFodt).join('')}</table:table-row>`;
+    if (tag === 'thead' || tag === 'tbody') return Array.from(node.children).map(parseHtmlToFodt).join('');
+    if (tag === 'tr') return `<table:table-row>${Array.from(node.children).map(parseHtmlToFodt).join('')}</table:table-row>`;
+    
     if (tag === 'th' || tag === 'td') {
-        let cellHtml = Array.from(node.childNodes).map(parseHtmlToFodt).join('');
-        if (!cellHtml.includes('<text:p')) cellHtml = `<text:p text:style-name="Standard_Cell_Text">${cellHtml}</text:p>`;
-        return `<table:table-cell table:style-name="${tag === 'th' ? 'Header_Cell' : 'Standard_Cell'}">${cellHtml}</table:table-cell>`;
-    }
+        const tr = node.parentNode;
+        const section = tr.parentNode; 
+        const isHeader = section.tagName.toLowerCase() === 'thead' || tag === 'th';
+        
+        const rowIndex = Array.from(section.children).indexOf(tr);
+        const isEven = (rowIndex + 1) % 2 === 0;
+        const isInsideTbody = section.tagName.toLowerCase() === 'tbody';
 
+        // Ici on garde .childNodes car on veut le contenu (texte + spans) de la cellule
+        let cellHtml = Array.from(node.childNodes).map(parseHtmlToFodt).join('').trim();
+        
+        const cellStyle = isHeader ? 'Header_Cell' : (isInsideTbody && isEven ? 'Zebra_Cell' : 'Standard_Cell');
+        const textStyle = isHeader ? "Header_Cell_Text" : "Standard_Cell_Text";
+
+        // Forcer un paragraphe même si la cellule est vide pour maintenir la structure XML
+        if (!cellHtml || (!cellHtml.includes('<text:p') && !cellHtml.includes('<text:h'))) {
+            cellHtml = `<text:p text:style-name="${textStyle}">${cellHtml}</text:p>`;
+        }
+        return `<table:table-cell table:style-name="${cellStyle}">${cellHtml}</table:table-cell>`;
+    }
     // --- COMPOSANTS DSFR ---
     if (cl.contains('fr-summary')) {
         const titleNode = node.querySelector('.fr-summary__title') || node.querySelector('h2, h3, b, strong');
@@ -177,7 +201,12 @@ function parseHtmlToFodt(node) {
             
             return `<text:p text:style-name="${getAlignmentStyle(node, baseStyle)}">${Array.from(node.childNodes).map(parseHtmlToFodt).join('')}</text:p>`;
             
-        case 'div': case 'section': return Array.from(node.childNodes).map(parseHtmlToFodt).join('');
+        case 'div': case 'section': 
+            // Si c'est un conteneur de tableau (fr-table), on ne traite que les éléments enfants
+            if (cl.contains('fr-table')) {
+                return Array.from(node.children).map(parseHtmlToFodt).join('');
+            }
+            return Array.from(node.childNodes).map(parseHtmlToFodt).join('');
 
         case 'ul': return `<text:list text:style-name="DSFR_Bullet_List">${Array.from(node.childNodes).map(parseHtmlToFodt).join('')}</text:list>`;
         case 'ol': return `<text:list text:style-name="DSFR_Numeric_List">${Array.from(node.childNodes).map(parseHtmlToFodt).join('')}</text:list>`;
@@ -405,17 +434,20 @@ function generateFODT() {
     <style:style style:name="Heading_2_Center" style:family="paragraph" style:parent-style-name="Heading_2"><style:paragraph-properties fo:text-align="center"/></style:style>
 
     <style:style style:name="Sommaire_Titre" style:family="paragraph" style:parent-style-name="Standard">
-    <style:paragraph-properties fo:margin-top="0.4cm" fo:margin-bottom="0cm" ... />
-</style:style>
+        <style:paragraph-properties fo:margin-top="0.4cm" fo:margin-bottom="0cm" fo:padding-left="0.4cm" fo:border-left="3pt solid ${theme.main}" fo:background-color="#f6f6f6"/>
+        <style:text-properties fo:font-weight="bold" fo:font-size="12pt" fo:color="${theme.sun}"/>
+    </style:style>
     
     <style:style style:name="Sommaire_Espace" style:family="paragraph" style:parent-style-name="Standard">
         <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" fo:padding-left="0.4cm" fo:border-left="3pt solid ${theme.main}" fo:background-color="#f6f6f6"/>
-        <style:text-properties fo:font-size="6pt"/> </style:style>
+        <style:text-properties fo:font-size="6pt"/>
+    </style:style>
 
     <style:style style:name="Sommaire_Lien" style:family="paragraph" style:parent-style-name="Standard">
-        <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" fo:padding-left="0.4cm" fo:border-left="3pt solid ${theme.main}" fo:background-color="#f6f6f6">
+        <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0.85cm" fo:padding-left="0.4cm" fo:border-left="3pt solid ${theme.main}" fo:background-color="#f6f6f6">
             <style:tab-stops>
-                <style:tab-stop style:position="0.5cm"/> </style:tab-stops>
+                <style:tab-stop style:position="0.5cm"/>
+            </style:tab-stops>
         </style:paragraph-properties>
         <style:text-properties fo:font-size="10pt" fo:color="${theme.sun}"/>
     </style:style>
@@ -439,13 +471,27 @@ function generateFODT() {
     <style:style style:name="Grid_Cell" style:family="table-cell"><style:table-cell-properties fo:padding-right="0.3cm" fo:padding-left="0.3cm" fo:border="none"/></style:style>
 
     <style:style style:name="Standard_Table" style:family="table">
-    <style:table-properties style:rel-width="100%" fo:margin-top="0.5cm" fo:margin-bottom="0.42cm"/>
-</style:style>
+        <style:table-properties style:rel-width="100%" table:align="center" fo:margin-top="0.5cm" fo:margin-bottom="0.42cm"/>
+    </style:style>
     
-    <style:style style:name="Header_Cell" style:family="table-cell"><style:table-cell-properties fo:padding="0.2cm" fo:border="1pt solid ${theme.sun}" fo:background-color="${theme.bg}"/></style:style>
-    <style:style style:name="Standard_Cell" style:family="table-cell"><style:table-cell-properties fo:padding="0.2cm" fo:border="1pt solid ${theme.sun}"/></style:style>
-    <style:style style:name="Standard_Cell_Text" style:family="paragraph" style:parent-style-name="Standard"><style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm"/></style:style>
+    <style:style style:name="Header_Cell" style:family="table-cell">
+        <style:table-cell-properties fo:padding="0.25cm" fo:border="0.5pt solid #dddddd" fo:background-color="${theme.sun}"/>
+    </style:style>
+    <style:style style:name="Header_Cell_Text" style:family="paragraph" style:parent-style-name="Standard">
+        <style:paragraph-properties fo:text-align="center" fo:margin="0cm"/>
+        <style:text-properties fo:color="#ffffff" fo:font-weight="bold"/>
+    </style:style>
 
+    <style:style style:name="Standard_Cell" style:family="table-cell">
+        <style:table-cell-properties fo:padding="0.2cm" fo:border="0.5pt solid #dddddd"/>
+    </style:style>
+    <style:style style:name="Standard_Cell_Text" style:family="paragraph" style:parent-style-name="Standard">
+        <style:paragraph-properties fo:text-align="end" fo:margin="0cm"/>
+    </style:style>
+
+    <style:style style:name="Zebra_Cell" style:family="table-cell">
+        <style:table-cell-properties fo:padding="0.2cm" fo:border="0.5pt solid #dddddd" fo:background-color="#f6f6f6"/>
+    </style:style>
     <style:style style:name="Cadre_Marge" style:family="graphic">
         <style:graphic-properties fo:background-color="${theme.main}" fo:border="none" style:vertical-pos="top" style:vertical-rel="page" style:horizontal-pos="left" style:horizontal-rel="page"/>
     </style:style>
