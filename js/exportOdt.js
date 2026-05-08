@@ -98,19 +98,68 @@ function parseHtmlToFodt(node) {
     if (cl.contains('fr-summary')) {
         const titleNode = node.querySelector('.fr-summary__title') || node.querySelector('h2, h3, b, strong');
         const list = node.querySelector('ul, ol');
+        
+        // 1. Génération du titre avec marge basse collée
         let xml = `<text:p text:style-name="Sommaire_Titre">${escapeXml(titleNode ? titleNode.textContent : "Sommaire")}</text:p>`;
+        
+        // 2. Injection du bloc séparateur fantôme (garde le liseré, génère de l'espace)
+        xml += `<text:p text:style-name="Sommaire_Espace"/>`;
+        
+        // 3. Transformation des listes en paragraphes tabulés
         if (list) {
-            xml += `<text:list text:style-name="Sommaire_Liste">`;
             Array.from(list.children).forEach(li => {
-                xml += `<text:list-item><text:p text:style-name="Sommaire_Lien">${Array.from(li.childNodes).map(parseHtmlToFodt).join('')}</text:p></text:list-item>`;
+                xml += `<text:p text:style-name="Sommaire_Lien"><text:tab/>${Array.from(li.childNodes).map(parseHtmlToFodt).join('')}</text:p>`;
             });
-            xml += `</text:list>`;
         }
+        
+        // 4. Paragraphe de clôture optionnel pour finir proprement le bloc (si besoin d'espace bas)
+        xml += `<text:p text:style-name="Sommaire_Espace"/>`;
+        
         return xml;
     }
-
+    
     if (cl.contains('fr-callout')) return `<text:p text:style-name="Exergue">${Array.from(node.childNodes).map(parseHtmlToFodt).join('')}</text:p>`;
-    if (cl.contains('plume-chiffre')) return `<text:p text:style-name="ChiffreCle">${Array.from(node.childNodes).map(parseHtmlToFodt).join('')}</text:p>`;
+    
+    
+    // --- COMPOSANTS DSFR : CHIFFRE CLÉ (BLOC HORIZONTAL 2 COLONNES) ---
+    if (cl.contains('plume-chiffre')) {
+        function extractInlineFodt(el) {
+            if (el.nodeType === 3) return escapeXml(el.textContent);
+            if (el.nodeType !== 1) return '';
+            const tag = el.tagName;
+            if (tag === 'BR') return '\n';
+            if (tag === 'B' || tag === 'STRONG') return `<text:span text:style-name="Bold">${Array.from(el.childNodes).map(extractInlineFodt).join('')}</text:span>`;
+            if (tag === 'I' || tag === 'EM') return `<text:span text:style-name="Italic">${Array.from(el.childNodes).map(extractInlineFodt).join('')}</text:span>`;
+            const isBlock = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'].includes(tag);
+            let content = Array.from(el.childNodes).map(extractInlineFodt).join('');
+            if (isBlock) content += '\n'; 
+            return content;
+        }
+
+        const rawContent = extractInlineFodt(node);
+        const parts = rawContent.split('\n').map(p => p.trim()).filter(p => p);
+
+        let xml = `<table:table table:style-name="ChiffreCle_Table">`;
+        xml += `<table:table-column table:style-name="ChiffreCle_Col_Number"/>`;
+        xml += `<table:table-column table:style-name="ChiffreCle_Col_Legend"/>`;
+        xml += `<table:table-row>`;
+        
+        // Colonne 1 : Le nombre avec la bordure liseré
+        let numberContent = parts.length > 0 ? parts[0] : "";
+        xml += `<table:table-cell table:style-name="ChiffreCle_Cell_Number">`;
+        xml += `<text:p text:style-name="ChiffreCle_Nombre">${numberContent}</text:p>`;
+        xml += `</table:table-cell>`;
+        
+        // Colonne 2 : Le texte (légende)
+        let legendContent = parts.length > 1 ? parts.slice(1).join('<text:line-break/>') : "";
+        xml += `<table:table-cell table:style-name="ChiffreCle_Cell_Legend">`;
+        xml += `<text:p text:style-name="ChiffreCle_Legende">${legendContent}</text:p>`;
+        xml += `</table:table-cell>`;
+        
+        xml += `</table:table-row></table:table>`;
+        return xml;
+    }
+    
     if (cl.contains('plume-citation') || tag === 'blockquote') return `<text:p text:style-name="Citation">${Array.from(node.childNodes).map(parseHtmlToFodt).join('')}</text:p>`;
 
     switch (tag) {
@@ -122,8 +171,12 @@ function parseHtmlToFodt(node) {
             if (node.closest('.fr-callout, .plume-citation, .plume-chiffre, .fr-summary, .fr-table, .plume-grid')) {
                 return Array.from(node.childNodes).map(parseHtmlToFodt).join('') + '<text:line-break/>';
             }
-            return `<text:p text:style-name="${getAlignmentStyle(node, "Standard")}">${Array.from(node.childNodes).map(parseHtmlToFodt).join('')}</text:p>`;
-
+            
+            // Détection de la lettrine pour appliquer le style de paragraphe adéquat
+            const baseStyle = node.classList.contains('plume-lettrine') ? "Standard_Lettrine" : "Standard";
+            
+            return `<text:p text:style-name="${getAlignmentStyle(node, baseStyle)}">${Array.from(node.childNodes).map(parseHtmlToFodt).join('')}</text:p>`;
+            
         case 'div': case 'section': return Array.from(node.childNodes).map(parseHtmlToFodt).join('');
 
         case 'ul': return `<text:list text:style-name="DSFR_Bullet_List">${Array.from(node.childNodes).map(parseHtmlToFodt).join('')}</text:list>`;
@@ -225,7 +278,7 @@ function generateFODT() {
 
   <office:styles>
     <style:default-style style:family="paragraph">
-        <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0.35cm" fo:line-height="150%" fo:text-align="start"/>
+        <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0.32cm" fo:line-height="150%" fo:text-align="start"/>
         <style:text-properties style:font-name="Marianne" fo:font-family="Marianne" fo:font-size="11pt" fo:color="#161616"/>
     </style:default-style>
 
@@ -257,32 +310,42 @@ function generateFODT() {
     </style:style>
 
     <style:style style:name="Heading_1" style:display-name="Titre 1 (DSFR)" style:family="paragraph" style:class="chapter">
-        <style:paragraph-properties fo:margin-top="0.8cm" fo:margin-bottom="0.6cm" fo:keep-with-next="always"/>
+        <style:paragraph-properties fo:margin-top="0.8cm" fo:margin-bottom="0.42cm" fo:keep-with-next="always"/>
         <style:text-properties fo:font-size="22pt" fo:font-weight="bold" fo:color="${theme.sun}"/>
     </style:style>
+    
     <style:style style:name="Heading_2" style:display-name="Titre 2 (DSFR)" style:family="paragraph" style:class="chapter">
-        <style:paragraph-properties fo:margin-top="0.6cm" fo:margin-bottom="0.4cm" fo:keep-with-next="always"/>
+        <style:paragraph-properties fo:margin-top="0.6cm" fo:margin-bottom="0.42cm" fo:keep-with-next="always"/>
         <style:text-properties fo:font-size="18pt" fo:font-weight="bold" fo:color="${theme.sun}"/>
     </style:style>
+    
     <style:style style:name="Heading_3" style:display-name="Titre 3 (DSFR)" style:family="paragraph" style:class="chapter">
-        <style:paragraph-properties fo:margin-top="0.5cm" fo:margin-bottom="0.3cm" fo:keep-with-next="always"/>
+        <style:paragraph-properties fo:margin-top="0.5cm" fo:margin-bottom="0.42cm" fo:keep-with-next="always"/>
         <style:text-properties fo:font-size="14pt" fo:font-weight="bold" fo:color="${theme.sun}"/>
     </style:style>
+    
     <style:style style:name="Heading_4" style:display-name="Titre 4 (DSFR)" style:family="paragraph" style:class="chapter">
-        <style:paragraph-properties fo:margin-top="0.4cm" fo:margin-bottom="0.2cm" fo:keep-with-next="always"/>
+        <style:paragraph-properties fo:margin-top="0.4cm" fo:margin-bottom="0.42cm" fo:keep-with-next="always"/>
         <style:text-properties fo:font-size="12pt" fo:font-weight="bold" fo:color="${theme.sun}"/>
     </style:style>
 
     <style:style style:name="Exergue" style:display-name="Mise en Exergue" style:family="paragraph">
-        <style:paragraph-properties fo:background-color="${theme.bg}" fo:padding="0.4cm" fo:border-left="4pt solid ${theme.main}"/>
-    </style:style>
+    <style:paragraph-properties fo:background-color="${theme.bg}" fo:padding="0.4cm" fo:border-left="4pt solid ${theme.main}" fo:margin-bottom="0.42cm"/>
+</style:style>
     <style:style style:name="Citation" style:display-name="Citation" style:family="paragraph">
         <style:paragraph-properties fo:margin-left="1cm" fo:border-left="2pt solid #dddddd" fo:padding-left="0.3cm"/>
         <style:text-properties fo:font-style="italic" fo:color="#666666"/>
     </style:style>
-    <style:style style:name="ChiffreCle" style:display-name="Chiffre Clé" style:family="paragraph">
-        <style:paragraph-properties fo:text-align="center"/><style:text-properties fo:font-size="28pt" fo:font-weight="bold" fo:color="${theme.sun}"/>
+    <style:style style:name="ChiffreCle_Nombre" style:display-name="Chiffre Clé (Nombre)" style:family="paragraph" style:parent-style-name="Standard">
+        <style:paragraph-properties fo:text-align="center" fo:margin="0cm"/>
+        <style:text-properties fo:font-size="28pt" fo:font-weight="bold" fo:color="${theme.sun}"/>
     </style:style>
+
+    <style:style style:name="ChiffreCle_Legende" style:display-name="Chiffre Clé (Légende)" style:family="paragraph" style:parent-style-name="Standard">
+        <style:paragraph-properties fo:text-align="start" fo:margin="0cm"/>
+        <style:text-properties fo:font-size="11pt" fo:font-weight="normal" fo:color="#161616"/>
+    </style:style>
+    
     <style:style style:name="Footnote" style:display-name="Note de bas de page" style:family="paragraph">
         <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0.2cm" fo:line-height="120%"/>
         <style:text-properties fo:font-size="9pt" fo:color="#666666"/>
@@ -295,7 +358,15 @@ function generateFODT() {
     <style:style style:name="Bullet_Char" style:family="text">
         <style:text-properties fo:color="${theme.sun}" fo:font-weight="bold" style:font-name="Marianne"/>
     </style:style>
-    
+    <style:style style:name="LettrinePlume" style:display-name="Lettrine Plume" style:family="text">
+        <style:text-properties fo:color="${theme.sun}" fo:font-weight="bold" style:font-name="Marianne" fo:background-color="transparent"/>
+    </style:style>
+
+    <style:style style:name="Standard_Lettrine" style:display-name="Paragraphe Lettrine" style:family="paragraph" style:parent-style-name="Standard">
+        <style:paragraph-properties fo:background-color="transparent">
+            <style:drop-cap style:lines="2" style:distance="0.15cm" style:style-name="LettrinePlume"/>
+        </style:paragraph-properties>
+    </style:style>
     <text:list-style style:name="DSFR_Bullet_List">
         <text:list-level-style-bullet text:level="1" text:style-name="Bullet_Char" text:bullet-char="•">
             <style:list-level-properties text:list-level-position-and-space-mode="label-alignment">
@@ -310,6 +381,8 @@ function generateFODT() {
             </style:list-level-properties>
         </text:list-level-style-number>
     </text:list-style>
+  
+  
   </office:styles>
 
   <office:automatic-styles>
@@ -332,16 +405,20 @@ function generateFODT() {
     <style:style style:name="Heading_2_Center" style:family="paragraph" style:parent-style-name="Heading_2"><style:paragraph-properties fo:text-align="center"/></style:style>
 
     <style:style style:name="Sommaire_Titre" style:family="paragraph" style:parent-style-name="Standard">
-        <style:paragraph-properties fo:margin-top="0.4cm" fo:padding-left="0.4cm" fo:border-left="3pt solid ${theme.main}" fo:background-color="#f6f6f6"/>
-        <style:text-properties fo:font-weight="bold" fo:font-size="12pt" fo:color="${theme.sun}"/>
-    </style:style>
+    <style:paragraph-properties fo:margin-top="0.4cm" fo:margin-bottom="0cm" ... />
+</style:style>
+    
+    <style:style style:name="Sommaire_Espace" style:family="paragraph" style:parent-style-name="Standard">
+        <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" fo:padding-left="0.4cm" fo:border-left="3pt solid ${theme.main}" fo:background-color="#f6f6f6"/>
+        <style:text-properties fo:font-size="6pt"/> </style:style>
+
     <style:style style:name="Sommaire_Lien" style:family="paragraph" style:parent-style-name="Standard">
-        <style:paragraph-properties fo:padding-left="0.4cm" fo:border-left="3pt solid ${theme.main}" fo:background-color="#f6f6f6" fo:margin-bottom="0cm"/>
+        <style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" fo:padding-left="0.4cm" fo:border-left="3pt solid ${theme.main}" fo:background-color="#f6f6f6">
+            <style:tab-stops>
+                <style:tab-stop style:position="0.5cm"/> </style:tab-stops>
+        </style:paragraph-properties>
         <style:text-properties fo:font-size="10pt" fo:color="${theme.sun}"/>
     </style:style>
-    <style:list-style style:name="Sommaire_Liste">
-        <text:list-level-style-number text:level="1" style:num-format=""><style:list-level-properties fo:margin-left="0cm" text:list-level-position-and-space-mode="label-alignment"/></text:list-level-style-number>
-    </style:list-style>
 
     <style:style style:name="Layout_Table" style:family="table">
         <style:table-properties table:display="true" style:rel-width="100%" table:align="margins" fo:margin-top="0cm" fo:margin-bottom="0cm"/>
@@ -361,7 +438,10 @@ function generateFODT() {
     <style:style style:name="Grid_Col_3" style:family="table-column"><style:table-column-properties style:rel-column-width="21845*"/></style:style>
     <style:style style:name="Grid_Cell" style:family="table-cell"><style:table-cell-properties fo:padding-right="0.3cm" fo:padding-left="0.3cm" fo:border="none"/></style:style>
 
-    <style:style style:name="Standard_Table" style:family="table"><style:table-properties style:rel-width="100%" fo:margin-top="0.5cm" fo:margin-bottom="0.5cm"/></style:style>
+    <style:style style:name="Standard_Table" style:family="table">
+    <style:table-properties style:rel-width="100%" fo:margin-top="0.5cm" fo:margin-bottom="0.42cm"/>
+</style:style>
+    
     <style:style style:name="Header_Cell" style:family="table-cell"><style:table-cell-properties fo:padding="0.2cm" fo:border="1pt solid ${theme.sun}" fo:background-color="${theme.bg}"/></style:style>
     <style:style style:name="Standard_Cell" style:family="table-cell"><style:table-cell-properties fo:padding="0.2cm" fo:border="1pt solid ${theme.sun}"/></style:style>
     <style:style style:name="Standard_Cell_Text" style:family="paragraph" style:parent-style-name="Standard"><style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm"/></style:style>
@@ -373,12 +453,43 @@ function generateFODT() {
         <style:paragraph-properties style:writing-mode="tb-rl" fo:text-align="center"/>
         <style:text-properties fo:color="#ffffff" fo:font-size="10pt" fo:font-weight="bold" style:font-name="Marianne"/>
     </style:style>
+    
+    
+    <style:style style:name="ChiffreCle_Table" style:family="table">
+        <style:table-properties style:rel-width="100%" fo:margin-top="0.4cm" fo:margin-bottom="0.4cm" table:align="margins"/>
+    </style:style>
+    
+    <style:style style:name="ChiffreCle_Col_Number" style:family="table-column">
+        <style:table-column-properties style:rel-column-width="19660*"/> </style:style>
+    
+    <style:style style:name="ChiffreCle_Col_Legend" style:family="table-column">
+        <style:table-column-properties style:rel-column-width="45875*"/> </style:style>
+    
+    <style:style style:name="ChiffreCle_Cell_Number" style:family="table-cell">
+        <style:table-cell-properties fo:background-color="${theme.bg}" fo:padding="0.4cm" fo:border="none" fo:border-left="4pt solid ${theme.main}" style:vertical-align="middle"/>
+    </style:style>
+    
+    <style:style style:name="ChiffreCle_Cell_Legend" style:family="table-cell">
+        <style:table-cell-properties fo:background-color="${theme.bg}" fo:padding="0.4cm" fo:border="none" style:vertical-align="middle"/>
+    </style:style>
 
     <style:style style:name="Bold" style:family="text"><style:text-properties fo:font-weight="bold"/></style:style>
     <style:style style:name="Italic" style:family="text"><style:text-properties fo:font-style="italic"/></style:style>
     <style:style style:name="Underline" style:family="text"><style:text-properties style:text-underline-style="solid" style:text-underline-width="auto"/></style:style>
     <style:style style:name="Strikethrough" style:family="text"><style:text-properties style:text-line-through-style="solid" style:text-line-through-type="single"/></style:style>
     <style:style style:name="Superscript" style:family="text"><style:text-properties style:text-position="super 58%"/></style:style>
+    
+    
+    <style:style style:name="Standard_Lettrine_Justify" style:family="paragraph" style:parent-style-name="Standard_Lettrine">
+        <style:paragraph-properties fo:text-align="justify"/>
+    </style:style>
+    <style:style style:name="Standard_Lettrine_Center" style:family="paragraph" style:parent-style-name="Standard_Lettrine">
+        <style:paragraph-properties fo:text-align="center"/>
+    </style:style>
+    <style:style style:name="Standard_Lettrine_Right" style:family="paragraph" style:parent-style-name="Standard_Lettrine">
+        <style:paragraph-properties fo:text-align="end"/>
+    </style:style>
+    
   </office:automatic-styles>
 
   <office:master-styles>
