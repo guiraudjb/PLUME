@@ -930,13 +930,13 @@ del.plume-del {
 .page-a4 {
         height: 297mm !important;
         max-height: 297mm !important;
-        overflow: hidden !important; 
+       overflow: visible !important;
     }
     
     .safe-area {
-        overflow: hidden !important;
+        overflow: hidden !important; 
     }
-    
+      
     .content-editable {
         /* On retire le débordement pour couper net à la limite de la zone de frappe */
         overflow: hidden !important;
