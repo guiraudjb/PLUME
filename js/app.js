@@ -2786,7 +2786,12 @@ function sanitizePlumeHTML(html) {
                 'display', 'text-align', 'vertical-align', 
                 'width', 'min-width', 'max-width', 'height', 
                 'flex', 'flex-basis', 'flex-grow', 'flex-shrink', 
-                'background-color','align-items', 'justify-content', 'margin' 
+                'background', 'background-color', 'align-items', 'justify-content', 
+                'margin', 'margin-top', 'margin-bottom', 'margin-left', 'margin-right',
+                'padding', 'padding-top', 'padding-bottom', 'padding-left', 'padding-right',
+                'border', 'border-top', 'border-bottom', 'border-left', 'border-right', 'border-radius',
+                'color', 'font-size', 'font-style', 'font-weight', 'line-height',
+                'gap', 'object-fit'
             ];
             
             allowedProps.forEach(prop => {
