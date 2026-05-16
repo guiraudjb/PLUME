@@ -100,6 +100,8 @@ const MERMAID_SAMPLES = {
     
     quadrant: "quadrantChart\n    title Matrice Eisenhower\n    x-axis Moins urgent --> Plus urgent\n    y-axis Moins important --> Plus important\n    quadrant-1 A faire immediatement\n    quadrant-2 A planifier\n    quadrant-3 A abandonner\n    quadrant-4 A deleguer\n    \"Urgence securite\": [0.9, 0.9]\n    \"Dossier de fond\": [0.3, 0.8]\n    \"Reunion mineure\": [0.2, 0.3]\n    \"Appel telephonique\": [0.8, 0.4]",
     
+    risk_matrix: "quadrantChart\n    title Cartographie des Risques\n    x-axis Faible probabilite --> Forte probabilite\n    y-axis Faible impact --> Fort impact\n    quadrant-1 Risques critiques\n    quadrant-2 Risques majeurs\n    quadrant-3 Risques mineurs\n    quadrant-4 Risques moderes\n    \"Cyberattaque\": [0.2, 0.9]\n    \"Panne serveur\": [0.3, 0.8]\n    \"Retard fournisseur\": [0.8, 0.4]\n    \"Absence maladie\": [0.7, 0.2]\n    \"Perte de badge\": [0.2, 0.1]\n    \"Fuite de donnees\": [0.8, 0.9]",
+    
     pie: "pie showData\n    title Répartition du budget alloué (en K€)\n    \"Subventions\" : 450\n    \"Fonctionnement\" : 250\n    \"Investissement\" : 200\n    \"Communication\" : 100",
     
 	sankey: "flowchart LR\n    A[Budget de l'État] ==>|500 K€| B(Ministère de la Transition)\n    A ==>|400 K€| C(Ministère de la Santé)\n    B -->|300 K€| D[Rénovation énergétique]\n    B -->|200 K€| E[Mobilité douce]\n    C -->|350 K€| F[Hôpitaux publics]\n    C -->|50 K€| G[Prévention]",
@@ -160,6 +162,7 @@ window.openMermaidStudio = function(existingCode = null, targetContainer = null)
                                                 </optgroup>
                                                 <optgroup label="Analyse & Données">
                                                     <option value="quadrant">Matrice de priorisation (Eisenhower)</option>
+                                                    <option value="risk_matrix">Matrice des risques</option>
                                                     <option value="pie">Graphique circulaire (Camembert)</option>
                                                     <option value="gitgraph">Historique de versions (Gitgraph)</option>
                                                 </optgroup>
