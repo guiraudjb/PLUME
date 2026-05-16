@@ -1425,9 +1425,9 @@ function applyPalette() {
     if (typeof refreshAllQRCodes === 'function') refreshAllQRCodes();
     if (typeof refreshAllTrees === 'function') refreshAllTrees();
     if (typeof refreshAllMaths === 'function') refreshAllMaths();
-// NOUVEAU : Mettre à jour les logigrammes (DAG)
     if (typeof updateAllDAGThemes === 'function') updateAllDAGThemes();
     if (typeof refreshAllOrgCharts === 'function') refreshAllOrgCharts();
+    if (typeof refreshAllMermaidDiagrams === 'function') refreshAllMermaidDiagrams();
     
     
 }
@@ -3130,6 +3130,8 @@ function sanitizeCurrentPage(btn) {
         if (typeof refreshAllTrees === 'function') await refreshAllTrees();
         if (typeof refreshAllOrgCharts === 'function') await refreshAllOrgCharts();
         if (typeof updateAllDAGThemes === 'function') updateAllDAGThemes();
+        if (typeof refreshAllMermaidDiagrams === 'function') await refreshAllMermaidDiagrams();
+        
     }, 50);
 
     if (typeof showToast !== 'undefined') {
