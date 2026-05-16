@@ -169,7 +169,10 @@ function handleSecurePasteAndDrop(e) {
             // Balises autorisées (Strict minimum pour une lettre)
             ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'em', 'strong', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'img', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'div', 'span', 'figure', 'figcaption', 'col', 'colgroup'],
             // Attributs autorisés avant passage dans le Hook
-            ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'style', 'title', 'target', 'rel', 'contenteditable', 'data-page'],
+            ALLOWED_ATTR: [
+                'href', 'src', 'alt', 'class', 'style', 'title', 'target', 'rel', 'contenteditable', 'data-page',
+                'data-mermaid-code', 'data-chart-config', 'data-map-config', 'data-timeline-config', 'data-orgchart-config', 'data-tree-config'
+            ],
             // Autoriser le Base64 (VITAL POUR PLUME)
             ALLOW_DATA_URI: true,
             // Empêche DOMPurify d'encapsuler le résultat dans un <body>

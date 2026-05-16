@@ -16,6 +16,75 @@ function getMermaidThemeColors() {
     };
 }
 
+/**
+ * Convertit une chaîne SVG Mermaid en DataURL PNG (Base64)
+ * Multiplie la résolution par 2 pour une impression nette et force un fond opaque.
+ */
+/**
+ * Convertit une chaîne SVG Mermaid en DataURL PNG (Base64)
+ * Corrige le bug de troncature en lisant le viewBox natif.
+ */
+/**
+ * Convertit une chaîne SVG Mermaid en DataURL PNG (Base64)
+ * Réécriture chirurgicale de la balise <svg> pour garantir le rendu sur Canvas.
+ */
+const convertMermaidSvgToPng = (svgString) => {
+    return new Promise((resolve, reject) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        const themeBg = getMermaidThemeColors().bg;
+
+        // 1. EXTRACTION ROBUSTE DES DIMENSIONS (Gère les coordonnées négatives)
+        let trueWidth = 800; 
+        let trueHeight = 600;
+        
+        const viewBoxMatch = svgString.match(/viewBox=["']\s*([-\d\.]+)\s+([-\d\.]+)\s+([-\d\.]+)\s+([-\d\.]+)["']/i);
+        if (viewBoxMatch) {
+            trueWidth = parseFloat(viewBoxMatch[3]); // 3ème valeur = largeur
+            trueHeight = parseFloat(viewBoxMatch[4]); // 4ème valeur = hauteur
+        }
+
+        // 2. RÉÉCRITURE ABSOLUE DE LA BALISE <svg>
+        let fixedSvgString = svgString.replace(/^<svg([^>]*)>/i, (fullMatch, inside) => {
+            // On purge les vieux attributs de taille et les styles parasites
+            let cleanInside = inside
+                .replace(/\bwidth=["'][^"']+["']/gi, '')
+                .replace(/\bheight=["'][^"']+["']/gi, '')
+                .replace(/\bstyle=["'][^"']+["']/gi, ''); 
+            
+            // On injecte nos dimensions absolues
+            return `<svg ${cleanInside} width="${trueWidth}px" height="${trueHeight}px">`;
+        });
+
+        // Encodage et chargement
+        const encodedSvg = btoa(unescape(encodeURIComponent(fixedSvgString)));
+        const dataUrl = 'data:image/svg+xml;base64,' + encodedSvg;
+
+        img.onload = () => {
+            const scale = 2; // Scale 2x pour la haute définition
+            canvas.width = trueWidth * scale;
+            canvas.height = trueHeight * scale;
+
+            ctx.fillStyle = themeBg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.scale(scale, scale);
+            ctx.drawImage(img, 0, 0, trueWidth, trueHeight);
+
+            resolve(canvas.toDataURL('image/png'));
+        };
+        
+        img.onerror = () => {
+            console.error("Échec du rendu Canvas : L'image SVG est invalide ou corrompue.");
+            reject(new Error("Génération PNG échouée"));
+        };
+        
+        img.src = dataUrl;
+    });
+};
+
 if (typeof mermaid !== 'undefined') {
     const theme = getMermaidThemeColors();
     mermaid.initialize({ 
@@ -62,9 +131,12 @@ window.refreshAllMermaidDiagrams = async function() {
             
             const { svg } = await mermaid.render(id, code);
             
+            // NOUVEAU : Conversion en PNG transparent et haute définition
+            const pngBase64 = await convertMermaidSvgToPng(svg);
+            
             const imgElement = container.querySelector('img');
             if (imgElement) {
-                imgElement.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+                imgElement.src = pngBase64;
             }
         } catch (e) {
             console.error("Erreur applyPalette sur Mermaid", e);
@@ -298,7 +370,9 @@ function setupMermaidModalEvents() {
         try {
             const id = 'mermaid-final-' + Date.now();
             const { svg } = await mermaid.render(id, code);
-            const base64Src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+            
+            // NOUVEAU : Conversion finale en PNG avant insertion dans l'éditeur
+            const base64Src = await convertMermaidSvgToPng(svg);
 
             if (btnInsert.targetContainer) {
                 // Mode mise à jour : pas besoin de s'occuper du curseur, on remplace l'image existante
@@ -337,8 +411,12 @@ function setupMermaidModalEvents() {
                     const newRange = document.createRange();
                     newRange.setStart(p, 0);
                     newRange.collapse(true);
-                    selection.removeAllRanges();
-                    selection.addRange(newRange);
+                    
+                    // CORRECTION : On récupère la sélection actuelle de la fenêtre
+                    const currentSelection = window.getSelection(); 
+                    currentSelection.removeAllRanges();
+                    currentSelection.addRange(newRange);
+                    
                 } else if (activePage) {
                     // Fallback si aucun curseur n'était actif (ajoute à la fin)
                     activePage.appendChild(container);

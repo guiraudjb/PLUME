@@ -215,11 +215,33 @@ if (tag === 'table') {
         case 'img':
             const src = node.getAttribute('src');
             if (src && src.startsWith('data:image') && src.length > 100) {
-                const b64Data = src.split(',')[1];
-                let wCm = pxToCm(node.clientWidth || node.width || 600);
-                let hCm = pxToCm(node.clientHeight || node.height || 400);
-                if (wCm > 16.5) { const ratio = 16.5 / wCm; wCm = 16.5; hCm = (hCm * ratio).toFixed(2); }
-                return `<text:p text:style-name="ImageCenter"><draw:frame svg:width="${wCm}cm" svg:height="${hCm}cm" text:anchor-type="paragraph"><draw:image><office:binary-data>${b64Data}</office:binary-data></draw:image></draw:frame></text:p>`;
+                // 1. Extraction dynamique du type MIME (ex: image/svg+xml, image/png) et des données
+                const mimeMatch = src.match(/^data:(image\/[^;]+);base64,(.*)$/);
+                
+                if (mimeMatch) {
+                    const mimeType = mimeMatch[1];
+                    const b64Data = mimeMatch[2];
+                    
+                    // 2. Calcul des dimensions
+                    let wCm = pxToCm(node.clientWidth || node.width || 600);
+                    let hCm = pxToCm(node.clientHeight || node.height || 400);
+                    
+                    // Maintien du ratio si l'image dépasse la largeur de la page (16.5cm)
+                    if (wCm > 16.5) { 
+                        const ratio = 16.5 / wCm; 
+                        wCm = 16.5; 
+                        hCm = (hCm * ratio).toFixed(2); 
+                    }
+                    
+                    // 3. Injection dans l'ODT avec l'attribut draw:mime-type indispensable pour le SVG
+                    return `<text:p text:style-name="ImageCenter">
+                                <draw:frame svg:width="${wCm}cm" svg:height="${hCm}cm" text:anchor-type="paragraph">
+                                    <draw:image draw:mime-type="${mimeType}">
+                                        <office:binary-data>${b64Data}</office:binary-data>
+                                    </draw:image>
+                                </draw:frame>
+                            </text:p>`;
+                }
             }
             return '';
 

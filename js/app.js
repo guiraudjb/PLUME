@@ -1743,6 +1743,8 @@ function restoreJSON(input) {
                 if (typeof refreshAllTrees === 'function') await refreshAllTrees();
                 if (typeof refreshAllOrgCharts === 'function') await refreshAllOrgCharts();
                 if (typeof updateAllDAGThemes === 'function') updateAllDAGThemes();
+                // NOUVEAU : Régénération des diagrammes Mermaid au chargement du fichier
+                if (typeof refreshAllMermaidDiagrams === 'function') await refreshAllMermaidDiagrams();
                 if (typeof paginationObserver !== 'undefined') {
                     document.querySelectorAll('.content-editable').forEach(editor => {
                         paginationObserver.observe(editor);
@@ -1841,7 +1843,8 @@ const purifyConfig = {
         'data-orgchart-config',   // <-- Pour l'Organigramme
         'data-tree-config',       // <-- Pour l'Arbre décisionnel
         'data-author', 'data-date', 'data-comment-id', 
-        'data-math-formula', 'data-math-theme','data-qrcode-config', 'data-rev-id', 'data-page'
+        'data-math-formula', 'data-math-theme','data-qrcode-config', 'data-rev-id', 'data-page',
+        'data-mermaid-code'
     ],
     // On autorise les URI de type "data:" pour conserver vos images en Base64
     ALLOW_DATA_URI: true,
@@ -2514,7 +2517,8 @@ function saveDraftToLocal() {
             .plume-map-container img, 
             .plume-orgchart-container img, 
             .plume-tree-container img, 
-            img.plume-dag-image
+            img.plume-dag-image,
+            .plume-diagram img
         `);
         generatedImages.forEach(img => {
             img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; 
@@ -2676,6 +2680,8 @@ async function restoreDraftFromLocal(jsonString) {
                 if (typeof refreshAllTrees === 'function') await refreshAllTrees();
                 if (typeof refreshAllOrgCharts === 'function') await refreshAllOrgCharts();
                 if (typeof updateAllDAGThemes === 'function') updateAllDAGThemes();
+                // NOUVEAU : Régénération des diagrammes Mermaid au chargement du fichier
+                if (typeof refreshAllMermaidDiagrams === 'function') await refreshAllMermaidDiagrams();
                 if (typeof paginationObserver !== 'undefined') {
                     document.querySelectorAll('.content-editable').forEach(editor => {
                         paginationObserver.observe(editor);
