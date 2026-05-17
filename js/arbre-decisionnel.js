@@ -1,7 +1,8 @@
 /**
  * MODULE ARBRE DÉCISIONNEL - PLUME
  * Interface de création et d'intégration d'arbres de décision vectoriels.
- * Inclut la gestion dynamique des couleurs via les variables CSS du thème.
+ * Inclut la gestion dynamique des couleurs via les variables CSS du thème
+ * et la restauration par double-clic.
  */
 
 const TREE_PALETTE_GRADIENTS = {
@@ -28,7 +29,7 @@ const TREE_DSFR_ICONS = {
     "user": ["user-fill", "team-fill", "admin-fill"]
 };
 
-// --- NOUVEAU : Résolveurs Dynamiques ---
+// --- Résolveurs Dynamiques ---
 function resolveTreeColor(val) {
     if (!val) return '#000000';
     const style = getComputedStyle(document.documentElement);
@@ -87,7 +88,6 @@ function initTreeData(existingConfig = null) {
         treeData = existingConfig.treeData;
         treeNodeCounter = existingConfig.treeNodeCounter || 100;
     } else {
-        // --- MODIFIÉ : Configuration par défaut utilisant le thème dynamique ---
         treeData = {
             id: "root",
             text: "Le projet est-il\nstratégique ?",
@@ -115,7 +115,8 @@ function initTreeData(existingConfig = null) {
     }
 }
 
-function insertArbreDecision() {
+// === MODIFIÉ : Ajout des paramètres pour la restauration ===
+function insertArbreDecision(existingConfig = null, targetContainer = null) {
     const selection = window.getSelection();
     let savedRange = null;
     if (selection.rangeCount > 0) {
@@ -187,7 +188,6 @@ function insertArbreDecision() {
                                 <div style="flex: 2;">
                                     <label class="fr-label" style="font-size: 0.8rem;">Couleur texte</label>
                                     <select id="tree-node-text-color" class="fr-select">
-                                        <!-- MODIFIÉ : Ajout option dynamique -->
                                         <option value="theme_main">Couleur du thème (Dynamique)</option>
                                         <option value="#000000">Noir</option>
                                         <option value="#FFFFFF">Blanc</option>
@@ -273,13 +273,20 @@ function insertArbreDecision() {
     
     document.body.appendChild(overlay);
 
-    initTreeData();
+    initTreeData(existingConfig);
     initTreeGradients();
     initTreeIconMenu();
     updateTreeSelectMenu();
     loadTreeNodeData();
     renderTreeSVG();
     resetTreeZoom();
+
+    // === MODIFIÉ : Restauration du texte du bouton si édition ===
+    const btnInsert = document.getElementById('btn-tree-insert');
+    if (existingConfig && btnInsert) {
+        btnInsert.textContent = "Mettre à jour l'arbre";
+        btnInsert.targetContainer = targetContainer; 
+    }
 
     // --- CÂBLAGE DES ÉVÉNEMENTS ---
     document.getElementById('tree-btn-zoom-in').onclick = zoomTreeIn;
@@ -362,7 +369,8 @@ function insertArbreDecision() {
         overlay.remove();
     };
 
-    document.getElementById('btn-tree-insert').onclick = () => {
+    // === MODIFIÉ : Gestion du mode UPDATE et CREATE à la validation ===
+    btnInsert.onclick = () => {
         const { source, w, h } = getCleanTreeSVGSource();
         const exportScale = 2; 
         const img = new Image();
@@ -379,27 +387,39 @@ function insertArbreDecision() {
             const payload = { treeData: treeData, treeNodeCounter: treeNodeCounter };
             const safeConfig = encodeURIComponent(JSON.stringify(payload));
 
-            const finalHTML = `
-                <div class="plume-tree-container" data-tree-config="${safeConfig}" style="display: flex; justify-content: center; margin: 2.5rem 0;" contenteditable="false">
-                    <img src="${imgData}" alt="Arbre décisionnel" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" />
-                </div>
-                <p><br></p>
-            `;
-
             window.removeEventListener('pointermove', pointerMoveHandler);
             window.removeEventListener('pointerup', pointerUpHandler);
-            overlay.remove(); 
-
-            if (savedRange) {
-                const sel = window.getSelection();
-                sel.removeAllRanges();
-                sel.addRange(savedRange);
-            }
-            if (typeof insertHTML === 'function') {
-                insertHTML(finalHTML);
+            
+            if (btnInsert.targetContainer) {
+                // ---> MODE MISE À JOUR (UPDATE)
+                const container = btnInsert.targetContainer;
+                container.setAttribute('data-tree-config', safeConfig);
+                const imgElement = container.querySelector('img');
+                if (imgElement) {
+                    imgElement.src = imgData;
+                }
             } else {
-                document.execCommand('insertHTML', false, finalHTML);
+                // ---> MODE CRÉATION INITIALE (CREATE)
+                const finalHTML = `
+                    <div class="plume-tree-container" data-tree-config="${safeConfig}" style="display: flex; justify-content: center; margin: 2.5rem 0;" contenteditable="false">
+                        <img src="${imgData}" alt="Arbre décisionnel" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" />
+                    </div>
+                    <p><br></p>
+                `;
+
+                if (savedRange) {
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(savedRange);
+                }
+                if (typeof insertHTML === 'function') {
+                    insertHTML(finalHTML);
+                } else {
+                    document.execCommand('insertHTML', false, finalHTML);
+                }
             }
+            
+            overlay.remove(); 
         };
     };
 }
@@ -451,7 +471,6 @@ function initTreeGradients() {
     if (colorSelect) {
         colorSelect.innerHTML = '';
         
-        // --- MODIFIÉ : Ajout du groupe de couleurs dynamiques ---
         const optGroupDynamic = document.createElement('optgroup');
         optGroupDynamic.label = "Couleurs dynamiques (Thème)";
         optGroupDynamic.innerHTML = `
@@ -780,7 +799,7 @@ function drawTreeEdge(parentGrp, parentNode, childNode) {
         textEl.setAttribute('dominant-baseline', 'central');
         textEl.setAttribute('font-size', '16px');
         textEl.setAttribute('font-weight', 'bold');
-        textEl.setAttribute('fill', mainThemeColor); // MODIFIÉ : Couleur thème dynamique
+        textEl.setAttribute('fill', mainThemeColor);
         textEl.textContent = childNode.edgeLabel;
         
         bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -799,7 +818,7 @@ function drawTreeEdge(parentGrp, parentNode, childNode) {
     }
 
     edgeGroup.onmouseenter = () => {
-        path.setAttribute('stroke', mainThemeColor); // MODIFIÉ : Couleur thème dynamique au survol
+        path.setAttribute('stroke', mainThemeColor);
         path.setAttribute('stroke-width', '5');
         if (bgRect) bgRect.setAttribute('stroke', mainThemeColor);
     };
@@ -816,7 +835,6 @@ function drawTreeShape(group, node, isSelected) {
     const size = Number(node.size) || 200;
     const w = size;
     
-    // --- MODIFIÉ : Résolution de la couleur de fond dynamique ---
     const resolvedColor = resolveTreeColor(node.color);
     let fillValue;
     if (resolvedColor === 'theme_gradient') {
@@ -866,7 +884,6 @@ function drawTreeNodeContent(group, node) {
     const fSize = Number(node.fontSize) || 24;
     const lineHeight = fSize * 1.25;
 
-    // --- MODIFIÉ : Résolution de la couleur du texte dynamique ---
     const resolvedTextColor = resolveTreeColor(node.textColor);
 
     if (hasIcon) {
@@ -879,7 +896,6 @@ function drawTreeNodeContent(group, node) {
         img.setAttribute('height', iconSize);
         img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', node.iconBase64);
         
-        // Simplification du filtre pour les icônes (Adaptation blanc/noir/couleur thème)
         let filterStyle = 'none';
         if (resolvedTextColor === '#FFFFFF' || resolvedTextColor === '#ffffff') {
             filterStyle = 'invert(1) brightness(2)';
@@ -948,7 +964,6 @@ function renderTreeSVG() {
     const nodesGroup = document.getElementById('tree-nodes');
     if(!connectorsGroup || !nodesGroup) return;
 
-    // --- MODIFIÉ : Met à jour les définitions des dégradés dynamiques avant le tracé ---
     updateDynamicTreeDefs(document.getElementById('tree-gradient-defs'));
 
     connectorsGroup.innerHTML = ''; nodesGroup.innerHTML = '';
@@ -991,7 +1006,6 @@ function getCleanTreeSVGSource() {
     return { source, w, h };
 }
 
-// --- MODIFIÉ : Moteur de rafraîchissement global ---
 async function refreshAllTrees() {
     const treeContainers = document.querySelectorAll('.plume-tree-container[data-tree-config]');
     if (treeContainers.length === 0) return;
@@ -1001,7 +1015,6 @@ async function refreshAllTrees() {
             const rawConfig = container.getAttribute('data-tree-config');
             const payload = JSON.parse(decodeURIComponent(rawConfig));
             
-            // 1. Création d'un environnement fantôme sécurisé
             const hiddenDiv = document.createElement('div');
             hiddenDiv.style.position = 'absolute';
             hiddenDiv.style.left = '-9999px';
@@ -1016,13 +1029,10 @@ async function refreshAllTrees() {
             `;
             document.body.appendChild(hiddenDiv);
 
-            // 2. Initialisation et Rendu
             treeData = payload.treeData; 
             
-            // La fonction renderTreeSVG se charge d'appeler updateDynamicTreeDefs
             renderTreeSVG();
 
-            // 3. Capture et Cadrage
             const svg = document.getElementById('tree-canvas');
             const bounds = getTreeBounds(treeData);
             const padding = 60;
@@ -1040,7 +1050,6 @@ async function refreshAllTrees() {
                 source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
             }
 
-            // 4. Conversion et injection asynchrone
             const exportScale = 2; 
             const img = new Image();
             
@@ -1054,8 +1063,7 @@ async function refreshAllTrees() {
                     
                     const imgElement = container.querySelector('img');
                     if (imgElement) {
-                        imgElement.src = canvas.toDataURL('image/png'); // Mise à jour de l'image
-                        // On sécurise les données au cas où il y ait eu conversion
+                        imgElement.src = canvas.toDataURL('image/png'); 
                         const newPayload = { treeData: treeData, treeNodeCounter: payload.treeNodeCounter };
                         container.setAttribute('data-tree-config', encodeURIComponent(JSON.stringify(newPayload)));
                     }
@@ -1064,7 +1072,6 @@ async function refreshAllTrees() {
                 img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(source)));
             });
 
-            // 5. Nettoyage
             hiddenDiv.remove();
 
         } catch (e) {
@@ -1072,3 +1079,20 @@ async function refreshAllTrees() {
         }
     }
 }
+
+// === MODIFIÉ : Écouteur global pour la restauration via double-clic ===
+document.addEventListener('dblclick', (e) => {
+    const container = e.target.closest('[data-tree-config]');
+    
+    if (container) {
+        e.preventDefault(); 
+        try {
+            const configStr = decodeURIComponent(container.getAttribute('data-tree-config'));
+            const existingConfig = JSON.parse(configStr);
+            
+            insertArbreDecision(existingConfig, container);
+        } catch (err) {
+            console.error("Erreur lors de la restauration de l'arbre décisionnel", err);
+        }
+    }
+});

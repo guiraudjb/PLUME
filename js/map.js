@@ -317,7 +317,7 @@ async function drawD3Map(container, config, dataMap) {
 // =====================================================================
 // 4. INTERFACE STUDIO (Modale + Contrôles Manuels + Sauvegarde Data)
 // =====================================================================
-async function insertCarte() {
+async function insertCarte(existingPayload = null, targetContainer = null) {
     if (!geoReferential.loaded) await loadMapReferentials();
     
     const regToDeps = new Map();
@@ -331,8 +331,8 @@ async function insertCarte() {
 
     // VARIABLES D'ÉTAT : Nécessaires pour injecter les métadonnées lors de la validation
     let rawCsvData = [];
-    let currentMapConfig = null;
-    let currentMapData = null;
+    let currentMapConfig = existingPayload ? existingPayload.config : null;
+    let currentMapData = (existingPayload && existingPayload.data) ? new Map(existingPayload.data) : null;
 
     const overlay = document.createElement('div');
     overlay.className = 'chart-modal-overlay';
@@ -464,6 +464,25 @@ async function insertCarte() {
         <style>@keyframes map-spin { to { transform: rotate(360deg); } }</style>
     `;
     document.body.appendChild(overlay);
+    if (currentMapConfig) {
+        document.getElementById('map-title').value = currentMapConfig.title || "";
+        document.getElementById('map-scale').value = currentMapConfig.scale || "national";
+        document.getElementById('label-type').value = currentMapConfig.labelType || "none";
+        document.getElementById('map-show-legend').checked = currentMapConfig.showLegend !== false;
+        document.getElementById('map-palette').value = currentMapConfig.palette || "default";
+        
+        document.getElementById('label-toolkit').style.display = currentMapConfig.labelType !== 'none' ? 'block' : 'none';
+        if (currentMapConfig.labelSize) document.getElementById('label-size').value = currentMapConfig.labelSize;
+        if (currentMapConfig.labelFilterNames) document.getElementById('label-filter-names').value = currentMapConfig.labelFilterNames;
+        if (currentMapConfig.physPadding) document.getElementById('phys-padding').value = currentMapConfig.physPadding;
+        if (currentMapConfig.physStrength) document.getElementById('phys-strength').value = currentMapConfig.physStrength;
+        
+        document.getElementById('btn-map-insert').innerText = "Mettre à jour";
+        document.getElementById('csv-status').innerHTML = `<span style="color:var(--theme-main);"><strong>Mode Édition :</strong> Données figées en mémoire. Importez un nouveau CSV pour modifier la source des données.</span>`;
+        
+        // Lance un premier rendu basé sur les données mémorisées
+        setTimeout(() => renderPreview(), 150);
+    }
 
     const scaleSelect = document.getElementById('map-scale');
     const cascade = document.getElementById('cascade-menus');
@@ -707,26 +726,33 @@ async function insertCarte() {
                     data: currentMapData ? Array.from(currentMapData.entries()) : null
                 };
 
-                // --- NOUVEAU : LE VERROU DE SÉCURITÉ ---
-                // On n'ajoute l'attribut de config QUE si la palette est sur "default"
-                const isDynamic = (!currentMapConfig.palette || currentMapConfig.palette === 'default');
-                const dataAttribute = isDynamic ? ` data-map-config="${encodeURIComponent(JSON.stringify(mapConfigPayload))}"` : ``;
+                // CORRECTION MAJEURE : On attache TOUJOURS les métadonnées pour permettre l'édition !
+                const dataAttribute = ` data-map-config="${encodeURIComponent(JSON.stringify(mapConfigPayload))}"`;
 
-                // 6. Injection dans l'éditeur (L'attribut data-map-config est conditionnel)
-                const mapHTML = `
-                    <div class="plume-map-container" style="margin: 2rem 0; text-align: center;" contenteditable="false"${dataAttribute}>
-                        <img src="${imgData}" alt="Carte thématique" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);" />
-                    </div>
-                    <p><br></p>
-                `;
-
-                if (typeof insertHTML === 'function') {
-                    insertHTML(mapHTML);
+                // 6. Injection dans l'éditeur (Différenciation Création / Mise à jour)
+                if (targetContainer) {
+                    // MODE MISE À JOUR
+                    targetContainer.setAttribute('data-map-config', encodeURIComponent(JSON.stringify(mapConfigPayload)));
+                    const img = targetContainer.querySelector('img');
+                    if (img) img.src = imgData;
+                    
+                    if (typeof showToast !== 'undefined') showToast("Succès", "La carte a été mise à jour.", "success");
+                    if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
                 } else {
-                    document.execCommand('insertHTML', false, mapHTML);
+                    // MODE CRÉATION INITIALE
+                    const mapHTML = `
+                        <div class="plume-map-container plume-protected" style="margin: 2rem 0; text-align: center;" contenteditable="false"${dataAttribute}>
+                            <img src="${imgData}" alt="Carte thématique" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);" />
+                        </div>
+                        <p><br></p>
+                    `;
+                    if (typeof insertHTML === 'function') {
+                        insertHTML(mapHTML);
+                    } else {
+                        document.execCommand('insertHTML', false, mapHTML);
+                    }
+                    if (typeof showToast !== 'undefined') showToast("Succès", "La carte a été ajoutée au document.", "success");
                 }
-
-                if (typeof showToast !== 'undefined') showToast("Succès", "La carte a été ajoutée au document.", "success");
 
             } catch (error) {
                 console.error("Erreur de capture :", error);
@@ -845,3 +871,22 @@ window.refreshAllMaps = async function() {
         }
     }
 };
+// =====================================================================
+// ÉDITION DES CARTES (DOUBLE-CLIC)
+// =====================================================================
+document.addEventListener('dblclick', function(e) {
+    const container = e.target.closest('.plume-map-container[data-map-config]');
+    if (container) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const rawConfig = container.getAttribute('data-map-config');
+        if (rawConfig) {
+            const payload = JSON.parse(decodeURIComponent(rawConfig));
+            // On ouvre le studio en lui passant les données et le conteneur cible
+            if (typeof insertCarte === 'function') {
+                insertCarte(payload, container);
+            }
+        }
+    }
+});

@@ -676,6 +676,13 @@ function insertLink() {
 // =====================================================================
 
 function insertTimelineFromCSV() {
+    // 1. Sauvegarde du curseur AVANT d'ouvrir l'explorateur de fichiers Windows
+    const selection = window.getSelection();
+    let savedRange = null;
+    if (selection.rangeCount > 0) {
+        savedRange = selection.getRangeAt(0).cloneRange();
+    }
+
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.csv, text/csv';
@@ -695,21 +702,31 @@ function insertTimelineFromCSV() {
                 }
                 
                 const headers = Object.keys(data[0]);
-                const colDate = headers[0]; // Clé principale (Filtre)
+                const colDate = headers[0]; 
                 const colTitre = headers[1] || headers[0];
                 const colDesc = headers[2] || null;
 
-                openTimelineStudio(data, colDate, colTitre, colDesc);
+                // On passe le savedRange au studio pour l'insertion finale
+                openTimelineStudio(data, colDate, colTitre, colDesc, null, null, savedRange);
             }
         });
     };
     input.click();
 }
-function openTimelineStudio(rawData, colDate, colTitre, colDesc) {
+
+function openTimelineStudio(rawData, colDate, colTitre, colDesc, existingPayload = null, targetContainer = null, savedRange = null) {
     const overlay = document.createElement('div');
     overlay.className = 'chart-modal-overlay';
     
-    // Génération dynamique des filtres (Cases à cocher) basés sur l'ordre naturel
+    // Récupération des valeurs existantes si on est en mode "Restauration"
+    let initTitle = "";
+    let initOrientation = "horizontal";
+    if (existingPayload && existingPayload.config) {
+        initTitle = existingPayload.config.title || "";
+        initOrientation = existingPayload.config.orientation || "horizontal";
+    }
+
+    // Génération dynamique des filtres
     let filtersHTML = '';
     rawData.forEach((row, index) => {
         const val = row[colDate] || `Étape ${index + 1}`;
@@ -728,14 +745,14 @@ function openTimelineStudio(rawData, colDate, colTitre, colDesc) {
                 
                 <div>
                     <label class="fr-label" style="font-weight:700;">Titre (Optionnel)</label>
-                    <input type="text" id="tl-title" class="fr-input" placeholder="Ex: Déploiement du projet" oninput="updateTimelinePreview()">
+                    <input type="text" id="tl-title" class="fr-input" value="${initTitle}" placeholder="Ex: Déploiement du projet" oninput="updateTimelinePreview()">
                 </div>
                 
                 <div>
                     <label class="fr-label" style="font-weight:700;">Orientation</label>
                     <select id="tl-orientation" class="fr-select" onchange="updateTimelinePreview()">
-                        <option value="horizontal">Horizontale (Auto-ajustable)</option>
-                        <option value="vertical">Verticale (Liste descendante)</option>
+                        <option value="horizontal" ${initOrientation === 'horizontal' ? 'selected' : ''}>Horizontale (Auto-ajustable)</option>
+                        <option value="vertical" ${initOrientation === 'vertical' ? 'selected' : ''}>Verticale (Liste descendante)</option>
                     </select>
                 </div>
                 
@@ -748,28 +765,25 @@ function openTimelineStudio(rawData, colDate, colTitre, colDesc) {
 
                 <div style="margin-top:auto; display:flex; gap:0.5rem;">
                     <button class="fr-btn fr-btn--secondary" id="btn-tl-cancel" style="flex:1;">Annuler</button>
-                    <button class="fr-btn" id="btn-tl-insert" style="flex:1;">Insérer</button>
+                    <button class="fr-btn" id="btn-tl-insert" style="flex:1;">${targetContainer ? 'Mettre à jour' : 'Insérer'}</button>
                 </div>
             </div>
             
             <div style="flex:1; background:#fff; padding:2rem; overflow:auto; display:flex; flex-direction:column;">
                 <h4 style="margin-top:0; font-size:0.9rem; color:#666;">Aperçu du rendu final :</h4>
                 <div id="tl-preview-area" style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; border:1px dashed var(--grey-900); padding:2rem;">
-                    <!-- L'aperçu sera injecté ici -->
-                </div>
+                    </div>
             </div>
         </div>
     `;
     document.body.appendChild(overlay);
 
-    // Fonction de mise à jour de l'aperçu
     window.updateTimelinePreview = function() {
         const title = document.getElementById('tl-title').value;
         const orientation = document.getElementById('tl-orientation').value;
         const style = getComputedStyle(document.documentElement);
         const themeSun = style.getPropertyValue('--theme-sun').trim() || '#000091';
 
-        // Filtrage des données tout en respectant l'ordre naturel
         const filteredData = [];
         const checkboxes = document.querySelectorAll('#tl-filters-container input[type="checkbox"]:checked');
         checkboxes.forEach(cb => {
@@ -780,11 +794,10 @@ function openTimelineStudio(rawData, colDate, colTitre, colDesc) {
         document.getElementById('tl-preview-area').innerHTML = `<div style="width: 100%; max-width: 800px;">${html}</div>`;
     };
 
-    // Premier rendu
     updateTimelinePreview();
 
-    // Actions
     document.getElementById('btn-tl-cancel').onclick = () => overlay.remove();
+    
     document.getElementById('btn-tl-insert').onclick = () => {
         const title = document.getElementById('tl-title').value;
         const orientation = document.getElementById('tl-orientation').value;
@@ -797,9 +810,10 @@ function openTimelineStudio(rawData, colDate, colTitre, colDesc) {
         const config = { colDate, colTitre, colDesc, orientation, title };
         
         overlay.remove();
-        finalizeTimelineInsertion(filteredData, config);
+        finalizeTimelineInsertion(filteredData, config, targetContainer, savedRange);
     };
 }
+
 function buildTimelineHTML(data, colDate, colTitre, colDesc, orientation, title, themeSun) {
     if (data.length === 0) return '<p style="text-align:center; color:#999;">Aucune donnée sélectionnée.</p>';
 
@@ -837,15 +851,28 @@ function buildTimelineHTML(data, colDate, colTitre, colDesc, orientation, title,
     html += `</div>`;
     return html;
 }
-async function finalizeTimelineInsertion(timelineData, config) {
+
+// --- RGAA : Générateur de liste invisible pour lecteurs d'écran ---
+function buildAccessibleTimelineList(data, colDate, colTitre, colDesc) {
+    if (!data || data.length === 0) return '';
+    let html = `<ul class="sr-only" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;">`;
+    data.forEach(row => {
+        html += `<li><strong>${row[colDate]}</strong> : ${row[colTitre]}`;
+        if (colDesc && row[colDesc]) html += ` - ${row[colDesc]}`;
+        html += `</li>`;
+    });
+    html += `</ul>`;
+    return html;
+}
+
+async function finalizeTimelineInsertion(timelineData, config, targetContainer = null, savedRange = null) {
     const style = getComputedStyle(document.documentElement);
     const currentThemeSun = style.getPropertyValue('--theme-sun').trim() || '#000091';
 
-    // 1. Conteneur fantôme pour la capture
     const hiddenDiv = document.createElement('div');
     hiddenDiv.style.position = 'absolute';
     hiddenDiv.style.left = '-9999px';
-    hiddenDiv.style.width = '800px'; // Force la largeur pour un rendu A4 parfait
+    hiddenDiv.style.width = '800px'; 
     hiddenDiv.style.padding = '20px';
     hiddenDiv.style.background = '#fff';
     
@@ -853,10 +880,8 @@ async function finalizeTimelineInsertion(timelineData, config) {
     document.body.appendChild(hiddenDiv);
 
     try {
-        // Laisser 50ms au navigateur pour appliquer les styles CSS
         await new Promise(resolve => setTimeout(resolve, 50));
 
-        // 2. Capture HD
         const canvas = await html2canvas(hiddenDiv, {
             scale: 2, 
             backgroundColor: "#ffffff",
@@ -866,25 +891,49 @@ async function finalizeTimelineInsertion(timelineData, config) {
         const imgData = canvas.toDataURL('image/png');
         hiddenDiv.remove();
 
-        // 3. Emballage des métadonnées
         const payload = { data: timelineData, config: config };
         const safeConfig = encodeURIComponent(JSON.stringify(payload));
+        const accessibleListHTML = buildAccessibleTimelineList(timelineData, config.colDate, config.colTitre, config.colDesc);
 
-        // 4. Injection
-        const finalHTML = `
-            <div class="plume-timeline-container" data-timeline-config="${safeConfig}" style="margin: 2rem 0; text-align: center;" contenteditable="false">
-                <img src="${imgData}" alt="Frise chronologique" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);" />
-            </div>
-            <p><br></p>
-        `;
-
-        if (typeof insertHTML === 'function') {
-            insertHTML(finalHTML);
+        if (targetContainer) {
+            // ---> MODE MISE À JOUR (UPDATE)
+            targetContainer.setAttribute('data-timeline-config', safeConfig);
+            
+            const imgElement = targetContainer.querySelector('img');
+            if (imgElement) {
+                imgElement.src = imgData;
+            }
+            
+            // Nettoyage radical RGAA
+            Array.from(targetContainer.childNodes).forEach(node => {
+                if (node.nodeName.toLowerCase() !== 'img') {
+                    node.remove();
+                }
+            });
+            targetContainer.insertAdjacentHTML('beforeend', accessibleListHTML);
+            
         } else {
-            document.execCommand('insertHTML', false, finalHTML);
-        }
+            // ---> MODE CRÉATION INITIALE (CREATE)
+            const finalHTML = `
+                <div class="plume-timeline-container" data-timeline-config="${safeConfig}" style="margin: 2rem 0; text-align: center;" contenteditable="false">
+                    <img src="${imgData}" alt="Frise chronologique" aria-hidden="true" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);" />
+                    ${accessibleListHTML}
+                </div>
+                <p><br></p>
+            `;
 
-        if (typeof showToast !== 'undefined') showToast("Succès", "La frise a été ajoutée.", "success");
+            if (savedRange) {
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(savedRange);
+            }
+
+            if (typeof insertHTML === 'function') {
+                insertHTML(finalHTML);
+            } else {
+                document.execCommand('insertHTML', false, finalHTML);
+            }
+        }
 
     } catch (e) {
         console.error("Erreur de génération :", e);
@@ -892,6 +941,7 @@ async function finalizeTimelineInsertion(timelineData, config) {
         if (typeof showToast !== 'undefined') showToast("Erreur", "Impossible de générer l'image.", "error");
     }
 }
+
 async function refreshAllTimelines() {
     const timelineContainers = document.querySelectorAll('.plume-timeline-container[data-timeline-config]');
     if (timelineContainers.length === 0) return;
@@ -932,6 +982,15 @@ async function refreshAllTimelines() {
             if (imgElement) {
                 imgElement.src = canvas.toDataURL('image/png');
             }
+            
+            // Nettoyage radical RGAA
+            Array.from(container.childNodes).forEach(node => {
+                if (node.nodeName.toLowerCase() !== 'img') {
+                    node.remove();
+                }
+            });
+            const accessibleListHTML = buildAccessibleTimelineList(payload.data, payload.config.colDate, payload.config.colTitre, payload.config.colDesc);
+            container.insertAdjacentHTML('beforeend', accessibleListHTML);
 
             hiddenDiv.remove();
         } catch (e) {
@@ -939,3 +998,30 @@ async function refreshAllTimelines() {
         }
     }
 }
+
+// =====================================================================
+// ÉCOUTEUR GLOBAL POUR LA RESTAURATION VIA DOUBLE-CLIC
+// =====================================================================
+document.addEventListener('dblclick', (e) => {
+    const container = e.target.closest('.plume-timeline-container[data-timeline-config]');
+    if (container) {
+        e.preventDefault(); 
+        try {
+            const configStr = decodeURIComponent(container.getAttribute('data-timeline-config'));
+            const payload = JSON.parse(configStr);
+            
+            // On relance le studio en lui repassant les données filtrées sauvegardées
+            openTimelineStudio(
+                payload.data, 
+                payload.config.colDate, 
+                payload.config.colTitre, 
+                payload.config.colDesc, 
+                payload, 
+                container, 
+                null
+            );
+        } catch (err) {
+            console.error("Erreur lors de la restauration de la frise", err);
+        }
+    }
+});

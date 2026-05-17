@@ -353,3 +353,180 @@ function buildAccessibleChartTable(chartConfig, chartTitle) {
     html += `</tbody></table>`;
     return html;
 }
+// =====================================================================
+// ÉDITION DES GRAPHIQUES (DOUBLE-CLIC)
+// =====================================================================
+
+// 1. Écouteur global pour intercepter le double-clic
+document.addEventListener('dblclick', function(e) {
+    const container = e.target.closest('.chart-container[data-chart-config]');
+    if (container) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const rawConfig = container.getAttribute('data-chart-config');
+        if (rawConfig) {
+            const config = JSON.parse(decodeURIComponent(rawConfig));
+            openChartEditor(config, container);
+        }
+    }
+});
+
+// 2. Fonction d'édition (Modale WYSIWYG)
+function openChartEditor(config, targetContainer) {
+    // A. Récupération de la palette de couleurs dynamique
+    const style = getComputedStyle(document.documentElement);
+    const themeMain = style.getPropertyValue('--theme-main').trim() || '#6a6af4';
+    const themeSun = style.getPropertyValue('--theme-sun').trim() || '#000091';
+    
+    const dynamicPalette = [
+        themeMain, themeSun,
+        `color-mix(in srgb, ${themeMain}, white 25%)`,
+        `color-mix(in srgb, ${themeMain}, white 55%)`,
+        `color-mix(in srgb, ${themeMain}, white 80%)`,
+        `color-mix(in srgb, ${themeSun}, black 20%)`,
+        `color-mix(in srgb, ${themeSun}, black 45%)`,
+        '#666666'
+    ];
+
+    // B. Reconstruction visuelle des séries de données
+    const datasets = config.datasets.map((ds, c) => {
+        const color = dynamicPalette[c % dynamicPalette.length];
+        return {
+            label: ds.label,
+            data: ds.data,
+            backgroundColor: (['pie', 'doughnut', 'polarArea'].includes(config.type)) 
+                ? dynamicPalette 
+                : (['line', 'radar'].includes(config.type) ? `color-mix(in srgb, ${color}, transparent 80%)` : color),
+            borderColor: (['pie', 'doughnut', 'polarArea'].includes(config.type)) ? '#ffffff' : color,
+            borderWidth: 2, 
+            borderRadius: config.type === 'bar' ? 4 : 0, 
+            fill: config.type === 'line' ? 'origin' : true, 
+            tension: 0.4
+        };
+    });
+
+    // C. Interface Modale
+    const overlay = document.createElement('div');
+    overlay.className = 'chart-modal-overlay';
+    
+    let seriesInputsHTML = '';
+    datasets.forEach((ds, i) => {
+        seriesInputsHTML += `
+            <div style="margin-top: 1rem;">
+                <label>Nom de la légende (Série ${i+1})</label>
+                <input type="text" class="chart-edit-serie" data-index="${i}" value="${ds.label}">
+            </div>
+        `;
+    });
+
+    overlay.innerHTML = `
+        <div class="chart-modal">
+            <div class="chart-modal-controls">
+                <h3 style="margin-top:0; color:var(--theme-sun); font-size:1.3rem;">Édition du graphique</h3>
+                <div>
+                    <label>Titre principal</label>
+                    <input type="text" id="chart-edit-title" value="${config.title}">
+                </div>
+                ${seriesInputsHTML}
+                <div class="chart-modal-actions">
+                    <button id="chart-btn-cancel" style="padding:0.5rem 1rem; border:1px solid var(--theme-sun); background:#fff; color:var(--theme-sun); cursor:pointer; border-radius:4px;">Annuler</button>
+                    <button id="chart-btn-update" style="padding:0.5rem 1rem; background:var(--theme-sun); color:#fff; border:none; cursor:pointer; border-radius:4px;">Mettre à jour</button>
+                </div>
+            </div>
+            <div class="chart-modal-preview">
+                <canvas id="chart-preview-canvas"></canvas>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // D. Initialisation de la prévisualisation Chart.js
+    const ctx = document.getElementById('chart-preview-canvas');
+    ctx.width = 640; ctx.height = 380;
+    const actualType = config.type === 'horizontalBar' ? 'bar' : config.type;
+    const isHorizontal = config.type === 'horizontalBar';
+    const isCircular = ['pie', 'doughnut', 'radar', 'polarArea'].includes(actualType);
+
+    const chart = new Chart(ctx, {
+        type: actualType,
+        data: { labels: config.labels, datasets: datasets },
+        plugins: [ChartDataLabels],
+        options: {
+            indexAxis: isHorizontal ? 'y' : 'x',
+            responsive: false, animation: false,
+            layout: { padding: { top: 30, bottom: 10, left: 10, right: 10 } },
+            plugins: {
+                title: { display: true, text: config.title, font: { size: 16, weight: 'bold', family: 'Marianne' }, padding: { bottom: 10 } },
+                legend: { display: true, position: 'bottom', labels: { usePointStyle: true, padding: 20, font: { family: 'Marianne' } } },
+                datalabels: {
+                    display: 'auto', 
+                    backgroundColor: isCircular ? 'transparent' : 'rgba(255, 255, 255, 0.8)',
+                    borderRadius: 3, padding: 2,
+                    color: isCircular ? '#ffffff' : themeSun,
+                    font: { weight: 'bold', family: 'Marianne', size: 11 },
+                    anchor: isCircular ? 'center' : 'end',
+                    align: isCircular ? 'center' : (isHorizontal ? 'right' : 'top'),
+                    offset: 4,
+                    formatter: (value) => (!value || isNaN(value)) ? '' : new Intl.NumberFormat('fr-FR').format(value)
+                }
+            },
+            scales: isCircular ? {} : {
+                y: { beginAtZero: true, grid: { color: isHorizontal ? 'transparent' : 'rgba(0, 0, 0, 0.05)' }, ticks: { font: { family: 'Marianne' }, callback: (v) => isHorizontal ? v : new Intl.NumberFormat('fr-FR').format(v) } },
+                x: { grid: { color: isHorizontal ? 'rgba(0, 0, 0, 0.05)' : 'transparent' }, ticks: { font: { family: 'Marianne' }, callback: (v) => isHorizontal ? new Intl.NumberFormat('fr-FR').format(v) : v } }
+            }
+        }
+    });
+    
+    // E. WYSIWYG : Interactions en temps réel
+    document.getElementById('chart-edit-title').addEventListener('input', function(e) {
+        chart.options.plugins.title.text = e.target.value; chart.update();
+    });
+
+    document.querySelectorAll('.chart-edit-serie').forEach(input => {
+        input.addEventListener('input', function(e) {
+            const index = e.target.getAttribute('data-index');
+            chart.data.datasets[index].label = e.target.value; chart.update();
+        });
+    });
+
+    // F. Actions des boutons
+    document.getElementById('chart-btn-cancel').addEventListener('click', () => {
+        chart.destroy(); overlay.remove();
+    });
+
+    document.getElementById('chart-btn-update').addEventListener('click', () => {
+        const imgData = chart.toBase64Image();
+        const finalDatasets = chart.data.datasets.map(ds => ({ label: ds.label, data: ds.data }));
+        
+        // On met à jour l'objet config
+        config.title = chart.options.plugins.title.text;
+        config.datasets = finalDatasets;
+        const safeConfig = encodeURIComponent(JSON.stringify(config));
+
+        // 1. Mise à jour de l'image Base64
+        const imgElement = targetContainer.querySelector('img');
+        if (imgElement) imgElement.src = imgData;
+        
+        // 2. Mise à jour des métadonnées
+        targetContainer.setAttribute('data-chart-config', safeConfig);
+
+        // 3. Mise à jour du tableau d'accessibilité (RGAA)
+        const accessibilityData = { data: { labels: config.labels, datasets: config.datasets } };
+        const accessibleTableHTML = buildAccessibleChartTable(accessibilityData, config.title);
+        
+        let tableEl = targetContainer.querySelector('.fr-sr-only');
+        if (tableEl) {
+            tableEl.outerHTML = accessibleTableHTML;
+        } else {
+            targetContainer.insertAdjacentHTML('beforeend', accessibleTableHTML);
+        }
+
+        // Fermeture et nettoyage
+        chart.destroy(); 
+        overlay.remove();
+        
+        // Déclenche une sauvegarde locale pour le brouillon
+        if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
+    });
+}

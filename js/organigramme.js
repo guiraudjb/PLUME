@@ -1,7 +1,8 @@
 /**
  * MODULE ORGANIGRAMMES CIRCULAIRES - PLUME
  * Interface de création et d'intégration d'organigrammes vectoriels.
- * Inclut la gestion des couleurs dynamiques (variables CSS du thème).
+ * Inclut la gestion des couleurs dynamiques, la restauration par double-clic
+ * et la gestion stricte de l'accessibilité (RGAA) avec nettoyage radical.
  */
 
 const PALETTE_GRADIENTS = {
@@ -60,15 +61,12 @@ const PALETTE_GRADIENTS = {
     grisGaletAscending: "linear-gradient(to right, #AEA397, #f9f6f2)"
 };
 
-// --- NOUVEAU : Résolveurs Dynamiques ---
 function resolveOrgColor(val) {
     if (!val) return '#000000';
     const style = getComputedStyle(document.documentElement);
-    
     if (val === 'theme_main') return style.getPropertyValue('--theme-sun').trim() || '#000091';
     if (val === 'theme_bg') return style.getPropertyValue('--theme-bg').trim() || '#f5f5fe';
-    
-    return val; // Retourne le code hex ou l'ID du dégradé (ex: 'theme_gradient', 'cumulusAscending')
+    return val; 
 }
 
 function updateDynamicSVGDefs(defsElement) {
@@ -76,7 +74,6 @@ function updateDynamicSVGDefs(defsElement) {
     const themeSun = style.getPropertyValue('--theme-sun').trim() || '#000091';
     const themeBg = style.getPropertyValue('--theme-bg').trim() || '#f5f5fe';
 
-    // Création ou mise à jour du dégradé dynamique
     let grad = defsElement.querySelector('#grad-theme_gradient');
     if (!grad) {
         grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
@@ -98,21 +95,17 @@ function updateDynamicSVGDefs(defsElement) {
     grad.children[1].setAttribute('stop-color', themeSun);
 }
 
-// --- MOTEUR DE L'ORGANIGRAMME ---
+// --- Variables Globales ---
 let diagramData = null;
 let customImageRegistry = {};
 let historyPast = [];
 let historyFuture = [];
-
-// Variables globales de Drag & Drop
 let isDraggingNode = false;
 let dragItemId = null;
 let dragGhost = null;
 let hoverItemId = null;
 let dragOriginX = 0;
 let dragOriginY = 0;
-
-// Variables globales de Pan & Zoom
 let vbX = 0, vbY = 0, vbWidth = 1600, vbHeight = 1200;
 let isPanningView = false, startPanClientX = 0, startPanClientY = 0, startVbX = 0, startVbY = 0;
 
@@ -158,7 +151,6 @@ function initOrgChartData(existingConfig = null) {
         diagramData = existingConfig.diagramData;
         customImageRegistry = existingConfig.customImageRegistry || {};
     } else {
-        // --- MODIFIÉ : Configuration par défaut utilisant le thème dynamique ---
         diagramData = {
             direction: 'clockwise',
             center: { text: "BLOC\nCENTRAL", color: "theme_main", shape: "rect", size: 300, manualSize: true, textColor: "#FFFFFF", ...defaultTypography, isBold: true, fontSize: 36, icon: null },
@@ -173,7 +165,10 @@ function initOrgChartData(existingConfig = null) {
     historyFuture = [];
 }
 
-function insertOrgChart() {
+// =====================================================================
+// FONCTION PRINCIPALE : INSERTION ET ÉDITION
+// =====================================================================
+function insertOrgChart(existingConfig = null, targetContainer = null) {
     const selection = window.getSelection();
     let savedRange = null;
     if (selection.rangeCount > 0) {
@@ -305,14 +300,20 @@ function insertOrgChart() {
     
     document.body.appendChild(overlay);
     
-    initOrgChartData(); 
+    initOrgChartData(existingConfig); 
     initOrgGradientsAndSelect(); 
     updateOrgSelectMenu(); 
     loadOrgNodeData();     
     renderSVG();
     resetZoom();           
     
-    // --- ÉVÉNEMENTS (IDENTIQUES) ---
+    const btnInsert = document.getElementById('btn-org-insert');
+    if (existingConfig && btnInsert) {
+        btnInsert.textContent = "Mettre à jour l'organigramme";
+        btnInsert.targetContainer = targetContainer; 
+    }
+
+    // --- ÉVÉNEMENTS UI ---
     document.getElementById('org-btn-zoom-in').onclick = zoomIn;
     document.getElementById('org-btn-zoom-out').onclick = zoomOut;
     document.getElementById('org-btn-zoom-reset').onclick = resetZoom;
@@ -441,7 +442,8 @@ function insertOrgChart() {
         overlay.remove();
     };
 
-    document.getElementById('btn-org-insert').onclick = () => {
+    // === VALIDATION : GÉNÉRATION ET INSERTION/MISE À JOUR ===
+    btnInsert.onclick = () => {
         const svg = document.getElementById('org-canvas');
         
         const extent = calculateMaxExtent(); 
@@ -472,48 +474,69 @@ function insertOrgChart() {
             const payload = { version: 2, diagramData: diagramData, customImageRegistry: customImageRegistry };
             const safeConfig = encodeURIComponent(JSON.stringify(payload));
 
-            // On génère la liste sémantique
+            // Génération de la liste RGAA sécurisée
             const accessibleListHTML = buildAccessibleOrgList(diagramData);
-
-            const finalHTML = `
-                <div class="plume-orgchart-container" data-orgchart-config="${safeConfig}" style="margin: 2.5rem 0; text-align: center;" contenteditable="false">
-                    <img src="${imgData}" alt="Représentation visuelle de l'organigramme" aria-hidden="true" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" />
-                    
-                    ${accessibleListHTML}
-                </div>
-                <p><br></p>
-            `;
 
             window.removeEventListener('pointermove', pointerMoveHandler);
             window.removeEventListener('pointerup', pointerUpHandler);
             overlay.remove(); 
 
-            if (savedRange) {
-                const sel = window.getSelection();
-                sel.removeAllRanges();
-                sel.addRange(savedRange);
-            }
-            if (typeof insertHTML === 'function') {
-                insertHTML(finalHTML);
+            if (btnInsert.targetContainer) {
+                // ---> MODE MISE À JOUR (UPDATE)
+                const container = btnInsert.targetContainer;
+                container.setAttribute('data-orgchart-config', safeConfig);
+                
+                // Mettre à jour l'image
+                const imgElement = container.querySelector('img');
+                if (imgElement) {
+                    imgElement.src = imgData;
+                }
+                
+                // NETTOYAGE RADICAL : On supprime TOUT sauf l'image pour éviter les doublons RGAA
+                Array.from(container.childNodes).forEach(node => {
+                    if (node.nodeName.toLowerCase() !== 'img') {
+                        node.remove();
+                    }
+                });
+                
+                // On ré-injecte la liste propre
+                container.insertAdjacentHTML('beforeend', accessibleListHTML);
+
             } else {
-                document.execCommand('insertHTML', false, finalHTML);
+                // ---> MODE CRÉATION INITIALE (CREATE)
+                const finalHTML = `
+                    <div class="plume-orgchart-container" data-orgchart-config="${safeConfig}" style="margin: 2.5rem 0; text-align: center;" contenteditable="false">
+                        <img src="${imgData}" alt="Représentation visuelle de l'organigramme" aria-hidden="true" style="max-width: 100%; height: auto; border: 1px solid var(--grey-900); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" />
+                        ${accessibleListHTML}
+                    </div>
+                    <p><br></p>
+                `;
+
+                if (savedRange) {
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(savedRange);
+                }
+                if (typeof insertHTML === 'function') {
+                    insertHTML(finalHTML);
+                } else {
+                    document.execCommand('insertHTML', false, finalHTML);
+                }
             }
         };
         img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgSource)));
     };
 }
 
+// --- RENDU GRAPHIQUE (SVG) ---
 function renderSVG() {
     const cG = document.getElementById('org-connectors'), nG = document.getElementById('org-nodes');
     if(!cG || !nG) return;
 
-    // --- MODIFIÉ : Mise à jour des dégradés dynamiques à chaque rendu ---
     updateDynamicSVGDefs(document.getElementById('org-gradient-defs'));
-
     cG.innerHTML = ''; nG.innerHTML = '';
     
     const dir = diagramData.direction === 'clockwise' ? 1 : -1;
-    
     let layoutNodes = [];
     let connections = [];
 
@@ -560,7 +583,6 @@ function renderSVG() {
     }
 
     const ITERATIONS = 50, PADDING = 40;     
-
     for (let iter = 0; iter < ITERATIONS; iter++) {
         for (let i = 0; i < layoutNodes.length; i++) {
             for (let j = i + 1; j < layoutNodes.length; j++) {
@@ -628,7 +650,6 @@ function drawCurve(parent, x1, y1, x2, y2, strokeColor) {
     const c1x=x1+(x2-x1)*0.4, c1y=y1+(y2-y1)*0.1, c2x=x2-(x2-x1)*0.1, c2y=y2-(y2-y1)*0.4;
     p.setAttribute('d', `M ${x1} ${y1} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${x2} ${y2}`);
     
-    // --- MODIFIÉ : Résolution de la couleur de la courbe ---
     let resolvedCurve = resolveOrgColor(strokeColor);
     let finalColor = '#A0A0A0';
     if (resolvedCurve) {
@@ -679,7 +700,6 @@ function drawNode(parent, nodeData, x, y, nodeId, isSelected) {
         shapeEl.setAttribute('cx', cx); shapeEl.setAttribute('cy', cy); shapeEl.setAttribute('r', bRadius);
     }
     
-    // --- MODIFIÉ : Application des couleurs résolues ---
     const resolvedBg = resolveOrgColor(nodeData.color);
     let fillAttr;
     if (resolvedBg === 'theme_gradient') { fillAttr = 'url(#grad-theme_gradient)'; } 
@@ -699,7 +719,7 @@ function drawNode(parent, nodeData, x, y, nodeId, isSelected) {
 
     const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     textEl.setAttribute('text-anchor', 'middle'); 
-    textEl.setAttribute('fill', resolveOrgColor(nodeData.textColor)); // Couleur résolue
+    textEl.setAttribute('fill', resolveOrgColor(nodeData.textColor)); 
     textEl.setAttribute('font-family', nodeData.fontFamily); 
     textEl.setAttribute('font-size', fSize + 'px');
     if (nodeData.isBold) textEl.setAttribute('font-weight', 'bold');
@@ -926,7 +946,6 @@ function initOrgGradientsAndSelect() {
     
     s.innerHTML = ''; 
 
-    // --- MODIFIÉ : Ajout du groupe de couleurs dynamiques ---
     const optGroupDynamic = document.createElement('optgroup');
     optGroupDynamic.label = "Couleurs dynamiques (Thème)";
     optGroupDynamic.innerHTML = `
@@ -962,84 +981,16 @@ function initOrgGradientsAndSelect() {
     s.appendChild(optGroupGrad);
 }
 
-// --- MODIFIÉ : Moteur de rafraîchissement global ---
-async function refreshAllOrgCharts() {
-    const orgContainers = document.querySelectorAll('.plume-orgchart-container[data-orgchart-config]');
-    if (orgContainers.length === 0) return;
+// =====================================================================
+// FONCTIONS RGAA : GÉNÉRATION ET SÉCURISATION DU RAFRAÎCHISSEMENT
+// =====================================================================
 
-    for (const container of orgContainers) {
-        try {
-            const rawConfig = container.getAttribute('data-orgchart-config');
-            const payload = JSON.parse(decodeURIComponent(rawConfig));
-
-            const hiddenDiv = document.createElement('div');
-            hiddenDiv.style.position = 'absolute';
-            hiddenDiv.style.left = '-9999px';
-            
-            hiddenDiv.innerHTML = `
-                <svg id="org-canvas" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
-                    <defs id="org-gradient-defs"></defs>
-                    <g id="org-connectors"></g>
-                    <g id="org-nodes"></g>
-                </svg>
-            `;
-            document.body.appendChild(hiddenDiv);
-
-            diagramData = payload.diagramData;
-            
-            // La fonction renderSVG se charge d'appeler updateDynamicSVGDefs
-            renderSVG();
-
-            const svg = document.getElementById('org-canvas');
-            const extent = calculateMaxExtent(); 
-            const padding = 60;
-            const exportSize = (extent.maxExtent * 2) + (padding * 2);
-
-            svg.setAttribute('viewBox', `${-extent.maxExtent - padding} ${-extent.maxExtent - padding} ${exportSize} ${exportSize}`);
-            svg.setAttribute('width', exportSize);
-            svg.setAttribute('height', exportSize);
-
-            let source = new XMLSerializer().serializeToString(svg);
-            if(!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
-                source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
-            }
-
-            const exportScale = 2;
-            const img = new Image();
-            
-            await new Promise((resolve) => {
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = exportSize * exportScale;
-                    canvas.height = exportSize * exportScale;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    
-                    const imgElement = container.querySelector('img');
-                    if (imgElement) {
-                        imgElement.src = canvas.toDataURL('image/png');
-                        // Met à jour la config en Base64 au cas où des modifications aient été forcées
-                        const newPayload = { version: 2, diagramData: diagramData, customImageRegistry: customImageRegistry };
-                        container.setAttribute('data-orgchart-config', encodeURIComponent(JSON.stringify(newPayload)));
-                    }
-                    resolve();
-                };
-                img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(source)));
-            });
-
-            hiddenDiv.remove();
-
-        } catch (e) {
-            console.error("Impossible de rafraîchir l'organigramme", e);
-        }
-    }
-}
-// --- ACCESSIBILITÉ : Générateur de liste hiérarchique invisible ---
 function buildAccessibleOrgList(data) {
     if (!data || !data.center) return '';
     
-    let html = `<ul class="sr-only">`;
-    // On nettoie les retours à la ligne pour le lecteur d'écran
+    // Ajout des styles en ligne stricts pour forcer le masquage visuel (RGAA compliant)
+    let html = `<ul class="sr-only" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;">`;
+    
     const centerText = (data.center.text || "Bloc Central").replace(/\n/g, ' ');
     html += `<li><strong>${centerText}</strong>`;
     
@@ -1070,3 +1021,105 @@ function buildAccessibleBubbleItem(node) {
     html += `</li>`;
     return html;
 }
+
+async function refreshAllOrgCharts() {
+    const orgContainers = document.querySelectorAll('.plume-orgchart-container[data-orgchart-config]');
+    if (orgContainers.length === 0) return;
+
+    for (const container of orgContainers) {
+        try {
+            const rawConfig = container.getAttribute('data-orgchart-config');
+            const payload = JSON.parse(decodeURIComponent(rawConfig));
+
+            const hiddenDiv = document.createElement('div');
+            hiddenDiv.style.position = 'absolute';
+            hiddenDiv.style.left = '-9999px';
+            
+            hiddenDiv.innerHTML = `
+                <svg id="org-canvas" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
+                    <defs id="org-gradient-defs"></defs>
+                    <g id="org-connectors"></g>
+                    <g id="org-nodes"></g>
+                </svg>
+            `;
+            document.body.appendChild(hiddenDiv);
+
+            diagramData = payload.diagramData;
+            
+            renderSVG();
+
+            const svg = document.getElementById('org-canvas');
+            const extent = calculateMaxExtent(); 
+            const padding = 60;
+            const exportSize = (extent.maxExtent * 2) + (padding * 2);
+
+            svg.setAttribute('viewBox', `${-extent.maxExtent - padding} ${-extent.maxExtent - padding} ${exportSize} ${exportSize}`);
+            svg.setAttribute('width', exportSize);
+            svg.setAttribute('height', exportSize);
+
+            let source = new XMLSerializer().serializeToString(svg);
+            if(!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+                source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+            }
+
+            const exportScale = 2;
+            const img = new Image();
+            
+            await new Promise((resolve) => {
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = exportSize * exportScale;
+                    canvas.height = exportSize * exportScale;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    const imgElement = container.querySelector('img');
+                    if (imgElement) {
+                        imgElement.src = canvas.toDataURL('image/png');
+                        const newPayload = { version: 2, diagramData: diagramData, customImageRegistry: customImageRegistry };
+                        container.setAttribute('data-orgchart-config', encodeURIComponent(JSON.stringify(newPayload)));
+                    }
+
+                    // SÉCURISATION RGAA : NETTOYAGE RADICAL ET RE-INJECTION
+                    // On supprime TOUT ce qui n'est pas l'image dans le conteneur
+                    Array.from(container.childNodes).forEach(node => {
+                        if (node.nodeName.toLowerCase() !== 'img') {
+                            node.remove();
+                        }
+                    });
+                    
+                    // Génère et ré-injecte la liste d'accessibilité avec son style de masquage strict
+                    const accessibleListHTML = buildAccessibleOrgList(diagramData);
+                    container.insertAdjacentHTML('beforeend', accessibleListHTML);
+
+                    resolve();
+                };
+                img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(source)));
+            });
+
+            hiddenDiv.remove();
+
+        } catch (e) {
+            console.error("Impossible de rafraîchir l'organigramme", e);
+        }
+    }
+}
+
+// =====================================================================
+// ÉCOUTEUR GLOBAL POUR LA RESTAURATION VIA DOUBLE-CLIC
+// =====================================================================
+document.addEventListener('dblclick', (e) => {
+    const container = e.target.closest('.plume-orgchart-container[data-orgchart-config]');
+    
+    if (container) {
+        e.preventDefault(); 
+        try {
+            const configStr = decodeURIComponent(container.getAttribute('data-orgchart-config'));
+            const existingConfig = JSON.parse(configStr);
+            
+            insertOrgChart(existingConfig, container);
+        } catch (err) {
+            console.error("Erreur lors de la restauration de l'organigramme", err);
+        }
+    }
+});

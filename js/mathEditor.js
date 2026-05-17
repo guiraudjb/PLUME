@@ -282,3 +282,23 @@ async function refreshAllMaths() {
    
     tempContainer.remove();
 }
+// =====================================================================
+// RESTORE VIA DOUBLE-CLIC DELEGATION (FORMULES MATHÉMATIQUES)
+// =====================================================================
+document.addEventListener('dblclick', (e) => {
+    // On vérifie si l'élément double-cliqué est bien une image mathématique Plume
+    const targetImg = e.target.closest('img.plume-math');
+    
+    if (targetImg) {
+        e.preventDefault(); // Empêche la sélection de texte accidentelle du navigateur
+        
+        // Extraction de la formule sauvegardée dans les métadonnées de l'image
+        const existingFormula = targetImg.getAttribute('data-math-formula');
+        
+        if (existingFormula) {
+            // On ouvre la modale en lui passant la formule à éditer ET l'image à écraser
+            openMathEditor(existingFormula, targetImg);
+        }
+    }
+});
+

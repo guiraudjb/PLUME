@@ -1,6 +1,6 @@
 /**
  * MODULE GÉNÉRATEUR DE QR CODES - PLUME
- * Interface de création, personnalisation et intégration de QR Codes.
+ * Interface de création, personnalisation, restauration et intégration de QR Codes.
  * Nécessite la librairie qr-code-styling.js
  */
 
@@ -8,8 +8,8 @@
 let currentQRLogo = null;
 let currentQRInstance = null;
 
-function insertQRCode() {
-    // 1. Sauvegarde de la position du curseur
+function insertQRCode(existingConfig = null, targetContainer = null) {
+    // 1. Sauvegarde de la position du curseur AVANT d'ouvrir la modale
     const selection = window.getSelection();
     let savedRange = null;
     if (selection.rangeCount > 0) {
@@ -42,10 +42,9 @@ function insertQRCode() {
 
         <div class="chart-modal" style="width: 1100px; max-width: 95vw; height: 80vh; display: flex; overflow: hidden;">
             
-            <!-- BARRE LATÉRALE DE CONTRÔLES -->
             <div class="qr-sidebar">
                 <h3 style="margin:0 0 1rem 0; color:var(--theme-sun); font-size:1.1rem;">
-                    <span class="fr-icon-qr-code-line"></span> Générateur de QR Code
+                    <span class="fr-icon-qr-code-line"></span> Éditeur de QR Code
                 </h3>
 
                 <div class="qr-control-group">
@@ -152,30 +151,61 @@ function insertQRCode() {
                     </div>
                 </details>
 
-                <!-- BOUTONS D'ACTION -->
                 <div style="margin-top:auto; padding-top: 1rem; border-top: 1px solid var(--grey-900); display:flex; gap:0.5rem;">
                     <button class="fr-btn fr-btn--secondary" id="btn-qr-cancel" style="flex:1; justify-content: center;">Annuler</button>
                     <button class="fr-btn" id="btn-qr-insert" style="flex:1; justify-content: center;">Insérer</button>
                 </div>
             </div>
 
-            <!-- ZONE DE PRÉVISUALISATION -->
             <div class="qr-workspace">
                 <div id="qr-preview-container" style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: center;">
-                    <!-- Le QR Code sera injecté ici -->
-                </div>
+                    </div>
             </div>
         </div>
     `;
-    
+ 
     document.body.appendChild(overlay);
 
-    // Initialisation avec le logo DSFR par défaut
-    currentQRLogo = './libs/dsfr-v1.14.3/dist/favicon/apple-touch-icon.png';
-    document.getElementById('qr-logo-options').style.display = 'flex';
-    document.getElementById('btn-qr-clear-logo').style.display = 'flex';
-    document.getElementById('qr-ecc').value = 'H';
-    
+    // =====================================================================
+    // INITIALISATION OU RESTAURATION (RESTORE)
+    // =====================================================================
+    if (existingConfig) {
+        // Mode Édition : On injecte les valeurs existantes dans les inputs
+        document.getElementById('qr-data').value = existingConfig.data || "";
+        document.getElementById('qr-color-mode').value = existingConfig.colorMode || "theme";
+        document.getElementById('qr-color-custom').value = existingConfig.customColor || "#000091";
+        document.getElementById('qr-bg-trans').checked = existingConfig.bgTrans;
+        document.getElementById('qr-dot-type').value = existingConfig.dotType || "dots";
+        document.getElementById('qr-ecc').value = existingConfig.ecc || "H";
+        document.getElementById('qr-eye-sq').value = existingConfig.eyeSq || "extra-rounded";
+        document.getElementById('qr-eye-dot').value = existingConfig.eyeDot || "dot";
+        
+        currentQRLogo = existingConfig.logoData || null;
+        if (currentQRLogo) {
+            document.getElementById('qr-logo-size').value = existingConfig.logoSize || 0.3;
+            document.getElementById('qr-logo-margin').value = existingConfig.logoMargin || 2;
+            document.getElementById('qr-hide-dots').checked = existingConfig.hideDots;
+            document.getElementById('qr-logo-options').style.display = 'flex';
+            document.getElementById('btn-qr-clear-logo').style.display = 'flex';
+        }
+
+        if (existingConfig.colorMode === 'custom') {
+            document.getElementById('qr-custom-color-wrapper').style.display = 'block';
+        }
+
+        const btnInsert = document.getElementById('btn-qr-insert');
+        btnInsert.textContent = "Mettre à jour le QR Code";
+        btnInsert.targetContainer = targetContainer; // Sauvegarde la cible
+
+    } else {
+        // Mode Création : Logo DSFR par défaut
+        currentQRLogo = './libs/dsfr-v1.14.3/dist/favicon/apple-touch-icon.png';
+        document.getElementById('qr-logo-options').style.display = 'flex';
+        document.getElementById('btn-qr-clear-logo').style.display = 'flex';
+        document.getElementById('qr-ecc').value = 'H';
+    }
+
+    // Premier rendu visuel
     renderQRPreview();
 
     // --- CÂBLAGE DES ÉVÉNEMENTS DE L'INTERFACE ---
@@ -220,36 +250,59 @@ function insertQRCode() {
         overlay.remove();
     };
 
-    document.getElementById('btn-qr-insert').onclick = () => {
+    // =====================================================================
+    // SAUVEGARDE ET INSERTION (SAVE / UPDATE)
+    // =====================================================================
+    const btnInsert = document.getElementById('btn-qr-insert');
+    btnInsert.onclick = async () => {
         if (!currentQRInstance) return;
 
         const canvas = document.querySelector('#qr-preview-container canvas');
         if (!canvas) return;
 
+        // Extraction de l'image
         const imgData = canvas.toDataURL('image/png'); 
+        
+        // Extraction et sécurisation de la configuration complète
         const config = getQRConfig();
         const safeConfig = encodeURIComponent(JSON.stringify(config));
 
-        const finalHTML = `
-            <div class="plume-qrcode-container" data-qrcode-config="${safeConfig}" style="display: flex; justify-content: center; margin: 2rem 0;" contenteditable="false">
-                <img src="${imgData}" alt="QR Code" style="max-width: 100%; width: 250px; height: 250px; object-fit: contain; border: 1px solid var(--grey-900); border-radius: 8px; background: ${config.bgTrans ? 'transparent' : '#ffffff'}; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" />
-            </div>
-            <p><br></p>
-        `;
-
-        overlay.remove();
-
-        if (savedRange) {
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(savedRange);
-        }
-
-        if (typeof insertHTML === 'function') {
-            insertHTML(finalHTML);
+        if (btnInsert.targetContainer) {
+            // ---> MODE MISE À JOUR (UPDATE)
+            const container = btnInsert.targetContainer;
+            container.setAttribute('data-qrcode-config', safeConfig); // Mise à jour des métadonnées
+            
+            const img = container.querySelector('img');
+            if (img) {
+                img.src = imgData; // Mise à jour visuelle
+                // Mise à jour de la couleur de fond si elle a changé
+                img.style.background = config.bgTrans ? 'transparent' : '#ffffff';
+            }
         } else {
-            document.execCommand('insertHTML', false, finalHTML);
+            // ---> MODE CRÉATION INITIALE (CREATE)
+            const finalHTML = `
+                <div class="plume-qrcode-container" data-qrcode-config="${safeConfig}" style="display: flex; justify-content: center; margin: 2rem 0;" contenteditable="false">
+                    <img src="${imgData}" alt="QR Code" style="max-width: 100%; width: 250px; height: 250px; object-fit: contain; border: 1px solid var(--grey-900); border-radius: 8px; background: ${config.bgTrans ? 'transparent' : '#ffffff'}; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" />
+                </div>
+                <p><br></p>
+            `;
+
+            if (savedRange) {
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(savedRange);
+            }
+
+            // Insertion dans l'éditeur (selon votre framework)
+            if (typeof insertHTML === 'function') {
+                insertHTML(finalHTML);
+            } else {
+                document.execCommand('insertHTML', false, finalHTML);
+            }
         }
+
+        // Fermeture de la modale dans tous les cas
+        overlay.remove();
     };
 }
 
@@ -324,19 +377,13 @@ function renderQRPreview() {
 }
 
 /**
- * Fonction globale à appeler lors du changement de thème (applyPalette) ou de la restauration.
- * Permet de redessiner tous les QR codes du document.
- */
-/**
- * Fonction globale à appeler lors du changement de thème (applyPalette) ou de la restauration.
+ * Fonction globale à appeler lors du changement de thème (applyPalette)
  * Permet de redessiner tous les QR codes du document.
  */
 async function refreshAllQRCodes() {
     const qrContainers = document.querySelectorAll('.plume-qrcode-container[data-qrcode-config]');
     if (qrContainers.length === 0) return;
 
-    // Pause de 50ms pour laisser le navigateur appliquer les variables CSS 
-    // et laisser respirer le processeur avant de lancer la génération.
     await new Promise(r => setTimeout(r, 50));
 
     const rootStyle = getComputedStyle(document.documentElement);
@@ -374,7 +421,6 @@ async function refreshAllQRCodes() {
 
             const tempInstance = new QRCodeStyling(qrOptions);
             
-            // MÉTHODE 1 : L'API moderne (attend la fin absolue du dessin sans bloquer le DOM)
             try {
                 const blob = await tempInstance.getRawData("png");
                 if (blob) {
@@ -385,23 +431,19 @@ async function refreshAllQRCodes() {
                     });
                     const imgElement = container.querySelector('img');
                     if (imgElement) imgElement.src = dataUrl;
-                    continue; // Succès absolu, on passe au QR code suivant
+                    continue; 
                 }
-            } catch (apiError) {
-                // Si l'API getRawData échoue (ancienne version), on continue vers le Fallback
-            }
+            } catch (apiError) {}
 
-            // MÉTHODE 2 : Fallback de sécurité dans le DOM
             const hiddenDiv = document.createElement('div');
             hiddenDiv.style.position = 'absolute';
             hiddenDiv.style.left = '-9999px';
-            hiddenDiv.style.width = '350px';  // CRITIQUE : forcer les dimensions
-            hiddenDiv.style.height = '350px'; // CRITIQUE : forcer les dimensions
+            hiddenDiv.style.width = '350px';  
+            hiddenDiv.style.height = '350px'; 
             document.body.appendChild(hiddenDiv);
 
             tempInstance.append(hiddenDiv);
 
-            // On attend beaucoup plus longtemps (600ms) pour survivre au goulot d'étranglement du CPU
             await new Promise(resolve => {
                 setTimeout(() => {
                     const canvas = hiddenDiv.querySelector('canvas');
@@ -421,3 +463,21 @@ async function refreshAllQRCodes() {
         }
     }
 }
+
+// =====================================================================
+// RESTORE VIA DOUBLE-CLIC DELEGATION (Indépendant, à la racine)
+// =====================================================================
+document.addEventListener('dblclick', (e) => {
+    // Attention: On cible l'attribut exact utilisé lors de la création
+    const container = e.target.closest('[data-qrcode-config]');
+    if (container) {
+        e.preventDefault();
+        try {
+            const configStr = decodeURIComponent(container.getAttribute('data-qrcode-config'));
+            const existingConfig = JSON.parse(configStr);
+            insertQRCode(existingConfig, container);
+        } catch (err) {
+            console.error("Erreur lors de la restauration du QR Code", err);
+        }
+    }
+});
