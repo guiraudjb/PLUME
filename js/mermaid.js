@@ -148,40 +148,66 @@ window.refreshAllMermaidDiagrams = async function() {
 
 
 // =====================================================================
-// 3. DICTIONNAIRE DES MODÈLES (SAMPLES EXHAUSTIFS MERMAID)
-// =====================================================================
-// =====================================================================
-// 3. DICTIONNAIRE DES MODÈLES (SAMPLES EXHAUSTIFS MERMAID)
+// 3. DICTIONNAIRE DES MODÈLES D'ACCÈS RAPIDE (SAMPLES ENTIÈREMENT MIS À JOUR)
 // =====================================================================
 const MERMAID_SAMPLES = {
-    // Les Classiques
-    flowchart: "graph TD\n    A[Réception du dossier] --> B{Dossier complet ?}\n    B -- Oui --> C[Instruction]\n    B -- Non --> D[Demande de pièces complémentaires]\n    C --> E([Notification à l'usager])",
+    // --- Processus & Structure ---
+    flowchart: "%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%\ngraph TD\n    A[Réception du dossier] --> B{Dossier complet ?}\n    B -- Oui --> C[Instruction]\n    B -- Non --> D[Demande de pièces complémentaires]\n    C --> E([Notification à l'usager])",
     
     sequence: "sequenceDiagram\n    participant U as Usager\n    participant A as Agent\n    participant S as Système\n    U->>A: Dépôt de demande\n    A->>S: Saisie des données\n    S-->>A: Validation technique\n    A-->>U: Remise du récépissé",
     
-    gantt: "gantt\n    title Planning de Déploiement\n    dateFormat  YYYY-MM-DD\n    section Phase 1\n    Conception           :a1, 2024-01-01, 30d\n    Développement        :after a1, 20d\n    section Phase 2\n    Tests et Recette     :a2, 2024-03-01, 15d\n    Mise en production   :after a2, 5d",
-    
     mindmap: "mindmap\n  root((Action Publique))\n    Transition Écologique\n      Énergies renouvelables\n      Rénovation thermique\n    Numérique\n      Démarches en ligne\n      Inclusion numérique\n    Sécurité\n      Prévention\n      Intervention",
-    
-    // Nouveaux ajouts très utiles pour l'administration
+
     state: "stateDiagram-v2\n    [*] --> Brouillon\n    Brouillon --> Relecture : Demande d'avis\n    Relecture --> Brouillon : Corrections requises\n    Relecture --> Valide : Avis favorable\n    Valide --> Publie : Mise en ligne\n    Publie --> [*]\n\n    state \"Validé\" as Valide\n    state \"Publié\" as Publie",
-    
+
+    // --- Ingénierie & Architecture ---
+    architecture: "architecture-beta\n    group si(cloud)[Zone SI]\n    service parefeu(cloud)[Pare Feu]\n    service web(server)[Serveur Web] in si\n    service bdd(database)[Base Donnees] in si\n\n    parefeu:R -- L:web\n    web:R -- L:bdd",
+
+    c4: "C4Context\n    title Cartographie du Système PLUME\n    Person(agent, \"Agent Public\", \"Utilise la plateforme pour rédiger\")\n    System(plume, \"Plateforme PLUME\", \"Éditeur de texte riche et de schémas\")\n    System_Ext(sso, \"AgentConnect\", \"Authentification de l'État\")\n    Rel(agent, plume, \"Rédige des documents\", \"HTTPS\")\n    Rel(plume, sso, \"Authentifie l'utilisateur via\", \"OIDC\")",
+
+    block: "block-beta\n    columns 3\n    Frontend[\"Interface Utilisateur (Vue.js)\"]\n    Middleware[\"Passerelle API (Node.js)\"]\n    Backend[\"Base de données (PostgreSQL)\"]\n    Frontend --> Middleware\n    Middleware --> Backend",
+
+    packet: "packet-beta\n    title En-tête IPv4\n    0-3: \"Version\"\n    4-7: \"IHL\"\n    8-15: \"TOS\"\n    16-31: \"Longueur Totale\"\n    32-47: \"Identification\"\n    48-50: \"Flags\"\n    51-63: \"Fragment Offset\"\n    64-71: \"TTL\"\n    72-79: \"Protocole\"\n    80-95: \"Header Checksum\"\n    96-127: \"IP Source\"\n    128-159: \"IP Destination\"",
+
+    classDiagram: "classDiagram\n    class AgentPublic {\n        +String matricule\n        +String nom\n        +traiterDossier()\n    }\n    class Dossier {\n        +int numero\n        +String statut\n        +valider()\n    }\n    AgentPublic \"1\" -- \"*\" Dossier : instruit",
+
+    er: "erDiagram\n    USAGER ||--o{ DEMANDE : soumet\n    USAGER {\n        string numero_secu\n        string nom\n        string email\n    }\n    DEMANDE ||--|{ DOCUMENT : contient\n    DEMANDE {\n        int numero_dossier\n        date date_depot\n        string statut\n    }",
+
+    requirement: "requirementDiagram\n    requirement \"Hébergement Securisé SecNumCloud\" {\n      id: \"REQ-001\"\n      text: \"L'application doit être hébergée sur une infrastructure qualifiée SecNumCloud.\"\n      risk: high\n      verifymethod: inspection\n    }\n    element \"Serveur Dédié\" {\n      type: \"Infrastructure\"\n    }\n    \"Serveur Dédié\" - satisfies -> \"Hébergement Securisé SecNumCloud\"",
+
+    // --- Stratégie & Gestion de Projet ---
+    kanban: "kanban\n    A Faire\n      [Rédiger le cahier des charges]\n      [Valider le budget]\n    En Cours\n      [Développement PLUME]\n    Terminé\n      [POC Mermaid.js]\n      [Intégration QR Code]",
+
+    gantt: "gantt\n    title Planning de Déploiement\n    dateFormat  YYYY-MM-DD\n    section Phase 1\n    Conception           :a1, 2026-01-01, 30d\n    Développement        :after a1, 20d\n    section Phase 2\n    Tests et Recette     :a2, 2026-03-01, 15d\n    Mise en production   :after a2, 5d",
+
+    timeline: "timeline\n    title Historique de la réforme institutionnelle\n    2024 : Lancement de la concertation\n         : Rapport préliminaire\n    2025 : Vote de la loi\n         : Promulgation\n    2026 : Décrets d'application\n         : Mise en place du portail usager",
+
+    wardley: "wardley-beta\n    title Software Platform Strategy\n    \n    anchor \"Customer\" [0.90, 0.95]\n    component \"Mobile App\" [0.80, 0.85]\n    component \"Web App\" [0.75, 0.80]\n    component \"API Gateway\" [0.70, 0.65]\n    component \"Auth Service\" [0.60, 0.55]\n    component \"Database\" [0.50, 0.45]\n    component \"Cloud Platform\" [0.30, 0.95]\n    \n    \"Customer\" -> \"Mobile App\"\n    \"Customer\" -> \"Web App\"\n    \"Mobile App\" -> \"API Gateway\"\n    \"Web App\" -> \"API Gateway\"\n    \"API Gateway\" -> \"Auth Service\"\n    \"API Gateway\" -> \"Database\"\n    \"Database\" -> \"Cloud Platform\"",
+
     journey: "journey\n    title Parcours usager : Demande de subvention\n    section Préparation\n      Recherche d'information: 5: Usager\n      Création du compte: 4: Usager, Système\n    section Dépôt\n      Formulaire en ligne: 3: Usager\n      Ajout des pièces justificatives: 2: Usager\n    section Instruction\n      Vérification du dossier: 4: Agent\n      Validation finale: 5: Directeur",
-    
-    timeline: "timeline\n    title Historique de la réforme institutionnelle\n    2021 : Lancement de la concertation\n         : Rapport préliminaire\n    2022 : Vote de la loi\n         : Promulgation\n    2023 : Décrets d'application\n         : Mise en place du portail usager",
-    
+
+    // --- Analyse & Données ---
+    treemap: "treemap-beta\n\"Budget de l'État (K€)\"\n    \"Transition Écologique\"\n        \"Rénovation\": 300\n        \"Mobilité\": 200\n    \"Santé Publique\"\n        \"Hôpitaux\": 350\n        \"Prévention\": 50",
+
+    venn: "venn-beta\n  title \"Croisement des Compétences\"\n  set Dev[\"Développement\"]:50\n  set Sec[\"Sécurité\"]:50\n  set Res[\"Réseau\"]:50\n  union Dev,Sec[\"DevSec\"]:20\n  union Sec,Res[\"SecRes\"]:15\n  union Dev,Res[\"DevRes\"]:10\n  union Dev,Sec,Res[\"DevSecOps\"]:5",
+
+    sankey: "sankey-beta\n\nBudget Etat,Sante Publique,400\nBudget Etat,Transition Ecologique,350\nSante Publique,Hopitaux,250\nSante Publique,Prevention,150\nTransition Ecologique,Renovation,200\nTransition Ecologique,Mobilite,150",
+
+
+    xychart: "xychart-beta\n    title \"Évolution mensuelle des dossiers (2026)\"\n    x-axis [\"Jan\", \"Fév\", \"Mar\", \"Avr\", \"Mai\", \"Juin\"]\n    y-axis \"Volume traité\" 0 --> 500\n    bar [150, 200, 350, 400, 280, 450]\n    line [150, 200, 350, 400, 280, 450]",
+
     quadrant: "quadrantChart\n    title Matrice Eisenhower\n    x-axis Moins urgent --> Plus urgent\n    y-axis Moins important --> Plus important\n    quadrant-1 A faire immediatement\n    quadrant-2 A planifier\n    quadrant-3 A abandonner\n    quadrant-4 A deleguer\n    \"Urgence securite\": [0.9, 0.9]\n    \"Dossier de fond\": [0.3, 0.8]\n    \"Reunion mineure\": [0.2, 0.3]\n    \"Appel telephonique\": [0.8, 0.4]",
-    
-    risk_matrix: "quadrantChart\n    title Cartographie des Risques\n    x-axis Faible probabilite --> Forte probabilite\n    y-axis Faible impact --> Fort impact\n    quadrant-1 Risques critiques\n    quadrant-2 Risques majeurs\n    quadrant-3 Risques mineurs\n    quadrant-4 Risques moderes\n    \"Cyberattaque\": [0.2, 0.9]\n    \"Panne serveur\": [0.3, 0.8]\n    \"Retard fournisseur\": [0.8, 0.4]\n    \"Absence maladie\": [0.7, 0.2]\n    \"Perte de badge\": [0.2, 0.1]\n    \"Fuite de donnees\": [0.8, 0.9]",
-    
+
+    risk_matrix: "quadrantChart\n    title Cartographie des Risques\n    x-axis Faible probabilite --> Forte probabilite\n    y-axis Faible impact --> Fort impact\n    quadrant-1 Risques critiques\n    quadrant-2 Risques majeurs\n    quadrant-3 Risques mineurs\n    quadrant-4 Risques moderes\n    \"Cyberattaque\": [0.2, 0.9]\n    \"Panne serveur\": [0.3, 0.8]\n    \"Retard fournisseur\": [0.8, 0.4]\n    \"Absence maladie\": [0.7, 0.2]",
+
     pie: "pie showData\n    title Répartition du budget alloué (en K€)\n    \"Subventions\" : 450\n    \"Fonctionnement\" : 250\n    \"Investissement\" : 200\n    \"Communication\" : 100",
-    
-	sankey: "flowchart LR\n    A[Budget de l'État] ==>|500 K€| B(Ministère de la Transition)\n    A ==>|400 K€| C(Ministère de la Santé)\n    B -->|300 K€| D[Rénovation énergétique]\n    B -->|200 K€| E[Mobilité douce]\n    C -->|350 K€| F[Hôpitaux publics]\n    C -->|50 K€| G[Prévention]",
-    
-    er: "erDiagram\n    USAGER ||--o{ DEMANDE : soumet\n    USAGER {\n        string numero_secu\n        string nom\n        string email\n    }\n    DEMANDE ||--|{ DOCUMENT : contient\n    DEMANDE {\n        int numero_dossier\n        date date_depot\n        string statut\n    }\n    AGENT ||--o{ DEMANDE : instruit\n    AGENT {\n        string matricule\n        string service\n    }",
-    
+
+    // --- Fichiers & Versions ---
+    treeview: "treeView-beta\n    \"Projet_PLUME\"\n        \"frontend\"\n            \"css\"\n            \"js\"\n                \"mermaid.js\"\n                \"organigramme.js\"\n        \"backend\"\n            \"api\"\n        \"README.md\"",
+
     gitgraph: "gitGraph\n    commit id: \"v1\" tag: \"Lancement\"\n    branch developpement\n    checkout developpement\n    commit id: \"dev1\" msg: \"Nouvel outil de saisie\"\n    checkout main\n    merge developpement\n    commit id: \"v2\" tag: \"Validation finale\""
 };
+
 
 // =====================================================================
 // 3. STUDIO DE CRÉATION, SAVE ET RESTORE
@@ -214,32 +240,51 @@ window.openMermaidStudio = function(existingCode = null, targetContainer = null)
                                 <div class="fr-grid-row fr-grid-row--gutters">
                                     <div class="fr-col-12 fr-col-md-5">
                                         <div class="fr-select-group fr-mb-2v">
-                                            <label class="fr-label fr-text--sm fr-text--bold" for="mermaid-sample-select">Modèles de départ :</label>
-                                            <select class="fr-select" id="mermaid-sample-select" name="mermaid-sample-select">
-                                                <option value="" selected disabled hidden>Choisissez un modèle...</option>
-                                                <optgroup label="Processus & Structure">
-                                                    <option value="flowchart">Logigramme (Arbre de décision)</option>
-                                                    <option value="mindmap">Carte mentale (Idées)</option>
-                                                    <option value="er">Modèle de données (Entité-Relation)</option>
-                                                </optgroup>
-                                                <optgroup label="Temps & Planification">
-                                                    <option value="gantt">Diagramme de Gantt (Planning)</option>
-                                                    <option value="timeline">Frise chronologique (Timeline)</option>
-                                                    <option value="state">Cycle de vie (États d'un document)</option>
-                                                </optgroup>
-                                                <optgroup label="Interactions & Flux">
-                                                    <option value="journey">Parcours Usager (Journey)</option>
-                                                    <option value="sequence">Diagramme de Séquence</option>
-                                                    <option value="sankey">Flux financiers ou physiques (Sankey)</option>
-                                                </optgroup>
-                                                <optgroup label="Analyse & Données">
-                                                    <option value="quadrant">Matrice de priorisation (Eisenhower)</option>
-                                                    <option value="risk_matrix">Matrice des risques</option>
-                                                    <option value="pie">Graphique circulaire (Camembert)</option>
-                                                    <option value="gitgraph">Historique de versions (Gitgraph)</option>
-                                                </optgroup>
-                                            </select>
-                                        </div>
+    <label class="fr-label fr-text--sm fr-text--bold" for="mermaid-sample-select">Modèles de départ :</label>
+    <select class="fr-select" id="mermaid-sample-select" name="mermaid-sample-select">
+        <option value="" selected disabled hidden>Choisissez un modèle...</option>
+        
+        <optgroup label="Processus & Structure">
+            <option value="flowchart">Logigramme (Arbre de décision)</option>
+            <option value="sequence">Diagramme de Séquence</option>
+            <option value="mindmap">Carte mentale (Idées)</option>
+            <option value="state">Cycle de vie (États d'un document)</option>
+        </optgroup>
+        
+        <optgroup label="Ingénierie & Architecture">
+            <option value="architecture">Topologie Déploiement (Architecture)</option>
+            <option value="c4">Architecture Logicielle (C4 Model)</option>
+            <option value="block">Architecture Logique (Block Diagram)</option>
+            <option value="packet">Trame Réseau (Packet Diagram)</option>
+            <option value="classDiagram">Diagramme de classes (Logiciel)</option>
+            <option value="er">Modèle de données (Entité-Relation)</option>
+            <option value="requirement">Exigences (Cahier des charges)</option>
+        </optgroup>
+
+        <optgroup label="Stratégie & Gestion de Projet">
+            <option value="kanban">Tableau de suivi (Kanban)</option>
+            <option value="gantt">Diagramme de Gantt (Planning)</option>
+            <option value="timeline">Frise chronologique (Timeline)</option>
+            <option value="wardley">Cartographie Stratégique (Wardley Map)</option>
+            <option value="journey">Parcours Usager (Journey)</option>
+        </optgroup>
+        
+        <optgroup label="Analyse & Données">
+            <option value="treemap">Cartographie des volumes (Treemap)</option>
+            <option value="venn">Intersections (Diagramme de Venn)</option>
+            <option value="sankey">Flux proportionnels (Vrai Sankey)</option>
+            <option value="xychart">Graphique Barres/Courbes (XY Chart)</option>
+            <option value="quadrant">Matrice de priorisation (Eisenhower)</option>
+            <option value="risk_matrix">Matrice d'évaluation des risques</option>
+            <option value="pie">Graphique circulaire (Camembert)</option>
+        </optgroup>
+
+        <optgroup label="Fichiers & Code">
+            <option value="treeview">Arborescence de fichiers (Treeview)</option>
+            <option value="gitgraph">Historique de versions (Gitgraph)</option>
+        </optgroup>
+    </select>
+</div>
                                         <div class="fr-input-group">
                                             <label class="fr-label" for="mermaid-input">Code du schéma</label>
                                             <textarea class="fr-input" id="mermaid-input" rows="12" style="font-family: monospace; resize: vertical; background-color: var(--grey-975);"></textarea>
