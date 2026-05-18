@@ -255,6 +255,7 @@ window.openMermaidStudio = function(existingCode = null, targetContainer = null)
                             <div class="fr-modal__footer">
                                 <ul class="fr-btns-group fr-btns-group--right fr-btns-group--inline-reverse fr-btns-group--inline-lg fr-btns-group--icon-left">
                                     <li><button class="fr-btn fr-icon-check-line" id="btn-insert-mermaid">Valider</button></li>
+                                    <li><button class="fr-btn fr-btn--secondary fr-icon-download-line" id="btn-download-mermaid" title="Télécharger l'image sur votre poste">Télécharger</button></li>
                                     <li><button class="fr-btn fr-btn--secondary fr-icon-close-line" aria-controls="fr-modal-mermaid">Annuler</button></li>
                                 </ul>
                             </div>
@@ -432,7 +433,61 @@ function setupMermaidModalEvents() {
             alert("Erreur de génération finale.");
         }
     });
+// ==========================================================
+    // NOUVEAU : LOGIQUE DE TÉLÉCHARGEMENT (DOWNLOAD)
+    // ==========================================================
+    const btnDownload = document.getElementById('btn-download-mermaid');
+    if (btnDownload) {
+        btnDownload.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const code = mermaidInput.value.trim();
+            if (!code) return;
+
+            // Ajout d'un état de chargement visuel
+            const originalText = btnDownload.textContent;
+            btnDownload.innerHTML = '<span class="fr-icon-refresh-line fr-mr-1v"></span> Génération...';
+            btnDownload.disabled = true;
+
+            try {
+                // 1. Génération du SVG brut avec Mermaid
+                const id = 'mermaid-download-' + Date.now();
+                const { svg } = await mermaid.render(id, code);
+                
+                let fileUrl = '';
+                let fileName = '';
+
+                // 2. Conversion en PNG via votre fonction existante (si disponible)
+                if (typeof convertMermaidSvgToPng === 'function') {
+                    fileUrl = await convertMermaidSvgToPng(svg);
+                    fileName = 'schema_plume.png';
+                } else {
+                    // Fallback de sécurité : téléchargement en format vectoriel (SVG)
+                    fileUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+                    fileName = 'schema_plume.svg';
+                }
+
+                // 3. Déclenchement du téléchargement via le navigateur
+                const a = document.createElement('a');
+                a.href = fileUrl;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+            } catch (err) {
+                console.error("Erreur de téléchargement", err);
+                alert("Impossible de générer le fichier. Vérifiez que la syntaxe du schéma est complète.");
+            } finally {
+                // Restauration de l'état normal du bouton
+                btnDownload.innerHTML = originalText;
+                btnDownload.disabled = false;
+            }
+        });
+    }
+
 }
+
+
 
 // =====================================================================
 // 5. RESTORE VIA DOUBLE-CLIC DELEGATION
