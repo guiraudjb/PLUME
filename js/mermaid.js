@@ -36,31 +36,57 @@ const convertMermaidSvgToPng = (svgString) => {
         
         const themeBg = getMermaidThemeColors().bg;
 
-        // 1. EXTRACTION ROBUSTE DES DIMENSIONS (Gère les coordonnées négatives)
-        let trueWidth = 800; 
-        let trueHeight = 600;
+        // =================================================================
+        // 1. LA PURIFICATION ABSOLUE : LE PARSEUR DOM FANTÔME
+        // On laisse le navigateur réparer tout le HTML malformé de Mermaid
+        // =================================================================
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = svgString.trim(); 
         
-        const viewBoxMatch = svgString.match(/viewBox=["']\s*([-\d\.]+)\s+([-\d\.]+)\s+([-\d\.]+)\s+([-\d\.]+)["']/i);
-        if (viewBoxMatch) {
-            trueWidth = parseFloat(viewBoxMatch[3]); // 3ème valeur = largeur
-            trueHeight = parseFloat(viewBoxMatch[4]); // 4ème valeur = hauteur
+        const svgNode = tempDiv.querySelector('svg');
+        if (!svgNode) {
+            return reject(new Error("Aucun noeud SVG généré par Mermaid."));
         }
 
-        // 2. RÉÉCRITURE ABSOLUE DE LA BALISE <svg>
-        let fixedSvgString = svgString.replace(/^<svg([^>]*)>/i, (fullMatch, inside) => {
-            // On purge les vieux attributs de taille et les styles parasites
-            let cleanInside = inside
-                .replace(/\bwidth=["'][^"']+["']/gi, '')
-                .replace(/\bheight=["'][^"']+["']/gi, '')
-                .replace(/\bstyle=["'][^"']+["']/gi, ''); 
-            
-            // On injecte nos dimensions absolues
-            return `<svg ${cleanInside} width="${trueWidth}px" height="${trueHeight}px">`;
+        // 2. EXTRACTION ROBUSTE DES DIMENSIONS
+        let trueWidth = 800; 
+        let trueHeight = 600;
+        const viewBox = svgNode.getAttribute('viewBox');
+        if (viewBox) {
+            const parts = viewBox.split(/[\s,]+/); // Gère les espaces multiples et virgules
+            if (parts.length >= 4) {
+                trueWidth = parseFloat(parts[2]);
+                trueHeight = parseFloat(parts[3]);
+            }
+        }
+
+        // 3. NETTOYAGE ET FORMATAGE DE LA BALISE <svg>
+        svgNode.removeAttribute('width');
+        svgNode.removeAttribute('height');
+        svgNode.removeAttribute('style'); // Retire les styles inline parasites
+        svgNode.setAttribute('width', trueWidth + 'px');
+        svgNode.setAttribute('height', trueHeight + 'px');
+
+        // Sécurité Namespace
+        if (!svgNode.getAttribute('xmlns')) {
+            svgNode.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        }
+
+        // 4. SÉRIALISATION EN XML STRICT
+        // XMLSerializer va automatiquement rajouter les bons namespaces XHTML sur 
+        // les balises HTML contenues dans les <foreignObject> du module C4.
+        let strictSvgString = new XMLSerializer().serializeToString(svgNode);
+
+        // 5. PROTECTION DES STYLES CSS
+        // Le parseur DOM ne protège pas le texte dans les balises <style>. 
+        // On remet notre CDATA pour empêcher le symbole ">" (CSS enfant) de crasher le XML.
+        strictSvgString = strictSvgString.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (match, styleContent) => {
+            if (styleContent.includes('<![CDATA[')) return match;
+            return `<style><![CDATA[\n${styleContent}\n]]></style>`;
         });
 
-        // Encodage et chargement
-        const encodedSvg = btoa(unescape(encodeURIComponent(fixedSvgString)));
-        const dataUrl = 'data:image/svg+xml;base64,' + encodedSvg;
+        // 6. ENCODAGE ET CHARGEMENT
+        const dataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(strictSvgString);
 
         img.onload = () => {
             const scale = 2; // Scale 2x pour la haute définition
@@ -77,13 +103,16 @@ const convertMermaidSvgToPng = (svgString) => {
         };
         
         img.onerror = () => {
-            console.error("Échec du rendu Canvas : L'image SVG est invalide ou corrompue.");
-            reject(new Error("Génération PNG échouée"));
+            // Affichage du code purifié dans la console pour faciliter un éventuel débogage futur
+            console.error("Détail du XML rejeté par le Canvas :", strictSvgString);
+            reject(new Error("Génération PNG échouée. L'image SVG est toujours rejetée par le navigateur."));
         };
         
         img.src = dataUrl;
     });
 };
+
+
 
 if (typeof mermaid !== 'undefined') {
     const theme = getMermaidThemeColors();
@@ -163,7 +192,7 @@ const MERMAID_SAMPLES = {
     // --- Ingénierie & Architecture ---
     architecture: "architecture-beta\n    group si(cloud)[Zone SI]\n    service parefeu(cloud)[Pare Feu]\n    service web(server)[Serveur Web] in si\n    service bdd(database)[Base Donnees] in si\n\n    parefeu:R -- L:web\n    web:R -- L:bdd",
 
-    c4: "C4Context\n    title Cartographie du Système PLUME\n    Person(agent, \"Agent Public\", \"Utilise la plateforme pour rédiger\")\n    System(plume, \"Plateforme PLUME\", \"Éditeur de texte riche et de schémas\")\n    System_Ext(sso, \"AgentConnect\", \"Authentification de l'État\")\n    Rel(agent, plume, \"Rédige des documents\", \"HTTPS\")\n    Rel(plume, sso, \"Authentifie l'utilisateur via\", \"OIDC\")",
+    c4: "C4Context\n    title Cartographie du Système PLUME\n    UpdateLayoutConfig($c4ShapeInRow=\"1\")\n    Person(agent, \"Agent Public\", \"Utilise la plateforme pour rédiger\")\n    System(plume, \"Plateforme PLUME\", \"Éditeur de texte riche et de schémas\")\n    System_Ext(sso, \"AgentConnect\", \"Authentification de l'État\")\n    Rel(agent, plume, \"Rédige des documents\", \"HTTPS\")\n    Rel(plume, sso, \"Authentifie l'utilisateur via\", \"OIDC\")",
 
     block: "block-beta\n    columns 3\n    Frontend[\"Interface Utilisateur (Vue.js)\"]\n    Middleware[\"Passerelle API (Node.js)\"]\n    Backend[\"Base de données (PostgreSQL)\"]\n    Frontend --> Middleware\n    Middleware --> Backend",
 
@@ -240,51 +269,51 @@ window.openMermaidStudio = function(existingCode = null, targetContainer = null)
                                 <div class="fr-grid-row fr-grid-row--gutters">
                                     <div class="fr-col-12 fr-col-md-5">
                                         <div class="fr-select-group fr-mb-2v">
-    <label class="fr-label fr-text--sm fr-text--bold" for="mermaid-sample-select">Modèles de départ :</label>
-    <select class="fr-select" id="mermaid-sample-select" name="mermaid-sample-select">
-        <option value="" selected disabled hidden>Choisissez un modèle...</option>
-        
-        <optgroup label="Processus & Structure">
-            <option value="flowchart">Logigramme (Arbre de décision)</option>
-            <option value="sequence">Diagramme de Séquence</option>
-            <option value="mindmap">Carte mentale (Idées)</option>
-            <option value="state">Cycle de vie (États d'un document)</option>
-        </optgroup>
-        
-        <optgroup label="Ingénierie & Architecture">
-            <option value="architecture">Topologie Déploiement (Architecture)</option>
-            <option value="c4">Architecture Logicielle (C4 Model)</option>
-            <option value="block">Architecture Logique (Block Diagram)</option>
-            <option value="packet">Trame Réseau (Packet Diagram)</option>
-            <option value="classDiagram">Diagramme de classes (Logiciel)</option>
-            <option value="er">Modèle de données (Entité-Relation)</option>
-            <option value="requirement">Exigences (Cahier des charges)</option>
-        </optgroup>
+                                            <label class="fr-label fr-text--sm fr-text--bold" for="mermaid-sample-select">Modèles de départ :</label>
+                                            <select class="fr-select" id="mermaid-sample-select" name="mermaid-sample-select">
+                                                <option value="" selected disabled hidden>Choisissez un modèle...</option>
+                                                
+                                                <optgroup label="Processus & Structure">
+                                                    <option value="flowchart">Logigramme (Arbre de décision)</option>
+                                                    <option value="sequence">Diagramme de Séquence</option>
+                                                    <option value="mindmap">Carte mentale (Idées)</option>
+                                                    <option value="state">Cycle de vie (États d'un document)</option>
+                                                </optgroup>
+                                                
+                                                <optgroup label="Ingénierie & Architecture">
+                                                    <option value="architecture">Topologie Déploiement (Architecture)</option>
+                                                    <option value="c4">Architecture Logicielle (C4 Model)</option>
+                                                    <option value="block">Architecture Logique (Block Diagram)</option>
+                                                    <option value="packet">Trame Réseau (Packet Diagram)</option>
+                                                    <option value="classDiagram">Diagramme de classes (Logiciel)</option>
+                                                    <option value="er">Modèle de données (Entité-Relation)</option>
+                                                    <option value="requirement">Exigences (Cahier des charges)</option>
+                                                </optgroup>
 
-        <optgroup label="Stratégie & Gestion de Projet">
-            <option value="kanban">Tableau de suivi (Kanban)</option>
-            <option value="gantt">Diagramme de Gantt (Planning)</option>
-            <option value="timeline">Frise chronologique (Timeline)</option>
-            <option value="wardley">Cartographie Stratégique (Wardley Map)</option>
-            <option value="journey">Parcours Usager (Journey)</option>
-        </optgroup>
-        
-        <optgroup label="Analyse & Données">
-            <option value="treemap">Cartographie des volumes (Treemap)</option>
-            <option value="venn">Intersections (Diagramme de Venn)</option>
-            <option value="sankey">Flux proportionnels (Vrai Sankey)</option>
-            <option value="xychart">Graphique Barres/Courbes (XY Chart)</option>
-            <option value="quadrant">Matrice de priorisation (Eisenhower)</option>
-            <option value="risk_matrix">Matrice d'évaluation des risques</option>
-            <option value="pie">Graphique circulaire (Camembert)</option>
-        </optgroup>
+                                                <optgroup label="Stratégie & Gestion de Projet">
+                                                    <option value="kanban">Tableau de suivi (Kanban)</option>
+                                                    <option value="gantt">Diagramme de Gantt (Planning)</option>
+                                                    <option value="timeline">Frise chronologique (Timeline)</option>
+                                                    <option value="wardley">Cartographie Stratégique (Wardley Map)</option>
+                                                    <option value="journey">Parcours Usager (Journey)</option>
+                                                </optgroup>
+                                                
+                                                <optgroup label="Analyse & Données">
+                                                    <option value="treemap">Cartographie des volumes (Treemap)</option>
+                                                    <option value="venn">Intersections (Diagramme de Venn)</option>
+                                                    <option value="sankey">Flux proportionnels (Vrai Sankey)</option>
+                                                    <option value="xychart">Graphique Barres/Courbes (XY Chart)</option>
+                                                    <option value="quadrant">Matrice de priorisation (Eisenhower)</option>
+                                                    <option value="risk_matrix">Matrice d'évaluation des risques</option>
+                                                    <option value="pie">Graphique circulaire (Camembert)</option>
+                                                </optgroup>
 
-        <optgroup label="Fichiers & Code">
-            <option value="treeview">Arborescence de fichiers (Treeview)</option>
-            <option value="gitgraph">Historique de versions (Gitgraph)</option>
-        </optgroup>
-    </select>
-</div>
+                                                <optgroup label="Fichiers & Code">
+                                                    <option value="treeview">Arborescence de fichiers (Treeview)</option>
+                                                    <option value="gitgraph">Historique de versions (Gitgraph)</option>
+                                                </optgroup>
+                                            </select>
+                                        </div>
                                         <div class="fr-input-group">
                                             <label class="fr-label" for="mermaid-input">Code du schéma</label>
                                             <textarea class="fr-input" id="mermaid-input" rows="12" style="font-family: monospace; resize: vertical; background-color: var(--grey-975);"></textarea>
