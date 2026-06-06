@@ -2167,25 +2167,36 @@ document.addEventListener("DOMContentLoaded", () => {
     // 2. Interception intelligente de la touche Entrée
     editor.addEventListener('keydown', function(e) {
         
+        // =================================================================
+        // BOUCLIER GLOBAL KEYDOWN : Sécurise TOUTES les frappes sensibles
+        // =================================================================
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return; // Arrêt d'urgence si la sélection est perdue
+
+        let rawNode = selection.getRangeAt(0).startContainer;
+        let safeNode = rawNode.nodeType === 3 ? rawNode.parentNode : rawNode;
+
+        // Évite le crash "closest is not a function" sur des DocumentFragments
+        if (!safeNode || typeof safeNode.closest !== 'function') return;
+        // =================================================================
+
+
+        // --- 1. GÉNÉRATION DE LIGNE VIERGE FORCÉE ---
         if (e.ctrlKey || e.metaKey) {
-                e.preventDefault();
-                const selection = window.getSelection();
-                if (selection.rangeCount > 0) {
-                    // On appelle l'Antidote pour générer la ligne vierge sous le bloc actuel
-                    createVirginParagraph(selection.getRangeAt(0).startContainer, false);
-                }
-                return; 
-            }
+            e.preventDefault();
+            // Utilisation directe et sécurisée du safeNode
+            createVirginParagraph(safeNode, false);
+            return; 
+        }
         
+        // --- 2. GESTION DE LA TOUCHE ENTRÉE ---
         if (e.key === 'Enter') {
             // Si l'utilisateur fait Maj + Entrée, on le laisse faire un simple saut de ligne <br>
             if (e.shiftKey) return;
 
-            const selection = window.getSelection();
-            if (!selection.rangeCount) return;
-
+            // On réutilise le safeNode du bouclier global
+            const currentNode = safeNode;
             const range = selection.getRangeAt(0);
-            const currentNode = range.startContainer.nodeType === 3 ? range.startContainer.parentNode : range.startContainer;
 
             // --- A. Sortir d'un Titre (H1-H6) ---
             const heading = currentNode.closest('h1, h2, h3, h4, h5, h6');
@@ -2211,24 +2222,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // --- B. Sortir d'une Citation (Blockquote) ---
             const blockquote = currentNode.closest('blockquote');
-            
-            // NOUVEAU : On vérifie si on est à l'intérieur d'une liste
             const inList = currentNode.closest('ul, ol');
 
             // Si on est dans un Blockquote ET qu'on n'est PAS dans une liste
-            // (Si on est dans une liste, on laisse le navigateur gérer le double-Entrée pour en sortir proprement)
             if (blockquote && !inList) {
                 // Si on tape Entrée sur une ligne vide à l'intérieur de la citation
                 if (currentNode.textContent.trim() === '') {
                     e.preventDefault();
                     
-                    // On crée un paragraphe normal
                     const p = document.createElement('p');
                     p.innerHTML = '<br>';
                     
-                    // CORRECTION MAJEURE : On cherche le wrapper parent in-éditable
-                    // S'il existe (ex: Citation avec photo), on insère APRES le wrapper.
-                    // Sinon, on insère après le blockquote simple.
+                    // On cherche le wrapper parent in-éditable (ex: Citation avec photo)
                     const lockedWrapper = blockquote.closest('[contenteditable="false"]');
                     const targetToBypass = lockedWrapper || blockquote;
                     
@@ -2239,8 +2244,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         currentNode.remove();
                     }
                     
-                    // Si la citation entière est devenue vide, on la supprime carrément
-                    // Attention à supprimer le wrapper complet si c'est un composant complexe
+                    // Si la citation entière est devenue vide, on la supprime
                     if (blockquote.textContent.trim() === '') {
                         targetToBypass.remove();
                     }
@@ -2255,22 +2259,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
         }
-        // --- C. PROTECTION ABSOLUE DES IMAGES (BACKSPACE ET SUPPR) ---
+
+        // --- 3. PROTECTION ABSOLUE DES IMAGES (BACKSPACE ET SUPPR) ---
         if (e.key === 'Backspace' || e.key === 'Delete') {
-            const selection = window.getSelection();
-            if (!selection.rangeCount || !selection.isCollapsed) return;
+            // Le safeNode garantit que tout va bien, on vérifie juste qu'il ne s'agit pas d'une sélection multiple
+            if (!selection.isCollapsed) return;
 
             const range = selection.getRangeAt(0);
-            let currentNode = range.startContainer;
-            if (currentNode.nodeType === 3) currentNode = currentNode.parentNode;
+            let currentNode = safeNode; // RÉUTILISATION DIRECTE DU safeNode
             
             const currentBlock = currentNode.closest('p, h1, h2, h3, h4, h5, h6, li');
-            const editor = currentNode.closest('.content-editable');
-            if (!editor) return;
+            const editorWrapper = currentNode.closest('.content-editable');
+            if (!editorWrapper) return;
 
-            // 1. Protection "hors paragraphe" (Si le navigateur a placé le curseur directement dans l'éditeur)
+            // 3.1 Protection "hors paragraphe" (Curseur jeté directement dans l'éditeur)
             if (!currentBlock && currentNode.classList && currentNode.classList.contains('content-editable')) {
-                const targetIndex = e.key === 'Backspace' ? range.startOffset - 1 : range.startOffset;
+                const targetIndex = e.key === 'Backspace' ? Math.max(0, range.startOffset - 1) : range.startOffset;
                 const child = currentNode.childNodes[targetIndex];
                 if (child && child.getAttribute && child.getAttribute('contenteditable') === 'false') {
                     e.preventDefault(); // On bloque l'effacement
@@ -2278,7 +2282,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
 
-            // 2. Protection "dans un paragraphe"
+            // 3.2 Protection "dans un paragraphe"
             if (currentBlock) {
                 // CAS A : TOUCHE RETOUR ARRIÈRE (BACKSPACE)
                 if (e.key === 'Backspace') {
@@ -2356,6 +2360,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     });
+
 });
 
 // =====================================================================
@@ -3148,9 +3153,27 @@ function sanitizeCurrentPage(btn) {
 document.addEventListener('keyup', (e) => {
     if (e.key === 'Enter') {
         const sel = window.getSelection();
-        if (!sel.rangeCount) return;
+        
+        // =================================================================
+        // CORRECTIF ANOMALIE 2 : PROTECTION DE L'API SELECTION
+        // On s'assure que la sélection existe ET qu'elle a un point d'ancrage
+        // =================================================================
+        if (!sel || !sel.anchorNode || sel.rangeCount === 0) {
+            return; // Arrêt d'urgence propre
+        }
+        
         let node = sel.anchorNode;
-        if (node.nodeType === 3) node = node.parentNode;
+        
+        // Protection classique : si le nœud est un texte pur, on remonte à son parent
+        if (node.nodeType === 3) {
+            node = node.parentNode;
+        }
+        
+        // Protection ultime : on s'assure que le parent est un vrai élément HTML 
+        // possédant la méthode .closest() (évite le crash "closest is not a function")
+        if (!node || typeof node.closest !== 'function') {
+            return; // Arrêt d'urgence propre
+        }
         
         const block = node.closest('.plume-img-wrap-left, .plume-img-wrap-right');
         // Si la nouvelle ligne est Flexbox mais sans image, on la "nettoie"

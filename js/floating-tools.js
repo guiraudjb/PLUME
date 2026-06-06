@@ -1059,35 +1059,47 @@ editLinkBtn.addEventListener('click', function(e) {
 });
 
 function insertLineNearBlock(position) {
-    if (!hoveredBlock) return;
+    // =================================================================
+    // CORRECTIF ANOMALIE 1 : BOUCLIER ANTI-NŒUD DÉTACHÉ
+    // Vérifie si le targetBlock existe et s'il est toujours dans le DOM
+    // =================================================================
+    if (!targetBlock || !document.body.contains(targetBlock)) {
+        console.warn("PLUME Sécurité : Le bloc cible a été détruit ou altéré en arrière-plan. Insertion annulée pour éviter un crash.");
+        
+        // On masque la barre d'outils proprement
+        if (typeof hideFloatToolbar === 'function') {
+            hideFloatToolbar();
+        }
+        return; // Arrêt d'urgence propre (empêche le TypeError fatal)
+    }
 
-    // 1. On cible le bon conteneur (pour ne pas insérer la ligne *à l'intérieur* du graphique)
-    const targetBlock = hoveredBlock.closest('[contenteditable="false"], .fr-table, .plume-grid') || hoveredBlock;
-    
-    // 2. Création du paragraphe vierge
+    // 1. Création du nouveau paragraphe vide (conforme à l'existant)
     const p = document.createElement('p');
     p.innerHTML = '<br>';
 
-    // 3. Insertion selon la position demandée
+    // 2. Insertion sécurisée
     if (position === 'above') {
         targetBlock.parentNode.insertBefore(p, targetBlock);
     } else if (position === 'below') {
         targetBlock.parentNode.insertBefore(p, targetBlock.nextSibling);
     }
 
-    // 4. On déplace le curseur dans ce nouveau paragraphe pour que l'agent puisse taper direct
+    // 3. On déplace le curseur dans ce nouveau paragraphe
     const range = document.createRange();
     range.setStart(p, 0);
     range.collapse(true);
+    
     const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
+    // (Protection additionnelle pour l'API Selection)
+    if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
 
-    // 5. On masque la barre flottante et on sauvegarde le brouillon
-    hideFloatToolbar(); 
+    // 4. On masque la barre flottante et on sauvegarde le brouillon
+    if (typeof hideFloatToolbar === 'function') hideFloatToolbar(); 
     if (typeof saveDraftToLocal === 'function') saveDraftToLocal();
 }
-
 // Branchement des clics sur les boutons
 insertAboveBtn.onclick = () => insertLineNearBlock('above');
 insertBelowBtn.onclick = () => insertLineNearBlock('below');
