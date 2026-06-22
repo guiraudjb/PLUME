@@ -28,6 +28,42 @@ const PALETTE_SCALES = {
     divergentAscending: d3.interpolateRgbBasis(["#E91719", "#EFB900", "#298641"])
 };
 
+const PALETTE_LABELS = {
+    marianne: 'Bleu France', rouge: 'Rouge Marianne', tuile: 'Rose Tuile',
+    macaron: 'Rose Macaron', opera: 'Marron Opéra', terre_battue: 'Terre Battue',
+    tournesol: 'Tournesol', moutarde: 'Moutarde', ecume: 'Bleu Écume',
+    cumulus: 'Bleu Cumulus', glycine: 'Violet Glycine', emeraude: 'Vert Émeraude',
+    menthe: 'Vert Menthe', archipel: 'Vert Archipel', bourgeon: 'Vert Bourgeon',
+    tilleul: 'Tilleul Verveine', cafe_creme: 'Café Crème', caramel: 'Caramel',
+    gris_galet: 'Gris Galet'
+};
+
+function buildColorSwatchGrid(pickerId) {
+    if (typeof palettes === 'undefined') return '<p style="font-size:0.75rem;color:#999;">Palette indisponible</p>';
+    const intensities = [
+        { key: 'bg',   label: 'clair'     },
+        { key: 'main', label: 'principal' },
+        { key: 'sun',  label: 'foncé'     }
+    ];
+    const rows = Object.entries(palettes).map(([key, p]) => {
+        const label = PALETTE_LABELS[key] || key;
+        const swatches = intensities.map(({ key: iKey, label: iLabel }) =>
+            `<div class="map-cp-swatch"
+                data-picker="${pickerId}"
+                data-color="${p[iKey]}"
+                data-label="${label} (${iLabel})"
+                title="${label} — ${iLabel}\n${p[iKey]}"
+                style="width:20px;height:20px;background:${p[iKey]};border:1px solid rgba(0,0,0,0.2);border-radius:3px;cursor:pointer;flex-shrink:0;transition:transform 0.1s,outline 0.1s;">
+            </div>`
+        ).join('');
+        return `<div style="display:flex;align-items:center;gap:3px;margin-bottom:3px;">
+            <span style="font-size:0.6rem;width:75px;flex-shrink:0;color:#555;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${label}">${label}</span>
+            ${swatches}
+        </div>`;
+    }).join('');
+    return `<div style="max-height:160px;overflow-y:auto;padding:6px;background:#f8f9fa;border:1px solid #ddd;border-radius:4px;">${rows}</div>`;
+}
+
 const frenchNumberFormat = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
 
 function getSafeCol(row, expectedKey) {
@@ -183,11 +219,11 @@ async function drawD3Map(container, config, dataMap) {
     // 2. L'UNIQUE déclaration de colorScale (remplace toutes les anciennes)
     // --- GESTION DYNAMIQUE DES COULEURS (Thème vs Palette Custom) ---
     let colorScale;
-    if (config.palette && config.palette !== 'default' && PALETTE_SCALES[config.palette]) {
-        // Utilise l'interpolateur D3 sélectionné
+    if (config.palette === 'custom' && config.customColors && config.customColors.length >= 2) {
+        colorScale = d3.scaleSequential(d3.interpolateRgbBasis(config.customColors)).domain([minVal, maxVal]);
+    } else if (config.palette && config.palette !== 'default' && PALETTE_SCALES[config.palette]) {
         colorScale = d3.scaleSequential(PALETTE_SCALES[config.palette]).domain([minVal, maxVal]);
     } else {
-        // Comportement par défaut (Thème du document)
         colorScale = d3.scaleLinear().domain([minVal, maxVal]).range([bgColor, mainColor]);
     }
 
@@ -293,9 +329,13 @@ async function drawD3Map(container, config, dataMap) {
             
             const grad = defs.append("linearGradient").attr("id", "map-grad").attr("x1","0%").attr("x2","100%");
             
-            if (config.palette !== 'default' && PALETTE_SCALES[config.palette]) {
+            if (config.palette === 'custom' && config.customColors && config.customColors.length >= 2) {
+                const interpolator = d3.interpolateRgbBasis(config.customColors);
+                for(let i=0; i<=10; i++) {
+                    grad.append("stop").attr("offset", `${i*10}%`).attr("stop-color", interpolator(i/10));
+                }
+            } else if (config.palette !== 'default' && PALETTE_SCALES[config.palette]) {
                 const interpolator = PALETTE_SCALES[config.palette];
-                // On crée 10 étapes pour un dégradé fluide montrant le pivot jaune
                 for(let i=0; i<=10; i++) {
                     grad.append("stop").attr("offset", `${i*10}%`).attr("stop-color", interpolator(i/10));
                 }
@@ -333,6 +373,24 @@ async function insertCarte(existingPayload = null, targetContainer = null) {
     let rawCsvData = [];
     let currentMapConfig = existingPayload ? existingPayload.config : null;
     let currentMapData = (existingPayload && existingPayload.data) ? new Map(existingPayload.data) : null;
+
+    // État de la palette manuelle
+    const _pal = (typeof palettes !== 'undefined' && palettes.marianne) ? palettes.marianne : {};
+    let customColors = { from: _pal.bg || '#f5f5fe', to: _pal.sun || '#000091', mid: null, midEnabled: false };
+
+    function getCustomColorsArray() {
+        const arr = [customColors.from];
+        if (customColors.midEnabled && customColors.mid) arr.push(customColors.mid);
+        arr.push(customColors.to);
+        return arr;
+    }
+
+    function updateGradientPreview() {
+        const el = document.getElementById('gradient-preview');
+        if (!el) return;
+        const colors = getCustomColorsArray();
+        if (colors.length >= 2) el.style.background = `linear-gradient(to right, ${colors.join(', ')})`;
+    }
 
     const overlay = document.createElement('div');
     overlay.className = 'chart-modal-overlay';
@@ -425,12 +483,55 @@ async function insertCarte(existingPayload = null, targetContainer = null) {
                     <label class="fr-label" style="font-weight:700">Palette de couleurs</label>
                     <select class="fr-select fr-mb-1v" id="map-palette">
                         <option value="default">Couleurs du thème (Dynamique)</option>
-                        <option value="divergentDescending">Divergent (Vert > Jaune > Rouge)</option>
-                        <option value="divergentAscending">Divergent (Rouge > Jaune > Vert)</option>
+                        <option value="divergentDescending">Divergent (Vert → Jaune → Rouge)</option>
+                        <option value="divergentAscending">Divergent (Rouge → Jaune → Vert)</option>
+                        <option value="custom">Palette manuelle…</option>
                     </select>
-                    
+
                     <div id="palette-warning" style="display:none; font-size:0.75rem; color:#CE614A; background:#fef4f3; padding:0.5rem; border-left:3px solid #CE614A; margin-top:0.5rem;">
                         ⚠️ <strong>Note :</strong> Cette palette est fixe. La carte ne suivra plus les changements de thème du document.
+                    </div>
+
+                    <div id="custom-palette-ui" style="display:none; margin-top:0.75rem; display:flex; flex-direction:column; gap:0.6rem;">
+
+                        <div>
+                            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.2rem;">
+                                <div id="cp-from-preview" style="width:22px;height:22px;border-radius:4px;border:1px solid #ccc;flex-shrink:0;background:${_pal.bg||'#f5f5fe'};"></div>
+                                <span style="font-size:0.75rem;font-weight:700;">Départ <span style="font-weight:400;color:#666;">(valeurs basses)</span></span>
+                            </div>
+                            <div id="cp-from-label" style="font-size:0.65rem;color:#888;min-height:0.9rem;margin-bottom:0.2rem;"></div>
+                            ${buildColorSwatchGrid('from')}
+                        </div>
+
+                        <div>
+                            <div class="fr-checkbox-group fr-checkbox-group--sm" style="margin:0.1rem 0 0.3rem;">
+                                <input type="checkbox" id="cp-mid-enabled">
+                                <label class="fr-label" for="cp-mid-enabled" style="font-size:0.75rem;">Ajouter une couleur pivot</label>
+                            </div>
+                            <div id="cp-mid-panel" style="display:none;">
+                                <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.2rem;">
+                                    <div id="cp-mid-preview" style="width:22px;height:22px;border-radius:4px;border:1px solid #ccc;flex-shrink:0;background:#dddddd;"></div>
+                                    <span style="font-size:0.75rem;font-weight:700;">Pivot <span style="font-weight:400;color:#666;">(valeurs médianes)</span></span>
+                                </div>
+                                <div id="cp-mid-label" style="font-size:0.65rem;color:#888;min-height:0.9rem;margin-bottom:0.2rem;"></div>
+                                ${buildColorSwatchGrid('mid')}
+                            </div>
+                        </div>
+
+                        <div>
+                            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.2rem;">
+                                <div id="cp-to-preview" style="width:22px;height:22px;border-radius:4px;border:1px solid #ccc;flex-shrink:0;background:${_pal.sun||'#000091'};"></div>
+                                <span style="font-size:0.75rem;font-weight:700;">Arrivée <span style="font-weight:400;color:#666;">(valeurs hautes)</span></span>
+                            </div>
+                            <div id="cp-to-label" style="font-size:0.65rem;color:#888;min-height:0.9rem;margin-bottom:0.2rem;"></div>
+                            ${buildColorSwatchGrid('to')}
+                        </div>
+
+                        <div>
+                            <div style="font-size:0.7rem;font-weight:700;color:#555;margin-bottom:0.2rem;">Aperçu du dégradé</div>
+                            <div id="gradient-preview" style="height:14px;border-radius:4px;border:1px solid #ddd;background:linear-gradient(to right,${_pal.bg||'#f5f5fe'},${_pal.sun||'#000091'});"></div>
+                        </div>
+
                     </div>
                 </div>
 
@@ -476,12 +577,32 @@ async function insertCarte(existingPayload = null, targetContainer = null) {
         if (currentMapConfig.labelFilterNames) document.getElementById('label-filter-names').value = currentMapConfig.labelFilterNames;
         if (currentMapConfig.physPadding) document.getElementById('phys-padding').value = currentMapConfig.physPadding;
         if (currentMapConfig.physStrength) document.getElementById('phys-strength').value = currentMapConfig.physStrength;
-        
+
+        if (currentMapConfig.palette === 'custom' && currentMapConfig.customColors) {
+            const cols = currentMapConfig.customColors;
+            customColors.from = cols[0] || customColors.from;
+            customColors.to   = cols[cols.length - 1] || customColors.to;
+            if (cols.length >= 3) { customColors.mid = cols[1]; customColors.midEnabled = true; }
+        }
+
         document.getElementById('btn-map-insert').innerText = "Mettre à jour";
         document.getElementById('csv-status').innerHTML = `<span style="color:var(--theme-main);"><strong>Mode Édition :</strong> Données figées en mémoire. Importez un nouveau CSV pour modifier la source des données.</span>`;
-        
+
         // Lance un premier rendu basé sur les données mémorisées
-        setTimeout(() => renderPreview(), 150);
+        setTimeout(() => {
+            if (currentMapConfig.palette === 'custom') {
+                document.getElementById('custom-palette-ui').style.display = 'block';
+                document.getElementById('cp-from-preview').style.background = customColors.from;
+                document.getElementById('cp-to-preview').style.background   = customColors.to;
+                if (customColors.midEnabled) {
+                    document.getElementById('cp-mid-enabled').checked       = true;
+                    document.getElementById('cp-mid-panel').style.display   = 'block';
+                    document.getElementById('cp-mid-preview').style.background = customColors.mid;
+                }
+                updateGradientPreview();
+            }
+            renderPreview();
+        }, 150);
     }
 
     const scaleSelect = document.getElementById('map-scale');
@@ -603,7 +724,8 @@ async function insertCarte(existingPayload = null, targetContainer = null) {
                 labelType: document.getElementById('label-type')?.value,
                 showLegend: showLegend,
                 palette: document.getElementById('map-palette')?.value || 'default',
-                
+                customColors: document.getElementById('map-palette')?.value === 'custom' ? getCustomColorsArray() : null,
+
                 // --- SÉCURITÉ ANTI-NULL (L'opérateur ?) ---
                 labelFilterNames: document.getElementById('label-filter-names')?.value,
                 labelSize: parseFloat(document.getElementById('label-size')?.value) || 10,
@@ -669,9 +791,51 @@ async function insertCarte(existingPayload = null, targetContainer = null) {
     document.getElementById('btn-map-cancel').onclick = () => overlay.remove();
     
     document.getElementById('map-palette').onchange = (e) => {
-    document.getElementById('palette-warning').style.display = e.target.value === 'default' ? 'none' : 'block';
+        const val = e.target.value;
+        document.getElementById('palette-warning').style.display = (val !== 'default' && val !== 'custom') ? 'block' : 'none';
+        const customUI = document.getElementById('custom-palette-ui');
+        customUI.style.display = val === 'custom' ? 'block' : 'none';
+        if (val === 'custom') updateGradientPreview();
     };
-    
+
+    // Clic sur un swatch (délégué sur l'overlay entier)
+    overlay.addEventListener('click', function(e) {
+        const swatch = e.target.closest('.map-cp-swatch');
+        if (!swatch) return;
+        const picker = swatch.dataset.picker;
+        const color  = swatch.dataset.color;
+        const label  = swatch.dataset.label;
+
+        // Réinitialise les surbrillances du picker concerné
+        overlay.querySelectorAll(`.map-cp-swatch[data-picker="${picker}"]`).forEach(s => {
+            s.style.outline = 'none'; s.style.transform = 'scale(1)';
+        });
+        swatch.style.outline = '2px solid #161616';
+        swatch.style.outlineOffset = '1px';
+        swatch.style.transform = 'scale(1.25)';
+
+        if (picker === 'from') {
+            customColors.from = color;
+            document.getElementById('cp-from-preview').style.background = color;
+            document.getElementById('cp-from-label').textContent = `${label} — ${color}`;
+        } else if (picker === 'mid') {
+            customColors.mid = color;
+            document.getElementById('cp-mid-preview').style.background = color;
+            document.getElementById('cp-mid-label').textContent = `${label} — ${color}`;
+        } else if (picker === 'to') {
+            customColors.to = color;
+            document.getElementById('cp-to-preview').style.background = color;
+            document.getElementById('cp-to-label').textContent = `${label} — ${color}`;
+        }
+        updateGradientPreview();
+    });
+
+    // Toggle couleur pivot
+    document.getElementById('cp-mid-enabled').onchange = (e) => {
+        customColors.midEnabled = e.target.checked;
+        document.getElementById('cp-mid-panel').style.display = e.target.checked ? 'block' : 'none';
+        updateGradientPreview();
+    };
 
     // =====================================================================
     // ROUTINE D'INSERTION AVEC MÉTADONNÉES EMBARQUÉES (Taille Standardisée)

@@ -196,8 +196,8 @@ flex-shrink: 0;
 }
 .content-editable h1, .content-editable h2, .content-editable h3, .content-editable h4 { color: var(--theme-sun); margin-bottom: 1rem; }
 .content-editable .fr-callout { box-shadow: inset 0.25rem 0 0 0 var(--theme-main); background-color: var(--theme-bg); border: none; margin-bottom: 1rem; }
-.content-editable a { color: var(--theme-main); text-decoration: underline; font-weight: 500; }
-.content-editable a:hover { color: var(--theme-sun); }
+.content-editable a { color: var(--theme-sun); text-decoration: underline; font-weight: 500; }
+.content-editable a:hover { color: var(--theme-main); }
 
 /* Alignements forcés */
 .content-editable [style*="text-align: justify"] { text-align: justify !important; }
